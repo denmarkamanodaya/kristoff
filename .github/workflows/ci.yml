@@ -1,0 +1,157 @@
+# ci — pull_request gate for Kristoff. Offline only: no AWS credentials, no OIDC, no plan.
+# Jobs: backend (npm run check:all), terraform (stack/terraform.md order: fmt -> shellcheck -> guard tests -> tflint ->
+# trivy -> terraform-docs check -> terraform test -> validate), web (build), secrets (gitleaks).
+# Actions are pinned by full commit SHA (the SHAs dexfs resolved from the release tags with `gh api` on 2026-10-19);
+# tools without an action are downloaded at a pinned version and checked against a sha256.
+name: ci
+
+on:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      # format, lint, typecheck, tests + coverage, depcruise, knip, dry-gate, check:versions, check:zod-max, build.
+      - name: npm ci + check:all
+        working-directory: backend
+        run: |
+          npm ci
+          npm run check:all
+
+  terraform:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TF_IN_AUTOMATION: "1"
+      TF_INPUT: "0"
+      # One provider copy for every init (each module, stack and root would otherwise unpack its own).
+      TF_PLUGIN_CACHE_DIR: /home/runner/.terraform.d/plugin-cache
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.14.1
+          terraform_wrapper: false
+
+      - name: terraform fmt -check
+        run: terraform fmt -check -recursive backend/terraform
+
+      - name: shellcheck (tf.sh and the scripts)
+        run: shellcheck backend/terraform/tf.sh backend/terraform/scripts/test-guards.sh
+
+      - name: Plan guard and tf.sh refusal tests (plus the mutation run)
+        run: |
+          bash backend/terraform/scripts/test-guards.sh
+          bash backend/terraform/scripts/test-guards.sh --mutate
+
+      - name: roots share stage_variables.tf byte for byte
+        run: cmp backend/terraform/roots/platform/stage_variables.tf backend/terraform/roots/compute/stage_variables.tf
+
+      - name: plan-guard-allow.json has no expired entry
+        run: |
+          today="$(date -u +%F)"
+          jq -e --arg today "$today" '[.allow[] | select(.expires < $today)] | length == 0' backend/terraform/plan-guard-allow.json \
+            || { echo "expired entries in backend/terraform/plan-guard-allow.json — remove them"; exit 1; }
+
+      - uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337 # v6.3.2
+        with:
+          tflint_version: v0.64.0
+      - name: tflint
+        working-directory: backend/terraform
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # tflint --init fetches the ruleset from the GitHub API
+        run: |
+          tflint --init
+          tflint --recursive --config "$(pwd)/.tflint.hcl"
+
+      - name: trivy config (HIGH/CRITICAL fail)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: config
+          scan-ref: backend/terraform
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
+      - name: terraform-docs --output-check (every module version)
+        working-directory: backend/terraform
+        run: |
+          curl -sSLo /tmp/terraform-docs.tgz https://github.com/terraform-docs/terraform-docs/releases/download/v0.24.0/terraform-docs-v0.24.0-linux-amd64.tar.gz
+          echo "9005daf969de0b50134493a2c00078b49f5f5b39d021cda7c89bf4d4f3d776d3  /tmp/terraform-docs.tgz" | sha256sum -c
+          tar -xzf /tmp/terraform-docs.tgz -C /tmp terraform-docs
+          for m in modules/*/v*/; do
+            /tmp/terraform-docs markdown table --output-file README.md --output-mode inject --output-check "$m"
+          done
+
+      - name: terraform test (module versions, stacks, bootstrap/account)
+        working-directory: backend/terraform
+        run: |
+          mkdir -p "$TF_PLUGIN_CACHE_DIR"
+          for m in modules/*/v*/ stacks/*/ bootstrap/account/; do
+            [ -d "$m/tests" ] || { echo "no tests/ in $m"; exit 1; }
+            echo "== $m"
+            ( cd "$m" && terraform init -backend=false && terraform test )
+            rm -rf "$m/.terraform"
+          done
+
+      - name: terraform validate (both roots through tf.sh, the bootstrap root; no backend)
+        working-directory: backend/terraform
+        run: |
+          mkdir -p "$TF_PLUGIN_CACHE_DIR"
+          for s in platform compute; do
+            echo "== roots/$s"
+            bash tf.sh prod "$s" validate
+          done
+          ( cd bootstrap/prod && terraform init -backend=false && terraform validate )
+
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: npm ci + check + build
+        working-directory: web
+        run: |
+          npm ci
+          npm run check
+          npm run build
+          test -f dist/index.html
+
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks (pinned binary, sha256-checked)
+        run: |
+          curl -sSLo /tmp/gitleaks.tgz https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  /tmp/gitleaks.tgz" | sha256sum -c
+          tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
+          /tmp/gitleaks git --redact --verbose --exit-code 1 .

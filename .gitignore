@@ -1,3 +1,10 @@
 node_modules/
 .env
 data/
+# Terraform (backend/terraform): plans and data dirs never go in git; .terraform.lock.hcl files do.
+*.tfplan
+.terraform/
+.terraform-*/
+# The bootstrap root uses LOCAL state (owner-applied). Back it up outside git; see backend/terraform/README.md.
+backend/terraform/bootstrap/*/terraform.tfstate
+backend/terraform/bootstrap/*/terraform.tfstate.backup

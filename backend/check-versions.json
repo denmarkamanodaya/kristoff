@@ -1,0 +1,13 @@
+{
+  "roots": [
+    "src/handlers",
+    "src/domain",
+    "src/usecases",
+    "src/adapters",
+    "src/contracts",
+    "src/shared"
+  ],
+  "terraformModules": ["terraform/modules"],
+  "allowedImporters": ["src/composition"],
+  "maxVersions": 3
+}

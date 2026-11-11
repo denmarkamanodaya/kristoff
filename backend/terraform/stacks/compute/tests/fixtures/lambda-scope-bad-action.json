@@ -1,0 +1,291 @@
+{
+  "$comment": "Test copy of backend/lambda-scope.json (2026-11-12). The compute stack reads the real file; this copy only feeds the plan-mode tests.",
+  "functions": {
+    "authorizer": {
+      "env": [
+        "STAGE",
+        "OWNER_ID",
+        "SSM_SESSION_KEY"
+      ],
+      "dynamodb": {
+        "table": [],
+        "gsi1": []
+      },
+      "s3": {
+        "actions": [],
+        "prefix": "docs/"
+      },
+      "ssm": [
+        "SSM_SESSION_KEY"
+      ]
+    },
+    "auth-verify": {
+      "env": [
+        "STAGE",
+        "OWNER_ID",
+        "TABLE_NAME",
+        "SESSION_TTL_SECONDS",
+        "SSM_TOTP_SECRET",
+        "SSM_SESSION_KEY"
+      ],
+      "dynamodb": {
+        "table": [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem"
+        ],
+        "gsi1": []
+      },
+      "s3": {
+        "actions": [],
+        "prefix": "docs/"
+      },
+      "ssm": [
+        "SSM_TOTP_SECRET",
+        "SSM_SESSION_KEY"
+      ]
+    },
+    "config-get": {
+      "env": [
+        "STAGE",
+        "MODEL_ID",
+        "MAX_ATTACHED_DOCS",
+        "DAILY_QUESTION_CAP"
+      ],
+      "dynamodb": {
+        "table": [],
+        "gsi1": []
+      },
+      "s3": {
+        "actions": [],
+        "prefix": "docs/"
+      },
+      "ssm": []
+    },
+    "docs-list": {
+      "env": [
+        "STAGE",
+        "TABLE_NAME"
+      ],
+      "dynamodb": {
+        "table": [
+          "dynamodb:Query",
+          "dynamodb:Scan"
+        ],
+        "gsi1": []
+      },
+      "s3": {
+        "actions": [],
+        "prefix": "docs/"
+      },
+      "ssm": []
+    },
+    "docs-create": {
+      "env": [
+        "STAGE",
+        "TABLE_NAME",
+        "DOCS_BUCKET"
+      ],
+      "dynamodb": {
+        "table": [
+          "dynamodb:PutItem"
+        ],
+        "gsi1": []
+      },
+      "s3": {
+        "actions": [
+          "s3:PutObject"
+        ],
+        "prefix": "docs/"
+      },
+      "ssm": []
+    },
+    "docs-confirm": {
+      "env": [
+        "STAGE",
+        "TABLE_NAME",
+        "DOCS_BUCKET"
+      ],
+      "dynamodb": {
+        "table": [
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem"
+        ],
+        "gsi1": []
+      },
+      "s3": {
+        "actions": [
+          "s3:GetObject"
+        ],
+        "prefix": "docs/"
+      },
+      "ssm": []
+    },
+    "docs-rename": {
+      "env": [
+        "STAGE",
+        "TABLE_NAME"
+      ],
+      "dynamodb": {
+        "table": [
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem"
+        ],
+        "gsi1": []
+      },
+      "s3": {
+        "actions": [],
+        "prefix": "docs/"
+      },
+      "ssm": []
+    },
+    "docs-link": {
+      "env": [
+        "STAGE",
+        "TABLE_NAME",
+        "DOCS_BUCKET"
+      ],
+      "dynamodb": {
+        "table": [
+          "dynamodb:GetItem"
+        ],
+        "gsi1": []
+      },
+      "s3": {
+        "actions": [
+          "s3:GetObject"
+        ],
+        "prefix": "docs/"
+      },
+      "ssm": []
+    },
+    "chats-list": {
+      "env": [
+        "STAGE",
+        "TABLE_NAME"
+      ],
+      "dynamodb": {
+        "table": [],
+        "gsi1": [
+          "dynamodb:Query"
+        ]
+      },
+      "s3": {
+        "actions": [],
+        "prefix": "docs/"
+      },
+      "ssm": []
+    },
+    "chats-create": {
+      "env": [
+        "STAGE",
+        "TABLE_NAME",
+        "MAX_ATTACHED_DOCS"
+      ],
+      "dynamodb": {
+        "table": [
+          "dynamodb:BatchGetItem",
+          "dynamodb:PutItem"
+        ],
+        "gsi1": []
+      },
+      "s3": {
+        "actions": [],
+        "prefix": "docs/"
+      },
+      "ssm": []
+    },
+    "chats-get": {
+      "env": [
+        "STAGE",
+        "TABLE_NAME"
+      ],
+      "dynamodb": {
+        "table": [
+          "dynamodb:GetItem",
+          "dynamodb:Query"
+        ],
+        "gsi1": []
+      },
+      "s3": {
+        "actions": [],
+        "prefix": "docs/"
+      },
+      "ssm": []
+    },
+    "chats-update": {
+      "env": [
+        "STAGE",
+        "TABLE_NAME",
+        "MAX_ATTACHED_DOCS"
+      ],
+      "dynamodb": {
+        "table": [
+          "dynamodb:BatchGetItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem"
+        ],
+        "gsi1": []
+      },
+      "s3": {
+        "actions": [],
+        "prefix": "docs/"
+      },
+      "ssm": []
+    },
+    "usage-get": {
+      "env": [
+        "STAGE",
+        "TABLE_NAME"
+      ],
+      "dynamodb": {
+        "table": [
+          "dynamodb:BatchGetItem"
+        ],
+        "gsi1": []
+      },
+      "s3": {
+        "actions": [],
+        "prefix": "docs/"
+      },
+      "ssm": []
+    },
+    "ask-stream": {
+      "env": [
+        "STAGE",
+        "OWNER_ID",
+        "TABLE_NAME",
+        "DOCS_BUCKET",
+        "MODEL_ID",
+        "MAX_TOKENS",
+        "MAX_HISTORY_TURNS",
+        "DAILY_QUESTION_CAP",
+        "ANTHROPIC_TIMEOUT_MS",
+        "SSM_ANTHROPIC_KEY",
+        "SSM_SESSION_KEY",
+        "SSM_AI_ENABLED"
+      ],
+      "dynamodb": {
+        "table": [
+          "dynamodb:BatchGetItem",
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:Query",
+          "dynamodb:UpdateItem"
+        ],
+        "gsi1": []
+      },
+      "s3": {
+        "actions": [
+          "s3:GetObject"
+        ],
+        "prefix": "docs/"
+      },
+      "ssm": [
+        "SSM_ANTHROPIC_KEY",
+        "SSM_SESSION_KEY",
+        "SSM_AI_ENABLED"
+      ]
+    }
+  }
+}

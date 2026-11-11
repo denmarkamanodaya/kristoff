@@ -1,0 +1,4 @@
+{
+  "apiBaseUrl": "https://<http-api-id>.execute-api.ap-southeast-2.amazonaws.com",
+  "streamUrl": "https://<function-url-id>.lambda-url.ap-southeast-2.on.aws"
+}

@@ -1,0 +1,121 @@
+# deploy-prod — deploys Kristoff to the kristoff-prod account. Manual only (workflow_dispatch), from main only.
+# Role: ci-deploy through the GitHub environment "prod" (OIDC subject
+# repo:denmarkamanodaya@5304296/kristoff@1454246629:environment:prod); the role ARN is the ENVIRONMENT variable
+# AWS_DEPLOY_ROLE_ARN (Settings -> Environments -> prod; bootstrap/prod output ci_deploy_role_arn).
+# Order: build the Lambda bundles + backend/lambda-scope.json -> platform plan + guard -> apply the saved plan ->
+# compute plan + guard -> apply the saved plan -> build web -> write web/dist/config.json from the compute outputs ->
+# zip -> Amplify create-deployment -> PUT the zip -> start-deployment -> wait for the job.
+# Terraform runs only through backend/terraform/tf.sh (it pairs the env files, runs the plan guard on the saved plan,
+# and `apply` applies only that saved plan). Actions are pinned by full commit SHA (the SHAs dexfs uses).
+name: deploy-prod
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false # a second deploy queues; the state lockfile is the last line
+
+permissions:
+  contents: read
+
+env:
+  TF_IN_AUTOMATION: "1"
+  TF_INPUT: "0"
+  STAGE: prod
+  AWS_REGION: ap-southeast-2
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-2
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.14.1
+          terraform_wrapper: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            web/package-lock.json
+
+      # `npm run build` writes backend/dist/<function key>.zip and backend/lambda-scope.json (docs/contract.md "Build
+      # artefacts"). Gates ran in ci.yml on the PR; this only builds.
+      - name: Build the Lambda bundles and the scope file
+        working-directory: backend
+        run: |
+          npm ci
+          npm run build
+          ls -1 dist/*.zip
+          test -f lambda-scope.json
+
+      # tf.sh plan: exit 0 = no changes, 2 = changes and the plan guard passed, anything else = failed or BLOCKED.
+      - name: platform — plan + guard (tf.sh), apply the saved plan only on changes
+        run: |
+          set +e
+          bash backend/terraform/tf.sh "$STAGE" platform plan
+          rc=$?
+          set -e
+          [ "$rc" -eq 0 ] || [ "$rc" -eq 2 ] || { echo "platform plan failed or blocked (exit $rc)"; exit 1; }
+          if [ "$rc" -eq 2 ]; then bash backend/terraform/tf.sh "$STAGE" platform apply; else echo "platform: no changes"; fi
+
+      - name: compute — plan + guard (tf.sh), apply the saved plan only on changes
+        run: |
+          set +e
+          bash backend/terraform/tf.sh "$STAGE" compute plan
+          rc=$?
+          set -e
+          [ "$rc" -eq 0 ] || [ "$rc" -eq 2 ] || { echo "compute plan failed or blocked (exit $rc)"; exit 1; }
+          if [ "$rc" -eq 2 ]; then bash backend/terraform/tf.sh "$STAGE" compute apply; else echo "compute: no changes"; fi
+
+      - name: Build the web client
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+      # web/config.json (contract "Config"): { apiBaseUrl, streamUrl } from the compute outputs. Neither is a secret.
+      - name: Write web/dist/config.json from the Terraform outputs
+        run: |
+          api="$(bash backend/terraform/tf.sh "$STAGE" compute output api_base_url)"
+          stream="$(bash backend/terraform/tf.sh "$STAGE" compute output stream_url)"
+          [[ "$api" == https://* && "$stream" == https://* ]] || { echo "unexpected outputs: api=$api stream=$stream"; exit 1; }
+          jq -n --arg api "$api" --arg stream "$stream" '{apiBaseUrl: $api, streamUrl: $stream}' > web/dist/config.json
+          cat web/dist/config.json
+
+      - name: Upload the site to Amplify and wait for the deployment
+        run: |
+          app_id="$(bash backend/terraform/tf.sh "$STAGE" platform output amplify_app_id)"
+          branch="$(bash backend/terraform/tf.sh "$STAGE" platform output amplify_branch_name)"
+          ( cd web/dist && zip -qr "$RUNNER_TEMP/site.zip" . )
+          aws amplify create-deployment --app-id "$app_id" --branch-name "$branch" > "$RUNNER_TEMP/deployment.json"
+          job_id="$(jq -r '.jobId' "$RUNNER_TEMP/deployment.json")"
+          upload_url="$(jq -r '.zipUploadUrl' "$RUNNER_TEMP/deployment.json")"
+          curl -sSf --retry 3 -X PUT -H "Content-Type: application/zip" --upload-file "$RUNNER_TEMP/site.zip" "$upload_url"
+          aws amplify start-deployment --app-id "$app_id" --branch-name "$branch" --job-id "$job_id" > /dev/null
+          for _ in $(seq 1 60); do
+            status="$(aws amplify get-job --app-id "$app_id" --branch-name "$branch" --job-id "$job_id" --query 'job.summary.status' --output text)"
+            echo "amplify job $job_id: $status"
+            case "$status" in
+              SUCCEED) exit 0 ;;
+              FAILED | CANCELLED) exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "amplify job $job_id did not finish in 10 minutes"; exit 1
