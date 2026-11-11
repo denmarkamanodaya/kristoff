@@ -11,4 +11,6 @@ export interface AnswerSink {
   text(text: string): void;
   /** A numbered citation (the client appends ` [n]` to the text, as the stored text has). */
   citation(citation: Citation): void;
+  /** The suggested follow-up questions, sent once after the answer and before `done`. */
+  followUps(questions: readonly string[]): void;
 }

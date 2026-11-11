@@ -123,8 +123,24 @@ export const confirmDoc = (docId) => request('POST', `/v1/docs/${id(docId)}/conf
 /** `PATCH /v1/docs/{id}` → `{ doc }`. */
 export const renameDoc = (docId, title) => request('PATCH', `/v1/docs/${id(docId)}`, { body: { title } });
 
-/** `GET /v1/docs/{id}/link` → `{ url, expiresAt }` (presigned GET, 300 s). */
-export const getDocLink = (docId) => request('GET', `/v1/docs/${id(docId)}/link`);
+/** `GET /v1/docs/{id}/link[?part=n]` → `{ url, expiresAt }` (presigned GET, 300 s); `part` links one part. */
+export const getDocLink = (docId, part = null) =>
+  request('GET', `/v1/docs/${id(docId)}/link${part ? `?part=${encodeURIComponent(part)}` : ''}`);
+
+/** `DELETE /v1/docs/{id}` → `{ deleted: true }` (also removed from every chat's docIds). */
+export const deleteDoc = (docId) => request('DELETE', `/v1/docs/${id(docId)}`);
+
+/** `GET /v1/projects` → `{ items: Project[] }` (name order, ≤ 50). */
+export const listProjects = () => request('GET', '/v1/projects');
+
+/** `POST /v1/projects` `{ name }` → `{ project }`. */
+export const createProject = (name) => request('POST', '/v1/projects', { body: { name } });
+
+/** `PATCH /v1/projects/{id}` `{ name }` → `{ project }`. */
+export const renameProject = (projectId, name) => request('PATCH', `/v1/projects/${id(projectId)}`, { body: { name } });
+
+/** `DELETE /v1/projects/{id}` → `{ deleted: true }` (its chats move to no project). */
+export const deleteProject = (projectId) => request('DELETE', `/v1/projects/${id(projectId)}`);
 
 /** `GET /v1/chats` → `{ items: ChatSummary[], nextCursor }`, newest first. */
 export const listChats = (cursor) => request('GET', withCursor('/v1/chats', cursor));
@@ -135,7 +151,7 @@ export const createChat = (docIds) => request('POST', '/v1/chats', { body: { doc
 /** `GET /v1/chats/{id}` → `{ chat, messages }`, messages oldest first. */
 export const getChat = (chatId) => request('GET', `/v1/chats/${id(chatId)}`);
 
-/** `PATCH /v1/chats/{id}` with `{ title? , docIds? }` → `{ chat }`. */
+/** `PATCH /v1/chats/{id}` with `{ title?, docIds?, pinned?, projectId? }` → `{ chat }`. */
 export const updateChat = (chatId, patch) => request('PATCH', `/v1/chats/${id(chatId)}`, { body: patch });
 
 /** `DELETE /v1/chats/{id}` → `{ deleted: true }`; unknown id → `CHAT_NOT_FOUND`. */
@@ -196,12 +212,12 @@ export function parseSse(buf) {
  * Asks a question on the stream URL and dispatches SSE events as they arrive.
  * @param chatId - Chat id.
  * @param text - Question, 1..8000 chars.
- * @param handlers - `{ model, onText(text), onCitation(citation), signal }`; `model` is an id from
+ * @param handlers - `{ model, onText(text), onCitation(citation), onFollowUps(list), signal }`; `model` is an id from
  *   `config.models` (≤ 64 chars), omitted from the body when empty so the server uses its default.
  * @returns `{ message, usage }` from the `done` event.
  * @throws ApiError for a pre-stream envelope, an `error` event, or a stream that ends without `done`.
  */
-export async function askStream(chatId, text, { model, onText, onCitation, signal } = {}) {
+export async function askStream(chatId, text, { model, onText, onCitation, onFollowUps, signal } = {}) {
   const { streamUrl } = await loadConfig();
   let res;
   try {
@@ -231,6 +247,7 @@ export async function askStream(chatId, text, { model, onText, onCitation, signa
         const payload = JSON.parse(data);
         if (event === 'text') onText?.(payload.text);
         else if (event === 'citation') onCitation?.(payload);
+        else if (event === 'followups') onFollowUps?.(payload.followUps ?? []);
         else if (event === 'done') return payload;
         else if (event === 'error') {
           const e = payload.error ?? {};

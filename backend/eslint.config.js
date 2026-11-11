@@ -40,7 +40,7 @@ export default tseslint.config(
         {
           patterns: [
             {
-              group: ['@aws-sdk/*', '@anthropic-ai/*'],
+              group: ['@aws-sdk/*', '@anthropic-ai/*', 'pdf-lib'],
               message: 'Only src/adapters and src/composition may import SDKs.',
             },
             {

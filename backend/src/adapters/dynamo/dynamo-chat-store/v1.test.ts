@@ -57,6 +57,8 @@ describe('dynamo-chat-store v1', () => {
             title: 'New chat',
             docIds: [],
             updatedAt: '2026-11-12T00:00:00.000Z',
+            pinned: false,
+            projectId: null,
           },
         ],
         nextCursor: null,
@@ -85,19 +87,19 @@ describe('dynamo-chat-store v1', () => {
     );
 
     expect(calls[0]?.input).toMatchObject({
-      UpdateExpression: 'SET #v = #v + :one, #f0 = :f0, #f2 = :f2, #f3 = :f3',
+      UpdateExpression: 'SET #v = #v + :one, #f0 = :f0, #f4 = :f4, #f5 = :f5',
       ExpressionAttributeNames: {
         '#v': 'version',
         '#f0': 'title',
-        '#f2': 'updatedAt',
-        '#f3': 'GSI1SK',
+        '#f4': 'updatedAt',
+        '#f5': 'GSI1SK',
       },
       ExpressionAttributeValues: {
         ':one': 1,
         ':expected': 1,
         ':f0': 'T',
-        ':f2': '2026-11-13T00:00:00.000Z',
-        ':f3': '2026-11-13T00:00:00.000Z#cccccccccccccccc',
+        ':f4': '2026-11-13T00:00:00.000Z',
+        ':f5': '2026-11-13T00:00:00.000Z#cccccccccccccccc',
       },
     });
   });
@@ -219,5 +221,28 @@ describe('dynamo-chat-store v1', () => {
       error: { code: 'INTERNAL' },
     });
     expect(calls).toHaveLength(1);
+  });
+
+  it('clears projectId with a condition on the old project; a moved chat is ok', async () => {
+    const { client, calls } = stubClient(
+      {},
+      sdkError('ConditionalCheckFailedException'),
+      sdkError('InternalServerError'),
+    );
+    const store = dynamoChatStore({ client, table: 't' });
+
+    expect((await store.clearProject('u1', 'cccccccccccccccc', 'pppppppppppppppp')).ok).toBe(true);
+    expect((await store.clearProject('u1', 'cccccccccccccccc', 'pppppppppppppppp')).ok).toBe(true);
+    expect(await store.clearProject('u1', 'cccccccccccccccc', 'pppppppppppppppp')).toMatchObject({
+      error: { code: 'UPSTREAM_UNAVAILABLE' },
+    });
+    expect(calls[0]?.input).toEqual({
+      TableName: 't',
+      Key: { PK: 'OWNER#u1', SK: 'CHAT#cccccccccccccccc' },
+      UpdateExpression: 'SET projectId = :none, #v = #v + :one',
+      ConditionExpression: 'projectId = :pid',
+      ExpressionAttributeNames: { '#v': 'version' },
+      ExpressionAttributeValues: { ':none': null, ':one': 1, ':pid': 'pppppppppppppppp' },
+    });
   });
 });

@@ -36,4 +36,15 @@ describe('resolve-attached-docs v1', () => {
       error: { code: 'VALIDATION_FAILED' },
     });
   });
+
+  it('accepts a part id of a split doc but not the split doc whole', async () => {
+    const docs = memoryDocStore();
+    const parts = [{ n: 1, startPage: 1, endPage: 100, size: 9 }];
+    await docs.store.create('kristoff', aDoc({ id: A, parts }), 'k');
+    const run = resolveAttachedDocs({ docs: docs.store, maxAttachedDocs: 5 });
+
+    expect(await run(ME, [`${A}:p1`, `${A}:p1`])).toEqual({ ok: true, value: [`${A}:p1`] });
+    expect(await run(ME, [A])).toMatchObject({ error: { code: 'DOC_NOT_FOUND' } });
+    expect(await run(ME, [`${A}:p2`])).toMatchObject({ error: { code: 'DOC_NOT_FOUND' } });
+  });
 });

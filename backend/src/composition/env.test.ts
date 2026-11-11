@@ -20,7 +20,9 @@ const FULL = {
   DAILY_QUESTION_CAP: '100',
   SESSION_TTL_SECONDS: '43200',
   ANTHROPIC_TIMEOUT_MS: '120000',
+  FOLLOWUP_MODEL_ID: 'claude-haiku-5-5',
   SSM_ANTHROPIC_KEY: '/kristoff/prod/anthropic-api-key',
+  DOCS_SPLIT_FUNCTION: 'kristoff-prod-docs-split:live',
   SSM_TOTP_SECRET: '/kristoff/prod/totp-secret',
   SSM_SESSION_KEY: '/kristoff/prod/session-hmac-key',
   SSM_AI_ENABLED: '/kristoff/prod/ai-enabled',
@@ -76,6 +78,15 @@ describe('composition env', () => {
     ['an upper-case id', 'Claude'],
   ])('refuses MODEL_IDS with %s', (_label, value) => {
     expect(() => parseEnv('config-get', { ...FULL, MODEL_IDS: value })).toThrow('MODEL_IDS');
+  });
+
+  it('requires DOCS_SPLIT_FUNCTION to be alias-qualified (the invoke grant is on :live only)', () => {
+    expect(parseEnv('docs-confirm', FULL).DOCS_SPLIT_FUNCTION).toBe(
+      'kristoff-prod-docs-split:live',
+    );
+    expect(() =>
+      parseEnv('docs-confirm', { ...FULL, DOCS_SPLIT_FUNCTION: 'kristoff-prod-docs-split' }),
+    ).toThrow('DOCS_SPLIT_FUNCTION');
   });
 
   it('refuses any stage but prod', () => {

@@ -98,5 +98,27 @@ export const chatStoreContract = (name: string, make: () => Promise<ChatStore>) 
         error: { code: 'CHAT_NOT_FOUND' },
       });
     });
+
+    it('clears projectId only while it still matches, without bumping updatedAt', async () => {
+      const store = await make();
+      await store.createChat('u1', aChat({ projectId: 'pppppppppppppppp' }));
+      await store.createChat(
+        'u1',
+        aChat({ id: '0000000000000002', projectId: 'qqqqqqqqqqqqqqqq' }),
+      );
+      expect((await store.clearProject('u1', aChat().id, 'pppppppppppppppp')).ok).toBe(true);
+      expect((await store.clearProject('u1', '0000000000000002', 'pppppppppppppppp')).ok).toBe(
+        true,
+      );
+      expect((await store.clearProject('u1', 'ffffffffffffffff', 'pppppppppppppppp')).ok).toBe(
+        true,
+      );
+      expect(await store.getChat('u1', aChat().id)).toMatchObject({
+        value: { value: { projectId: null, updatedAt: aChat().updatedAt } },
+      });
+      expect(await store.getChat('u1', '0000000000000002')).toMatchObject({
+        value: { value: { projectId: 'qqqqqqqqqqqqqqqq' } },
+      });
+    });
   });
 };

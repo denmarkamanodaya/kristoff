@@ -2,8 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { mapCitation } from './v1.js';
 
 const DOCS = [
-  { id: 'aaaaaaaaaaaaaaaa', title: 'People v. Cruz', url: 'https://s3/a' },
-  { id: 'bbbbbbbbbbbbbbbb', title: 'Civil Code', url: 'https://s3/b' },
+  {
+    id: 'aaaaaaaaaaaaaaaa',
+    title: 'People v. Cruz',
+    libraryTitle: 'People v. Cruz',
+    url: 'https://s3/a',
+    pageOffset: 0,
+  },
+  {
+    id: 'bbbbbbbbbbbbbbbb',
+    title: 'Civil Code',
+    libraryTitle: 'Civil Code',
+    url: 'https://s3/b',
+    pageOffset: 0,
+  },
 ];
 
 describe('map-citation v1', () => {
@@ -46,9 +58,9 @@ describe('map-citation v1', () => {
     });
   });
 
-  it('clamps the title to 200 and the quote to 4000 characters', () => {
+  it('clamps the model-given title (no library title) to 200 and the quote to 4000 characters', () => {
     const source = {
-      documentIndex: 0,
+      documentIndex: 9,
       documentTitle: 't'.repeat(300),
       startPage: 1,
       endPageExclusive: 2,
@@ -58,5 +70,31 @@ describe('map-citation v1', () => {
     const citation = mapCitation(source, DOCS, 1);
 
     expect([citation.docTitle.length, citation.quote.length]).toEqual([200, 4000]);
+  });
+
+  it("maps a part's pages back to original pages and uses the library title", () => {
+    const part = [
+      {
+        id: 'aaaaaaaaaaaaaaaa',
+        title: 'Code (pp. 101–200)',
+        libraryTitle: 'Code',
+        url: 'u',
+        pageOffset: 100,
+      },
+    ];
+    const source = {
+      documentIndex: 0,
+      documentTitle: 'Code (pp. 101–200)',
+      startPage: 3,
+      endPageExclusive: 5,
+      citedText: 'q',
+    };
+
+    expect(mapCitation(source, part, 1)).toMatchObject({
+      docId: 'aaaaaaaaaaaaaaaa',
+      docTitle: 'Code',
+      page: 103,
+      endPage: 104,
+    });
   });
 });

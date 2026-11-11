@@ -55,10 +55,12 @@ No resources.
 | <a name="output_docs_bucket_name"></a> [docs\_bucket\_name](#output\_docs\_bucket\_name) | Private PDF bucket kristoff-<stage>-docs-<account id>. |
 | <a name="output_docs_object_prefix"></a> [docs\_object\_prefix](#output\_docs\_object\_prefix) | Key prefix of every PDF object, docs/ (keys are docs/<uid>/<docId>.pdf). |
 | <a name="output_docs_objects_arn"></a> [docs\_objects\_arn](#output\_docs\_objects\_arn) | ARN pattern of every PDF object, <bucket ARN>/docs/* (keys are docs/<uid>/<docId>.pdf, server-built). |
+| <a name="output_lambda_dlq_arn_pattern"></a> [lambda\_dlq\_arn\_pattern](#output\_lambda\_dlq\_arn\_pattern) | ARN pattern of the Lambda dead-letter queues, <prefix>-<function key>-dlq (the boundary admits sqs:SendMessage on them). |
 | <a name="output_lambda_dynamodb_actions"></a> [lambda\_dynamodb\_actions](#output\_lambda\_dynamodb\_actions) | DynamoDB item actions a Lambda role may hold on the table and its indexes (the boundary's ceiling). |
 | <a name="output_lambda_function_arn_prefix"></a> [lambda\_function\_arn\_prefix](#output\_lambda\_function\_arn\_prefix) | ARN prefix of every function of the stage (append * or a function key). |
 | <a name="output_lambda_role_path"></a> [lambda\_role\_path](#output\_lambda\_role\_path) | IAM path of every Lambda execution role (the deploy role may only manage this path). |
-| <a name="output_lambda_s3_actions"></a> [lambda\_s3\_actions](#output\_lambda\_s3\_actions) | S3 object actions a Lambda role may hold on docs/* of the docs bucket (the boundary's ceiling). |
+| <a name="output_lambda_s3_bucket_actions"></a> [lambda\_s3\_bucket\_actions](#output\_lambda\_s3\_bucket\_actions) | S3 bucket-level actions a Lambda role may hold on the docs bucket, always with an s3:prefix condition under docs/ (the boundary's ceiling). |
+| <a name="output_lambda_s3_object_actions"></a> [lambda\_s3\_object\_actions](#output\_lambda\_s3\_object\_actions) | S3 object actions a Lambda role may hold on docs/* objects of the docs bucket (the boundary's ceiling). |
 | <a name="output_log_group_prefix"></a> [log\_group\_prefix](#output\_log\_group\_prefix) | Prefix of non-Lambda log groups (API access logs). |
 | <a name="output_prefix"></a> [prefix](#output\_prefix) | Resource name prefix kristoff-<stage>. |
 | <a name="output_secret_param_arns"></a> [secret\_param\_arns](#output\_secret\_param\_arns) | ARNs of the three owner-set SecureString parameters (same order as secret\_param\_names). |

@@ -13,6 +13,7 @@ describe('get-doc-link v1', () => {
     const result = await getDocLink({ docs: docs.store, files: files.store })(
       { uid: 'kristoff' },
       aDoc().id,
+      undefined,
     );
 
     expect(result).toEqual({
@@ -30,10 +31,28 @@ describe('get-doc-link v1', () => {
     await docs.store.create('eve', aDoc({ id: 'eeeeeeeeeeeeeeee' }), 'k');
     const run = getDocLink({ docs: docs.store, files: memoryFileStore().store });
 
-    expect(await run({ uid: 'kristoff' }, aDoc().id)).toMatchObject({
+    expect(await run({ uid: 'kristoff' }, aDoc().id, undefined)).toMatchObject({
       error: { code: 'DOC_NOT_FOUND' },
     });
-    expect(await run({ uid: 'kristoff' }, 'eeeeeeeeeeeeeeee')).toMatchObject({
+    expect(await run({ uid: 'kristoff' }, 'eeeeeeeeeeeeeeee', undefined)).toMatchObject({
+      error: { code: 'DOC_NOT_FOUND' },
+    });
+  });
+
+  it('links an existing part of a split doc, and refuses a part that does not exist', async () => {
+    const docs = memoryDocStore();
+    const parts = [
+      { n: 1, startPage: 1, endPage: 100, size: 9 },
+      { n: 2, startPage: 101, endPage: 150, size: 9 },
+    ];
+    await docs.store.create('kristoff', aDoc({ parts }), 'k');
+    const run = getDocLink({ docs: docs.store, files: memoryFileStore().store });
+
+    expect(await run({ uid: 'kristoff' }, aDoc().id, 2)).toMatchObject({
+      ok: true,
+      value: { url: 'https://get.example/docs/kristoff/aaaaaaaaaaaaaaaa/part-2.pdf' },
+    });
+    expect(await run({ uid: 'kristoff' }, aDoc().id, 3)).toMatchObject({
       error: { code: 'DOC_NOT_FOUND' },
     });
   });

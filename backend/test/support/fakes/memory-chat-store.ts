@@ -4,11 +4,13 @@ import type { ChatPatch, ChatStore } from '../../../src/ports/chat-store.js';
 import { appError, type AppError } from '../../../src/shared/errors/app-error.js';
 import { err, ok, type Result } from '../../../src/shared/result/result.js';
 
-const summary = ({ id, title, docIds, updatedAt }: Chat): ChatSummary => ({
+const summary = ({ id, title, docIds, updatedAt, pinned, projectId }: Chat): ChatSummary => ({
   id,
   title,
   docIds,
   updatedAt,
+  pinned,
+  projectId,
 });
 
 /** The fake plus its raw maps for assertions. */
@@ -58,6 +60,15 @@ export const memoryChatStore = () => {
         chatId,
         [...list, message].sort((a, b) => a.id.localeCompare(b.id)),
       );
+      return Promise.resolve(ok(undefined));
+    },
+    clearProject: (uid, chatId, projectId) => {
+      const row = chats.get(k(uid, chatId));
+      if (row?.chat.projectId === projectId)
+        chats.set(k(uid, chatId), {
+          chat: { ...row.chat, projectId: null },
+          version: row.version + 1,
+        });
       return Promise.resolve(ok(undefined));
     },
     deleteMessages: (chatId) => {

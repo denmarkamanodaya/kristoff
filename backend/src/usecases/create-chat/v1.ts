@@ -39,6 +39,8 @@ export const createChat =
       id: deps.ids.newId(),
       title: NEW_CHAT_TITLE,
       docIds: resolved.value,
+      pinned: false,
+      projectId: null,
       createdAt: now,
       updatedAt: now,
     };

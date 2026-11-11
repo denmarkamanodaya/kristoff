@@ -4,6 +4,7 @@
 import { GetParameterCommand, type SSMClient } from '@aws-sdk/client-ssm';
 import { appError, type AppError } from '../../../shared/errors/app-error.js';
 import { err, ok, type Result } from '../../../shared/result/result.js';
+import { errorTypeOf } from '../../../shared/errors/vendor-error.js';
 
 /** How long a read value is reused, in milliseconds. */
 const PARAMETER_TTL_MS = 60_000;
@@ -37,7 +38,7 @@ export const cachedParameter = (target: ParameterTarget, name: string) => {
       cached = { value, at: now };
       return ok(value);
     } catch (error) {
-      const type = error instanceof Error ? error.name.slice(0, 64) : 'Unknown';
+      const type = errorTypeOf(error);
       const code = type === 'ParameterNotFound' ? 'INTERNAL' : 'UPSTREAM_UNAVAILABLE';
       return err(
         appError(code, 'parameter read failed', {

@@ -50,5 +50,10 @@ locals {
     "dynamodb:GetItem", "dynamodb:BatchGetItem", "dynamodb:Query", "dynamodb:PutItem", "dynamodb:UpdateItem",
     "dynamodb:DeleteItem", "dynamodb:ConditionCheckItem",
   ]
-  lambda_s3_actions = ["s3:GetObject", "s3:PutObject"]
+  # S3 splits by resource type: object actions on docs/... objects, bucket actions on the bucket ARN with an s3:prefix
+  # condition (ListBucketVersions is authorised on the bucket, never on an object; AWS service reference for s3).
+  lambda_s3_object_actions = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:DeleteObjectVersion"]
+  lambda_s3_bucket_actions = ["s3:ListBucketVersions"]
+  # Asynchronously invoked functions get an SQS dead-letter queue <function name>-dlq (lambda-fn dlq_enabled).
+  lambda_dlq_arn_pattern = "arn:aws:sqs:${local.at}:${local.prefix}-*-dlq"
 }

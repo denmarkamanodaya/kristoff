@@ -18,6 +18,7 @@ export const chatsUpdateDeps = async () => {
     http: baseDeps('chats-update', env.STAGE).http,
     updateChat: updateChat({
       chats: adapters.chats(env.TABLE_NAME),
+      projects: adapters.projects(env.TABLE_NAME),
       clock: systemClock,
       resolveDocs: resolveAttachedDocs({ docs, maxAttachedDocs: env.MAX_ATTACHED_DOCS }),
     }),

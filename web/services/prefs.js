@@ -4,11 +4,11 @@
 
 const THEME_KEY = 'kristoff.theme';
 const THEMES = ['light', 'dark'];
-const DEFAULT_THEME = 'light';
+const DEFAULT_THEME = 'dark'; // owner ruling 2026-11-12: dark is the default
 
 /**
  * Returns the saved theme.
- * @returns `'light'` or `'dark'`; `'light'` when nothing is saved, the value is unknown, or
+ * @returns `'light'` or `'dark'`; `'dark'` when nothing is saved, the value is unknown, or
  *   storage is blocked (private window, disabled site data).
  */
 export function getTheme() {
@@ -22,7 +22,7 @@ export function getTheme() {
 
 /**
  * Saves the theme choice.
- * @param theme - `'light'` or `'dark'`; anything else saves `'light'`.
+ * @param theme - `'light'` or `'dark'`; anything else saves `'dark'`.
  * @returns The theme that applies now. When storage is blocked it still applies for this page.
  */
 export function setTheme(theme) {

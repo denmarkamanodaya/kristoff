@@ -73,3 +73,21 @@ resource "aws_cloudwatch_metric_alarm" "lambda_throttles" {
   alarm_actions       = [module.names.alerts_topic_arn]
   ok_actions          = [module.names.alerts_topic_arn]
 }
+
+# docs-split runs asynchronously (contract v2 "Large PDFs"); an invocation that still fails after its retry lands in its
+# dead-letter queue, and the doc stays "processing". Any message there needs a human (stack/errors-and-resilience.md).
+resource "aws_cloudwatch_metric_alarm" "docs_split_dlq" {
+  alarm_name          = "${module.names.prefix}-docs-split-dlq"
+  alarm_description   = "A docs-split invocation failed twice (crash or timeout) and is in its dead-letter queue (<prefix>-docs-split-dlq). Read the docs-split log group; the doc stays 'processing' until it is deleted or re-confirmed."
+  namespace           = "AWS/SQS"
+  metric_name         = "ApproximateNumberOfMessagesVisible"
+  statistic           = "Maximum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 0
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  dimensions          = { QueueName = element(split(":", module.fn["docs-split"].dlq_arn), 5) } # queue name = last ARN field
+  alarm_actions       = [module.names.alerts_topic_arn]
+  ok_actions          = [module.names.alerts_topic_arn]
+}

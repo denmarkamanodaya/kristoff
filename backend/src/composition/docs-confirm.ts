@@ -16,6 +16,7 @@ export const docsConfirmDeps = async () => {
     confirmDoc: confirmDoc({
       docs: adapters.docs(env.TABLE_NAME),
       files: adapters.files(env.DOCS_BUCKET),
+      splits: adapters.splitTrigger(env.DOCS_SPLIT_FUNCTION),
     }),
   });
 };

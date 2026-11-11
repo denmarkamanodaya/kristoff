@@ -15,8 +15,39 @@ data "aws_iam_policy_document" "lambda_boundary" {
   statement {
     sid       = "S3DocObjects"
     effect    = "Allow"
-    actions   = module.names.lambda_s3_actions
+    actions   = module.names.lambda_s3_object_actions
     resources = [module.names.docs_objects_arn]
+  }
+
+  # Listing object versions (docs-delete removes every version of a doc) is a bucket-level action; it is admitted only
+  # for keys under docs/. The function role narrows it further to docs/<OWNER_ID>/* (the boundary has no owner id).
+  statement {
+    sid       = "S3DocVersionsList"
+    effect    = "Allow"
+    actions   = module.names.lambda_s3_bucket_actions
+    resources = [module.names.docs_bucket_arn]
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values   = ["${module.names.docs_object_prefix}*"]
+    }
+  }
+
+  # docs-confirm starts docs-split asynchronously; a function may invoke only functions of this stage (the role names
+  # the one alias).
+  statement {
+    sid       = "InvokeStageFunctions"
+    effect    = "Allow"
+    actions   = ["lambda:InvokeFunction"]
+    resources = ["${module.names.lambda_function_arn_prefix}*"]
+  }
+
+  # Failed asynchronous invocations go to the function's own dead-letter queue (lambda-fn dlq_enabled).
+  statement {
+    sid       = "SendToDeadLetterQueues"
+    effect    = "Allow"
+    actions   = ["sqs:SendMessage"]
+    resources = [module.names.lambda_dlq_arn_pattern]
   }
 
   # The kill switch and the three owner-set SecureStrings.

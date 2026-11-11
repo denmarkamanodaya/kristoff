@@ -18,7 +18,7 @@ import type {
   TurnBlock,
 } from '../../domain/chats/model-request.js';
 import type { AnswerModel } from '../../ports/answer-model.js';
-import { appError } from '../../shared/errors/app-error.js';
+import { upstreamError } from '../../shared/errors/vendor-error.js';
 import { err, ok } from '../../shared/result/result.js';
 
 /** A started stream: its events, then the final message. */
@@ -115,13 +115,7 @@ export const anthropicAnswerModel = (messages: MessagesClient, system: string): 
         stopReason: final.stop_reason,
       });
     } catch (error) {
-      const type = error instanceof Error ? error.name.slice(0, 64) : 'Unknown';
-      return err(
-        appError('UPSTREAM_UNAVAILABLE', 'the model call failed', {
-          operation: 'anthropic.messages.stream',
-          'error.type': type,
-        }),
-      );
+      return err(upstreamError('anthropic.messages.stream', error, 'the model call failed'));
     }
   },
 });

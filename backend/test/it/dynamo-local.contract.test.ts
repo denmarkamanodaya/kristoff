@@ -6,9 +6,11 @@ import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { dynamoAuthStateStore } from '../../src/adapters/dynamo/dynamo-auth-state-store/index.js';
 import { dynamoChatStore } from '../../src/adapters/dynamo/dynamo-chat-store/index.js';
 import { dynamoDocStore } from '../../src/adapters/dynamo/dynamo-doc-store/index.js';
+import { dynamoProjectStore } from '../../src/adapters/dynamo/dynamo-project-store/index.js';
 import { dynamoUsageMeter } from '../../src/adapters/dynamo/dynamo-usage-meter/index.js';
 import { authStateStoreContract } from '../support/contracts/auth-state-store.contract.js';
 import { chatStoreContract } from '../support/contracts/chat-store.contract.js';
+import { projectStoreContract } from '../support/contracts/project-store.contract.js';
 import { docStoreContract } from '../support/contracts/doc-store.contract.js';
 import { usageMeterContract } from '../support/contracts/usage-meter.contract.js';
 
@@ -58,3 +60,4 @@ docStoreContract('dynamodb-local', async () => dynamoDocStore(await freshTable()
 chatStoreContract('dynamodb-local', async () => dynamoChatStore(await freshTable()));
 authStateStoreContract('dynamodb-local', async () => dynamoAuthStateStore(await freshTable()));
 usageMeterContract('dynamodb-local', async () => dynamoUsageMeter(await freshTable()));
+projectStoreContract('dynamodb-local', async () => dynamoProjectStore(await freshTable()));

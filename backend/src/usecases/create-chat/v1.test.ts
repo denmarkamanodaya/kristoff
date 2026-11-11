@@ -27,6 +27,8 @@ describe('create-chat v1', () => {
         id: '0000000000000001',
         title: 'New chat',
         docIds: ['aaaaaaaaaaaaaaaa'],
+        pinned: false,
+        projectId: null,
         createdAt: '2026-11-12T01:00:00.000Z',
         updatedAt: '2026-11-12T01:00:00.000Z',
       },

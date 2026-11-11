@@ -28,7 +28,7 @@ data "aws_iam_policy_document" "ci_deploy_deny" {
     not_resources = local.ci_ssm_config_param_arns
   }
 
-  # Never the owner's data: item-level DynamoDB, invoking a function (an invoke could return data).
+  # Never the owner's data: item-level DynamoDB, invoking a function (an invoke could return data), queue messages.
   statement {
     sid    = "DenyOwnerData"
     effect = "Deny"
@@ -37,6 +37,7 @@ data "aws_iam_policy_document" "ci_deploy_deny" {
       "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:BatchWriteItem",
       "dynamodb:PartiQLSelect", "dynamodb:PartiQLInsert", "dynamodb:PartiQLUpdate", "dynamodb:PartiQLDelete",
       "lambda:InvokeFunction", "lambda:InvokeFunctionUrl",
+      "sqs:ReceiveMessage", "sqs:SendMessage", "sqs:PurgeQueue",
       "bedrock:InvokeModel*",
     ]
     resources = ["*"]

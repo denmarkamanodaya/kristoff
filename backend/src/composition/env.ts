@@ -33,6 +33,11 @@ const fields = {
   SESSION_TTL_SECONDS: int(300, 86_400),
   // Two attempts (MODEL_MAX_RETRIES = 1) must fit in the 300 s stream Lambda.
   ANTHROPIC_TIMEOUT_MS: int(1_000, 140_000),
+  // Qualified name of the docs-split Lambda that confirm invokes asynchronously, e.g.
+  // `kristoff-prod-docs-split:live` (the IAM grant matches the alias; docs/contract.md "v2").
+  DOCS_SPLIT_FUNCTION: z.string().regex(/^[A-Za-z0-9_-]{1,64}:[A-Za-z0-9_-]{1,128}$/),
+  // The follow-up model (docs/contract.md "v2 Answer extras"; prod claude-haiku-5-5).
+  FOLLOWUP_MODEL_ID: modelId,
   SSM_ANTHROPIC_KEY: ssmName,
   SSM_TOTP_SECRET: ssmName,
   SSM_SESSION_KEY: ssmName,
@@ -56,13 +61,19 @@ export const LAMBDA_ENV = {
   'config-get': pick('STAGE', 'MODEL_IDS', 'MAX_ATTACHED_DOCS', 'DAILY_QUESTION_CAP'),
   'docs-list': pick('STAGE', 'TABLE_NAME'),
   'docs-create': pick('STAGE', 'TABLE_NAME', 'DOCS_BUCKET'),
-  'docs-confirm': pick('STAGE', 'TABLE_NAME', 'DOCS_BUCKET'),
+  'docs-confirm': pick('STAGE', 'TABLE_NAME', 'DOCS_BUCKET', 'DOCS_SPLIT_FUNCTION'),
+  'docs-split': pick('STAGE', 'TABLE_NAME', 'DOCS_BUCKET'),
   'docs-rename': pick('STAGE', 'TABLE_NAME'),
+  'docs-delete': pick('STAGE', 'TABLE_NAME', 'DOCS_BUCKET'),
   'docs-link': pick('STAGE', 'TABLE_NAME', 'DOCS_BUCKET'),
   'chats-list': pick('STAGE', 'TABLE_NAME'),
   'chats-create': pick('STAGE', 'TABLE_NAME', 'MAX_ATTACHED_DOCS'),
   'chats-get': pick('STAGE', 'TABLE_NAME'),
   'chats-delete': pick('STAGE', 'TABLE_NAME'),
+  'projects-list': pick('STAGE', 'TABLE_NAME'),
+  'projects-create': pick('STAGE', 'TABLE_NAME'),
+  'projects-rename': pick('STAGE', 'TABLE_NAME'),
+  'projects-delete': pick('STAGE', 'TABLE_NAME'),
   'chats-update': pick('STAGE', 'TABLE_NAME', 'MAX_ATTACHED_DOCS'),
   'usage-get': pick('STAGE', 'TABLE_NAME'),
   'ask-stream': pick(
@@ -75,6 +86,7 @@ export const LAMBDA_ENV = {
     'MAX_HISTORY_TURNS',
     'DAILY_QUESTION_CAP',
     'ANTHROPIC_TIMEOUT_MS',
+    'FOLLOWUP_MODEL_ID',
     'SSM_ANTHROPIC_KEY',
     'SSM_SESSION_KEY',
     'SSM_AI_ENABLED',

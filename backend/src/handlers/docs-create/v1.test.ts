@@ -29,7 +29,7 @@ describe('docs-create handler v1', () => {
 
   it.each([
     ['size 0', { fileName: 'a.pdf', size: 0 }],
-    ['size over 32 MiB', { fileName: 'a.pdf', size: 33_554_433 }],
+    ['size over 200 MiB', { fileName: 'a.pdf', size: 209_715_201 }],
     ['a 256-char name', { fileName: 'x'.repeat(256), size: 1 }],
   ])('answers 400 for %s', async (_label, body) => {
     const handler = createDocsCreateHandler({

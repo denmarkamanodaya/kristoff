@@ -23,8 +23,12 @@ resource "terraform_data" "scope_guard" {
       error_message = "backend/lambda-scope.json: a dynamodb action is outside ${join(", ", module.names.lambda_dynamodb_actions)}."
     }
     precondition {
-      condition     = alltrue([for k, f in local.fn_scope : alltrue([for a in local.fn_scope[k].s3_actions : contains(module.names.lambda_s3_actions, a)]) && local.fn_scope[k].s3_prefix == module.names.docs_object_prefix])
-      error_message = "backend/lambda-scope.json: an s3 action is outside ${join(", ", module.names.lambda_s3_actions)}, or s3.prefix is not ${module.names.docs_object_prefix}."
+      condition     = alltrue([for k, f in local.fn_scope : alltrue([for a in local.fn_scope[k].s3_actions : contains(concat(module.names.lambda_s3_object_actions, module.names.lambda_s3_bucket_actions), a)]) && local.fn_scope[k].s3_prefix == module.names.docs_object_prefix])
+      error_message = "backend/lambda-scope.json: an s3 action is outside ${join(", ", concat(module.names.lambda_s3_object_actions, module.names.lambda_s3_bucket_actions))}, or s3.prefix is not ${module.names.docs_object_prefix}."
+    }
+    precondition {
+      condition     = alltrue([for k, f in local.fn_scope : alltrue([for t in f.invoke : contains(local.function_keys, t) && t != k])])
+      error_message = "backend/lambda-scope.json: lambda.invoke may name only other function keys of this stack."
     }
   }
 }

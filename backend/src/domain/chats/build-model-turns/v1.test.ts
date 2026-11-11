@@ -3,8 +3,8 @@ import { aMessage } from '../../../../test/support/builders.js';
 import { buildModelTurns } from './v1.js';
 
 const DOCS = [
-  { id: 'aaaaaaaaaaaaaaaa', title: 'A', url: 'https://s3/a' },
-  { id: 'bbbbbbbbbbbbbbbb', title: 'B', url: 'https://s3/b' },
+  { id: 'aaaaaaaaaaaaaaaa', title: 'A', libraryTitle: 'A', url: 'https://s3/a', pageOffset: 0 },
+  { id: 'bbbbbbbbbbbbbbbb', title: 'B', libraryTitle: 'B', url: 'https://s3/b', pageOffset: 0 },
 ];
 
 describe('build-model-turns v1', () => {

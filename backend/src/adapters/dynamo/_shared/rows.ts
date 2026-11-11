@@ -15,8 +15,14 @@ export const DocRow = z.object({
   SK: str,
   title: str,
   size: int,
-  status: z.enum(['pending', 'ready']),
+  status: z.enum(['pending', 'processing', 'ready', 'failed']),
   createdAt: str,
+  // Added in v2 (docs written before have neither).
+  pageCount: nullableInt.default(null),
+  parts: z
+    .array(z.object({ n: int, startPage: int, endPage: int, size: int }))
+    .max(1000)
+    .default([]),
 });
 
 /** A Chat item. */
@@ -25,6 +31,18 @@ export const ChatRow = z.object({
   SK: str,
   title: str,
   docIds: z.array(str).max(100),
+  createdAt: str,
+  updatedAt: str,
+  // Added in v2 without a schemaVersion bump: items written before have neither (defaults apply).
+  pinned: z.boolean().default(false),
+  projectId: str.nullable().default(null),
+});
+
+/** A Project item. */
+export const ProjectRow = z.object({
+  ...Envelope,
+  SK: str,
+  name: str,
   createdAt: str,
   updatedAt: str,
 });
@@ -53,6 +71,9 @@ export const MessageRow = z.object({
   model: str.nullable(),
   stopReason: str.nullable(),
   at: str,
+  // Added in v2 (messages written before have neither).
+  durationMs: nullableInt.default(null),
+  followUps: z.array(str).max(10).default([]),
 });
 
 /** The TOTP state item. */

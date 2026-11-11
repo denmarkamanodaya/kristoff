@@ -101,4 +101,112 @@ describe('s3-file-store v1', () => {
       error: { code: 'UPSTREAM_UNAVAILABLE' },
     });
   });
+
+  it('purges by ListObjectVersions pages and DeleteObject with VersionId for versions and delete markers', async () => {
+    const { store, calls } = setup(
+      {
+        Versions: [{ Key: 'docs/u/a.pdf', VersionId: 'v1' }],
+        DeleteMarkers: [{ Key: 'docs/u/a.pdf', VersionId: 'm1' }],
+        IsTruncated: true,
+        NextKeyMarker: 'docs/u/a.pdf',
+        NextVersionIdMarker: 'm1',
+      },
+      {},
+      {},
+      { Versions: [{ Key: 'docs/u/a.pdf', VersionId: 'v0' }], IsTruncated: false },
+      {},
+    );
+
+    expect(await store.purgePrefix('docs/u/a.pdf')).toEqual({ ok: true, value: 3 });
+    expect(calls).toEqual([
+      { command: 'ListObjectVersionsCommand', input: { Bucket: 'b', Prefix: 'docs/u/a.pdf' } },
+      {
+        command: 'DeleteObjectCommand',
+        input: { Bucket: 'b', Key: 'docs/u/a.pdf', VersionId: 'v1' },
+      },
+      {
+        command: 'DeleteObjectCommand',
+        input: { Bucket: 'b', Key: 'docs/u/a.pdf', VersionId: 'm1' },
+      },
+      {
+        command: 'ListObjectVersionsCommand',
+        input: {
+          Bucket: 'b',
+          Prefix: 'docs/u/a.pdf',
+          KeyMarker: 'docs/u/a.pdf',
+          VersionIdMarker: 'm1',
+        },
+      },
+      {
+        command: 'DeleteObjectCommand',
+        input: { Bucket: 'b', Key: 'docs/u/a.pdf', VersionId: 'v0' },
+      },
+    ]);
+  });
+
+  it('never has more than 8 DeleteObject calls in flight', async () => {
+    const versions = Array.from({ length: 30 }, (_, i) => ({
+      Key: 'docs/u/a.pdf',
+      VersionId: `v${String(i)}`,
+    }));
+    let inFlight = 0;
+    let peak = 0;
+    const client = {
+      send: async (command: { constructor: { name: string } }) => {
+        if (command.constructor.name === 'ListObjectVersionsCommand')
+          return { Versions: versions, IsTruncated: false };
+        inFlight += 1;
+        peak = Math.max(peak, inFlight);
+        await new Promise((resolve) => setImmediate(resolve));
+        inFlight -= 1;
+        return {};
+      },
+    } as unknown as S3Client;
+
+    const result = await s3FileStore({ client, bucket: 'b', now: () => NOW }).purgePrefix(
+      'docs/u/a.pdf',
+    );
+
+    expect([result, peak]).toEqual([{ ok: true, value: 30 }, 8]);
+  });
+
+  it('returns a failed list or delete as UPSTREAM_UNAVAILABLE', async () => {
+    const list = setup(sdkError('AccessDenied', 403));
+    const del = setup(
+      { Versions: [{ Key: 'k', VersionId: 'v' }], IsTruncated: false },
+      sdkError('AccessDenied', 403),
+    );
+
+    expect(await list.store.purgePrefix('k')).toMatchObject({
+      error: { code: 'UPSTREAM_UNAVAILABLE', details: { operation: 's3.ListObjectVersions' } },
+    });
+    expect(await del.store.purgePrefix('k')).toMatchObject({
+      error: { code: 'UPSTREAM_UNAVAILABLE', details: { operation: 's3.DeleteObject' } },
+    });
+  });
+
+  it('reads a whole object (missing is UPLOAD_INVALID) and puts a PDF part', async () => {
+    const body = { transformToByteArray: () => Promise.resolve(Buffer.from('%PDF-x')) };
+    const { store, calls } = setup({ Body: body }, sdkError('NoSuchKey', 404), {});
+
+    expect(await store.read('docs/u/a.pdf')).toEqual({ ok: true, value: Buffer.from('%PDF-x') });
+    expect(await store.read('docs/u/a.pdf')).toMatchObject({ error: { code: 'UPLOAD_INVALID' } });
+    expect(await store.put('docs/u/a/part-1.pdf', Buffer.from('p'))).toEqual({
+      ok: true,
+      value: undefined,
+    });
+    expect(calls[0]).toEqual({
+      command: 'GetObjectCommand',
+      input: { Bucket: 'b', Key: 'docs/u/a.pdf' },
+    });
+    expect(calls[2]).toEqual({
+      command: 'PutObjectCommand',
+      input: {
+        Bucket: 'b',
+        Key: 'docs/u/a/part-1.pdf',
+        Body: Buffer.from('p'),
+        ContentType: 'application/pdf',
+      },
+    });
+  });
 });

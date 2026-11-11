@@ -47,6 +47,19 @@ run "ssm_names_match_the_contract" {
   }
 }
 
+run "lambda_data_action_ceilings" {
+  command = plan
+
+  assert {
+    condition     = contains(output.lambda_s3_bucket_actions, "s3:ListBucketVersions") && !contains(output.lambda_s3_object_actions, "s3:ListBucketVersions")
+    error_message = "ListBucketVersions is a bucket-level action, never granted on objects"
+  }
+  assert {
+    condition     = output.lambda_dlq_arn_pattern == "arn:aws:sqs:ap-southeast-2:123456789012:kristoff-prod-*-dlq"
+    error_message = "DLQs are <prefix>-<key>-dlq"
+  }
+}
+
 run "todo_marker_passes_validation" {
   command = plan
 

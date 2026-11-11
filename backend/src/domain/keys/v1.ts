@@ -12,6 +12,10 @@ const DOC = 'DOC#';
 const CHAT = 'CHAT#';
 const MSG = 'MSG#';
 const USAGE = 'USAGE#';
+const PROJECT = 'PROJECT#';
+
+/** Sort-key prefix of every project item under an owner. */
+export const PROJECT_SK_PREFIX = PROJECT;
 
 /** Sort-key prefix of every doc item under an owner (for `begins_with` queries). */
 export const DOC_SK_PREFIX = DOC;
@@ -117,6 +121,28 @@ export const usageTotalKey = (uid: string): ItemKey => ({
 });
 
 /**
+ * Builds the key of a project.
+ * @param uid - Owner id from the principal.
+ * @param projectId - 16-hex project id.
+ * @returns `OWNER#<uid>` / `PROJECT#<id>`.
+ */
+export const projectKey = (uid: string, projectId: string): ItemKey => ({
+  PK: `${OWNER}${uid}`,
+  SK: `${PROJECT}${projectId}`,
+});
+
+/**
+ * Builds the key of the owner's project counter (enforces the project cap in one conditional
+ * write). Its sort key deliberately does not start with `PROJECT#`.
+ * @param uid - Owner id from the principal.
+ * @returns `OWNER#<uid>` / `COUNT#PROJECTS`.
+ */
+export const projectCountKey = (uid: string): ItemKey => ({
+  PK: `${OWNER}${uid}`,
+  SK: 'COUNT#PROJECTS',
+});
+
+/**
  * Builds the key of the owner's TOTP state (last step, failures, lock).
  * @param uid - Owner id.
  * @returns `AUTH#<uid>` / `TOTP`.
@@ -130,3 +156,21 @@ export const totpKey = (uid: string): ItemKey => ({ PK: `AUTH#${uid}`, SK: 'TOTP
  * @returns `docs/<uid>/<docId>.pdf`.
  */
 export const docObjectKey = (uid: string, docId: string): string => `docs/${uid}/${docId}.pdf`;
+
+/**
+ * Builds the S3 key prefix under which a large document's parts live.
+ * @param uid - Owner id from the principal.
+ * @param docId - 16-hex document id.
+ * @returns `docs/<uid>/<docId>/`.
+ */
+export const docPartsPrefix = (uid: string, docId: string): string => `docs/${uid}/${docId}/`;
+
+/**
+ * Builds the S3 key of one part of a large document.
+ * @param uid - Owner id from the principal.
+ * @param docId - 16-hex document id.
+ * @param n - 1-based part number.
+ * @returns `docs/<uid>/<docId>/part-<n>.pdf`.
+ */
+export const docPartKey = (uid: string, docId: string, n: number): string =>
+  `${docPartsPrefix(uid, docId)}part-${String(n)}.pdf`;

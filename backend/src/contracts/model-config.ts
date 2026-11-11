@@ -23,3 +23,23 @@ export const MODEL_LABELS: Readonly<Record<string, string>> = {
   'claude-opus-5-5': 'Opus 5.5',
   'claude-haiku-5-5': 'Haiku 5.5',
 };
+
+/** System prompt of the follow-up call (docs/contract.md "v2 Answer extras"). */
+export const FOLLOW_UP_PROMPT = `You suggest follow-up questions for a Philippine law student who is using a legal research assistant.
+Given the student's question and the start of the assistant's answer, suggest up to 5 short, specific next questions the student is likely to ask next.
+Each question must be under 120 characters, self-contained, and in the student's language. Do not repeat the original question.
+Return only the JSON object the schema describes.`;
+
+/** max_tokens of the follow-up call. */
+export const FOLLOW_UP_MAX_TOKENS = 400;
+
+/** Timeout of the follow-up call in milliseconds. */
+export const FOLLOW_UP_TIMEOUT_MS = 15_000;
+
+/** JSON schema the follow-up call's output must follow (structured output). */
+export const FOLLOW_UP_SCHEMA = {
+  type: 'object',
+  properties: { followUps: { type: 'array', items: { type: 'string' } } },
+  required: ['followUps'],
+  additionalProperties: false,
+} as const;

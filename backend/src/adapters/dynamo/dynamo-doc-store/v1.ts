@@ -18,15 +18,15 @@ import {
   SCHEMA_VERSION,
   type DynamoTarget,
 } from '../_shared/dynamo-call.js';
-import { getItem, putNew, queryPage, updateVersioned } from '../_shared/item-ops.js';
+import { deleteItem, getItem, putNew, queryPage, updateVersioned } from '../_shared/item-ops.js';
 import { DocRow } from '../_shared/rows.js';
 
 const toDoc = (item: unknown): Result<Versioned<Doc>, AppError> => {
   const row = parseRow(DocRow, item, 'doc');
   if (!row.ok) return row;
-  const { SK, title, size, status, createdAt, version } = row.value;
+  const { SK, title, size, status, createdAt, pageCount, parts, version } = row.value;
   const id = SK.slice(DOC_SK_PREFIX.length);
-  return ok({ value: { id, title, size, status, createdAt }, version });
+  return ok({ value: { id, title, size, status, createdAt, pageCount, parts }, version });
 };
 
 const toDocs = (items: readonly unknown[]): Result<Doc[], AppError> =>
@@ -69,6 +69,25 @@ const list =
     return docs.ok ? ok({ items: docs.value, nextCursor: encodeCursor(page.value.lastKey) }) : docs;
   };
 
+const update =
+  (target: DynamoTarget): DocStore['update'] =>
+  async (uid, docId, patch, version) => {
+    const fields = {
+      title: patch.title,
+      status: patch.status,
+      pageCount: patch.pageCount,
+      parts: patch.parts,
+    };
+    const onConflict = () => appError('VERSION_CONFLICT', 'doc changed since it was read');
+    const updated = await updateVersioned(target, docKey(uid, docId), fields, {
+      version,
+      onConflict,
+    });
+    if (!updated.ok) return updated;
+    const doc = toDoc(updated.value);
+    return doc.ok ? ok(doc.value.value) : doc;
+  };
+
 /**
  * Builds the DynamoDB doc store.
  *
@@ -89,6 +108,8 @@ export const dynamoDocStore = (target: DynamoTarget): DocStore => ({
         size: doc.size,
         status: doc.status,
         createdAt: doc.createdAt,
+        pageCount: doc.pageCount,
+        parts: doc.parts,
         s3Key: objectKey,
         schemaVersion: SCHEMA_VERSION,
         version: 1,
@@ -102,15 +123,6 @@ export const dynamoDocStore = (target: DynamoTarget): DocStore => ({
   },
   getMany: getMany(target),
   list: list(target),
-  update: async (uid, docId, patch, version) => {
-    const fields = { title: patch.title, status: patch.status };
-    const onConflict = () => appError('VERSION_CONFLICT', 'doc changed since it was read');
-    const updated = await updateVersioned(target, docKey(uid, docId), fields, {
-      version,
-      onConflict,
-    });
-    if (!updated.ok) return updated;
-    const doc = toDoc(updated.value);
-    return doc.ok ? ok(doc.value.value) : doc;
-  },
+  update: update(target),
+  remove: (uid, docId) => deleteItem(target, docKey(uid, docId)),
 });

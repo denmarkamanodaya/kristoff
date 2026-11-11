@@ -204,3 +204,48 @@ IAM per Lambda: only the table/index actions, bucket prefix and SSM parameters i
   `localStorage` key `kristoff.theme` (values `light|dark`), read/written only by `web/services/prefs.js`, wrapped in
   try/catch (falls back to Light). Dark mode redefines the colour tokens under `:root[data-theme="dark"]`; no
   selector duplication. Session tokens are still never stored.
+
+## v2 (2026-11-12, owner request): projects, pin, file delete, follow-ups, timing, large-PDF parts
+
+### Chats: pin + project
+- `ChatSummary`/`Chat` gain `pinned: boolean` (default false) and `projectId: Id | null`.
+- `PATCH /v1/chats/{id}` accepts `pinned?: boolean`, `projectId?: Id | null` (with title/docIds; ≥ 1 field). Unknown
+  project → `PROJECT_NOT_FOUND` (404, resync).
+- `GET /v1/chats` order unchanged (newest first); the web groups Pinned / Projects / Recents.
+
+### Projects
+`Project { id, name 1..80, createdAt, updatedAt }`. Cap 50 per owner (`PROJECT_LIMIT_REACHED`, 409).
+| Method + path | Request | 200 |
+|---|---|---|
+| `GET /v1/projects` | — | `{ items: Project[] }` (name order, ≤ 50) |
+| `POST /v1/projects` | `{ name }` | `{ project }` |
+| `PATCH /v1/projects/{id}` | `{ name }` | `{ project }` |
+| `DELETE /v1/projects/{id}` | — | `{ deleted: true }` — its chats get `projectId = null` first (GSI1 query of the owner's chats, filter in code, conditional UpdateItem each), then the project item is deleted |
+Key `OWNER#<uid>` / `PROJECT#<id>`. Lambdas `projects-list|create|rename|delete`.
+
+### File delete (real)
+- `DELETE /v1/docs/{id}` → `{ deleted: true }`: removes the docId (and its part ids) from every owner chat's `docIds`,
+  deletes **every S3 version** of the doc's objects (original + parts; `ListObjectVersions` on the prefix, then
+  `DeleteObject` with `VersionId`), then the doc item. Old citations keep `docTitle`; their link → `DOC_NOT_FOUND`
+  (web shows "file deleted"). Lambda `docs-delete` (timeout 60 s). Needs `s3:ListBucketVersions` on the bucket
+  (prefix-conditioned) and `s3:DeleteObject`, `s3:DeleteObjectVersion` on `docs/<uid>/*` — boundary change.
+
+### Answer extras
+- `Message.durationMs: int | null` (assistant: ms from request start to final event).
+- `Message.followUps: string[]` (0..5, each 1..120). After the main answer, one Haiku call (`FOLLOWUP_MODEL_ID` env,
+  prod `claude-haiku-5-5`, `max_tokens` 400, timeout 15 s) with the question + first 2,000 chars of the answer,
+  structured JSON output validated by Zod. New SSE event `followups` `{ followUps }` sent before `done`. Any
+  failure → `[]`, logged as `warn`, never an error event. Not counted in the daily cap; its tokens are added to usage.
+
+### Large PDFs (Phase 6)
+- Upload limit becomes 209,715,200 bytes (200 MB). `POST /v1/docs` size cap updated.
+- `confirm`: a PDF > 30 MB or > 100 pages gets `status: "processing"` and an async invoke of Lambda `docs-split`
+  (memory 3008 MB, timeout 300 s, `pdf-lib` 1.17.1). It writes parts `docs/<uid>/<docId>/part-<n>.pdf` of ≤ 100 pages
+  and ≤ 30 MB each, then sets `status: "ready"` and `parts: [{ n, startPage, endPage, size }]`. Failure →
+  `status: "failed"` (web offers delete). Small PDFs stay as today (`parts: []`).
+- `Doc` gains `pageCount: int | null`, `parts: Part[]`, status `pending|processing|ready|failed`.
+- Attachment ids in `docIds`: `<docId>` (whole doc; allowed only when `parts` is empty) or `<docId>:p<n>` (one part).
+  Regex `^[a-f0-9]{16}(:p[0-9]{1,3})?$`. The ask Lambda sends each attached part as its own document block titled
+  `"<title> (pp. a–b)"`; citation pages are mapped back to original page numbers (`startPage + page − 1`).
+- `GET /v1/docs/{id}/link?part=n` (optional) links a part; the web opens the original-page link via the part that
+  holds that page.

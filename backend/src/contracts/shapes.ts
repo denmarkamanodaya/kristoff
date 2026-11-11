@@ -8,7 +8,12 @@ import {
   MAX_CURSOR,
   MAX_DOC_IDS_CEILING,
   MAX_DOC_TITLE,
+  MAX_FOLLOW_UP,
+  MAX_FOLLOW_UPS,
+  MAX_PROJECT_NAME,
+  MAX_PROJECTS,
   MAX_MESSAGE_TEXT,
+  MAX_PARTS,
   MAX_QUOTE,
   MAX_UPLOAD_BYTES,
 } from '../domain/limits.js';
@@ -31,14 +36,32 @@ export const UsageWire = z
   .object({ input: count, output: count, cacheRead: count, cacheWrite: count })
   .strict();
 
+/** One part of a large document (original 1-based page range, size in bytes). */
+const DocPartWire = z
+  .object({
+    n: z.number().int().min(1).max(MAX_PARTS),
+    startPage: z.number().int().min(1).max(1_000_000),
+    endPage: z.number().int().min(1).max(1_000_000),
+    size: z.number().int().min(1).max(MAX_UPLOAD_BYTES),
+  })
+  .strict();
+
+/** An entry of a chat's `docIds`: `<docId>` (whole doc) or `<docId>:p<n>` (one part). */
+export const AttachmentId = z
+  .string()
+  .max(21)
+  .regex(/^[a-f0-9]{16}(:p[0-9]{1,3})?$/);
+
 /** A library document. */
 export const DocWire = z
   .object({
     id: Id,
     title: z.string().max(MAX_DOC_TITLE),
     size: z.number().int().min(1).max(MAX_UPLOAD_BYTES),
-    status: z.enum(['pending', 'ready']),
+    status: z.enum(['pending', 'processing', 'ready', 'failed']),
     createdAt: Instant,
+    pageCount: z.number().int().min(1).max(1_000_000).nullable(),
+    parts: z.array(DocPartWire).max(MAX_PARTS),
   })
   .strict();
 
@@ -59,13 +82,18 @@ export const ChatSummaryWire = z
   .object({
     id: Id,
     title: z.string().max(MAX_CHAT_TITLE),
-    docIds: z.array(Id).max(MAX_DOC_IDS_CEILING),
+    docIds: z.array(AttachmentId).max(MAX_DOC_IDS_CEILING),
     updatedAt: Instant,
+    pinned: z.boolean(),
+    projectId: Id.nullable(),
   })
   .strict();
 
 /** A chat with its creation instant. */
 export const ChatWire = ChatSummaryWire.extend({ createdAt: Instant }).strict();
+
+/** One suggested follow-up question. */
+const FollowUpText = z.string().min(1).max(MAX_FOLLOW_UP);
 
 /** A stored message. */
 export const MessageWire = z
@@ -81,6 +109,8 @@ export const MessageWire = z
     model: z.string().max(128).nullable(),
     stopReason: z.string().max(64).nullable(),
     at: Instant,
+    durationMs: z.number().int().min(0).max(3_600_000).nullable(),
+    followUps: z.array(FollowUpText).max(MAX_FOLLOW_UPS),
   })
   .strict();
 
@@ -134,3 +164,22 @@ export const TextEvent = z.object({ text: z.string().max(MAX_MESSAGE_TEXT) }).st
 export const DoneEvent = z.object({ message: MessageWire, usage: UsageWire }).strict();
 /** `DELETE /v1/chats/{id}` 200. */
 export const DeletedResponse = z.object({ deleted: z.literal(true) }).strict();
+/** A project. */
+export const ProjectWire = z
+  .object({
+    id: Id,
+    name: z.string().max(MAX_PROJECT_NAME),
+    createdAt: Instant,
+    updatedAt: Instant,
+  })
+  .strict();
+/** `GET /v1/projects` 200. */
+export const ProjectsResponse = z
+  .object({ items: z.array(ProjectWire).max(MAX_PROJECTS) })
+  .strict();
+/** `POST /v1/projects` and `PATCH /v1/projects/{id}` 200. */
+export const ProjectResponse = z.object({ project: ProjectWire }).strict();
+/** Stream `followups` event data. */
+export const FollowUpsEvent = z
+  .object({ followUps: z.array(FollowUpText).max(MAX_FOLLOW_UPS) })
+  .strict();

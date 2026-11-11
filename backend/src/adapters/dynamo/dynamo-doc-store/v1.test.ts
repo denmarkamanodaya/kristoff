@@ -11,6 +11,8 @@ const ROW = {
   status: 'ready',
   createdAt: '2026-11-12T00:00:00.000Z',
   s3Key: 'k',
+  pageCount: 10,
+  parts: [],
   schemaVersion: 1,
   version: 3,
 };
@@ -33,6 +35,8 @@ describe('dynamo-doc-store v1', () => {
             size: 1234,
             status: 'ready',
             createdAt: '2026-11-12T00:00:00.000Z',
+            pageCount: 10,
+            parts: [],
             s3Key: 'docs/u1/a.pdf',
             schemaVersion: 1,
             version: 1,
@@ -168,6 +172,41 @@ describe('dynamo-doc-store v1', () => {
           'error.type': 'ProvisionedThroughputExceededException',
         },
       },
+    });
+  });
+
+  it('removes the doc item by its owner key', async () => {
+    const { client, calls } = stubClient({});
+
+    expect(await dynamoDocStore({ client, table: 't' }).remove('u1', 'aaaaaaaaaaaaaaaa')).toEqual({
+      ok: true,
+      value: undefined,
+    });
+    expect(calls[0]).toEqual({
+      command: 'DeleteCommand',
+      input: { TableName: 't', Key: { PK: 'OWNER#u1', SK: 'DOC#aaaaaaaaaaaaaaaa' } },
+    });
+  });
+
+  it('reads a doc written before v2 (no pageCount, no parts) with null and []', async () => {
+    const legacy = {
+      PK: 'OWNER#u1',
+      SK: 'DOC#aaaaaaaaaaaaaaaa',
+      title: 'T',
+      size: 1,
+      status: 'ready',
+      createdAt: 'a',
+      s3Key: 'k',
+      schemaVersion: 1,
+      version: 1,
+    };
+    const { client } = stubClient({ Item: legacy });
+
+    expect(
+      await dynamoDocStore({ client, table: 't' }).get('u1', 'aaaaaaaaaaaaaaaa'),
+    ).toMatchObject({
+      ok: true,
+      value: { value: { pageCount: null, parts: [] } },
     });
   });
 });

@@ -41,6 +41,10 @@ export const memoryDocStore = () => {
       const next = start + limit < all.length ? String(start + limit) : null;
       return Promise.resolve(ok({ items, nextCursor: next }));
     },
+    remove: (uid, id) => {
+      rows.delete(k(uid, id));
+      return Promise.resolve(ok(undefined));
+    },
     update: (uid, id, patch: DocPatch, version) => {
       const row = rows.get(k(uid, id));
       if (!row) return Promise.resolve(err(appError('DOC_NOT_FOUND', 'no')));

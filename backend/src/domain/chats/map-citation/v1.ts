@@ -1,5 +1,6 @@
 // Maps a model-reported citation to the stored Citation (docs/contract.md "Shapes"), as the
-// original server.js did: title falls back to the attached doc, end page made inclusive.
+// original server.js did (end page made inclusive), plus v2: a part's cited pages are mapped back to
+// original page numbers (`startPage + page − 1`).
 // Plan: ~/.claude/plans/hey-claude-we-have-gentle-ripple.md.
 import { MAX_DOC_TITLE, MAX_QUOTE } from '../../limits.js';
 import type { Citation } from '../../model.js';
@@ -26,13 +27,14 @@ export const mapCitation = (
   n: number,
 ): Citation => {
   const doc = docs[source.documentIndex];
-  const title = source.documentTitle ?? doc?.title ?? FALLBACK_TITLE;
+  const title = doc?.libraryTitle ?? source.documentTitle ?? FALLBACK_TITLE;
+  const offset = doc?.pageOffset ?? 0;
   return {
     n,
     docId: doc?.id ?? null,
     docTitle: title.slice(0, MAX_DOC_TITLE),
-    page: source.startPage,
-    endPage: source.endPageExclusive === null ? null : source.endPageExclusive - 1,
+    page: source.startPage === null ? null : source.startPage + offset,
+    endPage: source.endPageExclusive === null ? null : source.endPageExclusive - 1 + offset,
     quote: source.citedText.slice(0, MAX_QUOTE),
   };
 };

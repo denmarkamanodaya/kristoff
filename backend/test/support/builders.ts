@@ -8,6 +8,8 @@ export const aDoc = (over: Partial<Doc> = {}): Doc => ({
   size: 1234,
   status: 'ready',
   createdAt: '2026-11-12T00:00:00.000Z',
+  pageCount: 10,
+  parts: [],
   ...over,
 });
 
@@ -18,6 +20,8 @@ export const aChat = (over: Partial<Chat> = {}): Chat => ({
   docIds: [],
   createdAt: '2026-11-12T00:00:00.000Z',
   updatedAt: '2026-11-12T00:00:00.000Z',
+  pinned: false,
+  projectId: null,
   ...over,
 });
 
@@ -31,5 +35,7 @@ export const aMessage = (over: Partial<Message> = {}): Message => ({
   model: null,
   stopReason: null,
   at: '2026-11-12T00:00:00.000Z',
+  durationMs: null,
+  followUps: [],
   ...over,
 });

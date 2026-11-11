@@ -4,9 +4,15 @@ import type { Role, Usage } from '../model.js';
 
 /** A ready document handed to the model by a short-lived presigned URL. */
 export interface AttachedDoc {
+  /** The library doc id (also for a part). */
   readonly id: string;
+  /** The document title the model sees (a part's title names its page range). */
   readonly title: string;
+  /** The library title, used on citations. */
+  readonly libraryTitle: string;
   readonly url: string;
+  /** Added to a cited page to get the original page (0 for a whole doc, startPage − 1 for a part). */
+  readonly pageOffset: number;
 }
 
 /** One content block of a turn: a cited PDF, or plain text. */

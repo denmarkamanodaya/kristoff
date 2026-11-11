@@ -30,3 +30,9 @@ variable "anthropic_timeout_ms" {
   type        = number
   nullable    = false
 }
+
+variable "followup_model_id" {
+  description = "FOLLOWUP_MODEL_ID: Anthropic model id of the follow-up-questions call."
+  type        = string
+  nullable    = false
+}

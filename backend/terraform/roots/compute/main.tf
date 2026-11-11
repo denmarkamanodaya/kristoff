@@ -61,6 +61,7 @@ module "compute" {
   max_tokens           = var.max_tokens
   daily_question_cap   = var.daily_question_cap
   anthropic_timeout_ms = var.anthropic_timeout_ms
+  followup_model_id    = var.followup_model_id
 
   # No depends_on on module.stage_guard: see roots/platform/main.tf.
 }

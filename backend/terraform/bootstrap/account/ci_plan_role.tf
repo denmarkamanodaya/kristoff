@@ -37,6 +37,7 @@ data "aws_iam_policy_document" "ci_plan" {
       "iam:ListRoleTags", "iam:ListInstanceProfilesForRole", "iam:GetPolicy", "iam:GetPolicyVersion",
       "iam:ListPolicyVersions", "iam:ListPolicyTags",
       "ssm:ListTagsForResource",
+      "sqs:GetQueueAttributes", "sqs:ListQueueTags",
     ]
     resources = concat(
       [
@@ -50,6 +51,7 @@ data "aws_iam_policy_document" "ci_plan" {
         "arn:aws:iam::${var.account_id}:role${local.lambda_role_path}*",
         "arn:aws:iam::${var.account_id}:policy${local.ci_role_path}*",
         module.names.ai_enabled_param_arn,
+        module.names.lambda_dlq_arn_pattern,
       ],
       local.amplify_app_arns,
       local.amplify_child_arns,

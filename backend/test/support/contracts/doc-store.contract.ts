@@ -59,5 +59,15 @@ export const docStoreContract = (name: string, make: () => Promise<DocStore>) =>
         error: { code: 'VALIDATION_FAILED' },
       });
     });
+
+    it('removes a doc under its owner only; removing again is fine', async () => {
+      const store = await make();
+      await store.create('u1', aDoc(), 'k');
+      await store.create('u2', aDoc(), 'k');
+      expect((await store.remove('u1', aDoc().id)).ok).toBe(true);
+      expect((await store.remove('u1', aDoc().id)).ok).toBe(true);
+      expect(await store.get('u1', aDoc().id)).toMatchObject({ error: { code: 'DOC_NOT_FOUND' } });
+      expect((await store.get('u2', aDoc().id)).ok).toBe(true);
+    });
   });
 };

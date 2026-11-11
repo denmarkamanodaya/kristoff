@@ -145,9 +145,19 @@ output "lambda_dynamodb_actions" {
   value       = local.lambda_dynamodb_actions
 }
 
-output "lambda_s3_actions" {
-  description = "S3 object actions a Lambda role may hold on docs/* of the docs bucket (the boundary's ceiling)."
-  value       = local.lambda_s3_actions
+output "lambda_s3_object_actions" {
+  description = "S3 object actions a Lambda role may hold on docs/* objects of the docs bucket (the boundary's ceiling)."
+  value       = local.lambda_s3_object_actions
+}
+
+output "lambda_s3_bucket_actions" {
+  description = "S3 bucket-level actions a Lambda role may hold on the docs bucket, always with an s3:prefix condition under docs/ (the boundary's ceiling)."
+  value       = local.lambda_s3_bucket_actions
+}
+
+output "lambda_dlq_arn_pattern" {
+  description = "ARN pattern of the Lambda dead-letter queues, <prefix>-<function key>-dlq (the boundary admits sqs:SendMessage on them)."
+  value       = local.lambda_dlq_arn_pattern
 }
 
 output "docs_object_prefix" {

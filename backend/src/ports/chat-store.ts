@@ -7,6 +7,9 @@ import type { Chat, ChatSummary, Message, Page, Versioned } from '../domain/mode
 export interface ChatPatch {
   readonly title?: string;
   readonly docIds?: readonly string[];
+  readonly pinned?: boolean;
+  /** `null` ungroups the chat. */
+  readonly projectId?: string | null;
   readonly updatedAt: string;
 }
 
@@ -42,4 +45,9 @@ export interface ChatStore {
   deleteMessages(chatId: string): Promise<Result<number, AppError>>;
   /** Deletes the chat item under its owner; deleting an absent chat is not an error. */
   deleteChat(uid: string, chatId: string): Promise<Result<void, AppError>>;
+  /**
+   * Sets the chat's `projectId` to null only if it is still `projectId` (one conditional update;
+   * `updatedAt` unchanged). A chat that moved meanwhile is left alone (ok).
+   */
+  clearProject(uid: string, chatId: string, projectId: string): Promise<Result<void, AppError>>;
 }

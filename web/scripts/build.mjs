@@ -7,9 +7,9 @@ import { copyVendor } from './vendor.mjs';
 import { checkSources } from './check.mjs';
 
 const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const dist = join(webRoot, 'dist');
+const dist = resolve(webRoot, process.env.OUT_DIR ?? 'dist'); // OUT_DIR: a private dev build
 const files = ['index.html', 'style.css', 'app.js'];
-const dirs = ['services'];
+const dirs = ['services', 'ui'];
 
 checkSources();
 rmSync(dist, { recursive: true, force: true });

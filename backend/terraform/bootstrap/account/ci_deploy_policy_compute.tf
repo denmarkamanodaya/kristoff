@@ -1,4 +1,5 @@
-# ci-deploy policy "compute": Lambda (functions, aliases, function URLs), logs, alarms, SNS.
+# ci-deploy policy "compute": Lambda (functions, aliases, function URLs, async invoke config), the dead-letter queues,
+# logs, alarms, SNS.
 # Trap: Terraform reads concurrency, policy, aliases, URL config and invoke config on every plan; `publish = true` plus
 # the `live` alias need the version and alias actions. Every action name is in the AWS service reference for its service.
 
@@ -13,6 +14,7 @@ data "aws_iam_policy_document" "ci_deploy_compute" {
       "lambda:GetRuntimeManagementConfig", "lambda:ListVersionsByFunction", "lambda:PublishVersion",
       "lambda:CreateAlias", "lambda:UpdateAlias", "lambda:DeleteAlias", "lambda:GetAlias", "lambda:ListAliases",
       "lambda:PutFunctionConcurrency", "lambda:DeleteFunctionConcurrency",
+      "lambda:PutFunctionEventInvokeConfig", "lambda:UpdateFunctionEventInvokeConfig", "lambda:DeleteFunctionEventInvokeConfig",
       "lambda:CreateFunctionUrlConfig", "lambda:UpdateFunctionUrlConfig", "lambda:DeleteFunctionUrlConfig",
       "lambda:GetFunctionUrlConfig",
       "lambda:AddPermission", "lambda:RemovePermission", "lambda:GetPolicy",
@@ -84,5 +86,16 @@ data "aws_iam_policy_document" "ci_deploy_compute" {
       "sns:ListSubscriptionsByTopic", "sns:ListTagsForResource", "sns:TagResource", "sns:UntagResource",
     ]
     resources = ["arn:aws:sns:${var.region}:${var.account_id}:${local.name_prefix}-*"]
+  }
+
+  # Dead-letter queues of asynchronously invoked functions (lambda-fn dlq_enabled: <function name>-dlq).
+  statement {
+    sid    = "DeadLetterQueues"
+    effect = "Allow"
+    actions = [
+      "sqs:CreateQueue", "sqs:DeleteQueue", "sqs:GetQueueAttributes", "sqs:SetQueueAttributes",
+      "sqs:TagQueue", "sqs:UntagQueue", "sqs:ListQueueTags",
+    ]
+    resources = [module.names.lambda_dlq_arn_pattern]
   }
 }

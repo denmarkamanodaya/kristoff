@@ -59,6 +59,14 @@ run "lambda_boundary_is_the_stage_names_ceiling" {
     error_message = "object actions only under docs/ of the docs bucket"
   }
   assert {
+    condition     = one([for s in data.aws_iam_policy_document.lambda_boundary.statement : s if s.sid == "S3DocVersionsList"]).resources == toset(["arn:aws:s3:::kristoff-prod-docs-123456789012"]) && toset(one(one([for s in data.aws_iam_policy_document.lambda_boundary.statement : s if s.sid == "S3DocVersionsList"]).condition).values) == toset(["docs/*"])
+    error_message = "ListBucketVersions only on the bucket and only for keys under docs/"
+  }
+  assert {
+    condition     = one([for s in data.aws_iam_policy_document.lambda_boundary.statement : s if s.sid == "InvokeStageFunctions"]).resources == toset(["arn:aws:lambda:ap-southeast-2:123456789012:function:kristoff-prod-*"])
+    error_message = "a function may invoke only kristoff-prod-* functions"
+  }
+  assert {
     condition     = one([for s in data.aws_iam_policy_document.lambda_boundary.statement : s if s.sid == "SsmReadStageParameters"]).resources == toset(["arn:aws:ssm:ap-southeast-2:123456789012:parameter/kristoff/prod/*"])
     error_message = "parameter reads only under /kristoff/prod/"
   }

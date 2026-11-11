@@ -15,8 +15,19 @@ export interface Usage {
   readonly cacheWrite: number;
 }
 
-/** Upload state of a document: `pending` until the PDF is confirmed in the bucket. */
-type DocStatus = 'pending' | 'ready';
+/**
+ * Upload state of a document: `pending` until the PDF is confirmed, `processing` while docs-split
+ * counts its pages and writes parts, then `ready` or `failed`.
+ */
+export type DocStatus = 'pending' | 'processing' | 'ready' | 'failed';
+
+/** One part of a large document: 1-based inclusive original page range and size in bytes. */
+export interface DocPart {
+  readonly n: number;
+  readonly startPage: number;
+  readonly endPage: number;
+  readonly size: number;
+}
 
 /** A library document (a PDF in the docs bucket). `createdAt` is an ISO instant. */
 export interface Doc {
@@ -25,6 +36,10 @@ export interface Doc {
   readonly size: number;
   readonly status: DocStatus;
   readonly createdAt: string;
+  /** Pages in the PDF, known once processed; null before. */
+  readonly pageCount: number | null;
+  /** Parts of a large PDF (empty for a document attached whole). */
+  readonly parts: readonly DocPart[];
 }
 
 /** A passage of an attached document the answer cites. Pages are 1-based and inclusive. */
@@ -43,6 +58,10 @@ export interface ChatSummary {
   readonly title: string;
   readonly docIds: readonly string[];
   readonly updatedAt: string;
+  /** Shown in the Pinned group. */
+  readonly pinned: boolean;
+  /** The project the chat is grouped under, or null. */
+  readonly projectId: string | null;
 }
 
 /** A chat with its creation instant. */
@@ -63,6 +82,16 @@ export interface Message {
   readonly model: string | null;
   readonly stopReason: string | null;
   readonly at: string;
+  /** Assistant: ms from request start to the final event; null for user messages. */
+  readonly durationMs: number | null;
+  /** Assistant: up to 5 suggested next questions (each 1..120 chars); [] for user messages. */
+  readonly followUps: readonly string[];
+}
+
+/** Suggested next questions and the tokens the suggestion call used (null when it failed). */
+export interface FollowUps {
+  readonly questions: readonly string[];
+  readonly usage: Usage | null;
 }
 
 /** A stored value with its optimistic-lock version. */
@@ -75,6 +104,14 @@ export interface Versioned<T> {
 export interface Page<T> {
   readonly items: readonly T[];
   readonly nextCursor: string | null;
+}
+
+/** A named group of chats. Instants are ISO. */
+export interface Project {
+  readonly id: string;
+  readonly name: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
 }
 
 /** A zero usage, the start of every counter. */

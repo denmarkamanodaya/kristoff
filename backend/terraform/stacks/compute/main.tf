@@ -1,4 +1,4 @@
-# compute stack — the 14 Lambda functions of Kristoff, the HTTP API with its Lambda REQUEST authorizer, the streaming
+# compute stack — the Lambda functions of Kristoff, the HTTP API with its Lambda REQUEST authorizer, the streaming
 # function URL of ask-stream, and the alarms. Composition root of the compute layer: it only wires modules. Platform
 # resources (table, docs bucket, SSM parameters, alerts topic) are addressed by NAME through stage-names, never through
 # remote state. Names, routes, timeouts and throttles: docs/contract.md ("Routes", "Build artefacts").
@@ -34,10 +34,13 @@ locals {
     DAILY_QUESTION_CAP   = tostring(var.daily_question_cap)
     SESSION_TTL_SECONDS  = tostring(var.session_ttl_seconds)
     ANTHROPIC_TIMEOUT_MS = tostring(var.anthropic_timeout_ms)
-    SSM_ANTHROPIC_KEY    = module.names.anthropic_key_param_name
-    SSM_TOTP_SECRET      = module.names.totp_secret_param_name
-    SSM_SESSION_KEY      = module.names.session_key_param_name
-    SSM_AI_ENABLED       = module.names.ai_enabled_param_name
+    FOLLOWUP_MODEL_ID    = var.followup_model_id
+    # The qualified name docs-confirm invokes (InvocationType Event); its role may invoke exactly this alias.
+    DOCS_SPLIT_FUNCTION = "${module.names.prefix}-docs-split:${local.alias_name}"
+    SSM_ANTHROPIC_KEY   = module.names.anthropic_key_param_name
+    SSM_TOTP_SECRET     = module.names.totp_secret_param_name
+    SSM_SESSION_KEY     = module.names.session_key_param_name
+    SSM_AI_ENABLED      = module.names.ai_enabled_param_name
   }
 
   # The SSM_* env keys and the parameter ARN each one names.

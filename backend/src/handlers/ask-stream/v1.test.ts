@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CitationWire, DoneEvent, TextEvent } from '../../contracts/shapes.js';
+import { CitationWire, DoneEvent, FollowUpsEvent, TextEvent } from '../../contracts/shapes.js';
 import { ErrorEnvelope } from '../../contracts/errors.js';
 import type { AnswerSink } from '../../ports/answer-sink.js';
 import { appError } from '../../shared/errors/app-error.js';
@@ -79,6 +79,7 @@ describe('ask-stream handler v1', () => {
         sink.open();
         sink.text('Bars');
         sink.citation(CITATION);
+        sink.followUps(['What is laches?']);
         return Promise.resolve(ok({ message, usage: USAGE }));
       }),
     );
@@ -98,11 +99,12 @@ describe('ask-stream handler v1', () => {
       },
     ]);
     const events = parseSse(out.chunks);
-    expect(events.map((e) => e.event)).toEqual(['text', 'citation', 'done']);
+    expect(events.map((e) => e.event)).toEqual(['text', 'citation', 'followups', 'done']);
+    expect(FollowUpsEvent.parse(events[2]?.data)).toEqual({ followUps: ['What is laches?'] });
     expect([
       TextEvent.parse(events[0]?.data),
       CitationWire.parse(events[1]?.data),
-      DoneEvent.parse(events[2]?.data),
+      DoneEvent.parse(events[3]?.data),
     ]).toEqual([{ text: 'Bars' }, CITATION, { message, usage: USAGE }]);
     expect(out.ended).toBe(1);
   });

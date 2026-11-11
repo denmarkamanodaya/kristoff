@@ -66,7 +66,7 @@ module.exports = {
       name: 'sdk-only-in-adapters-and-composition',
       severity: 'error',
       from: { pathNot: '^src/(adapters|composition)' },
-      to: { path: '@aws-sdk|@anthropic-ai' },
+      to: { path: '@aws-sdk|@anthropic-ai|pdf-lib' },
     },
   ],
   options: {

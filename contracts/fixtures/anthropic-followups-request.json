@@ -1,0 +1,40 @@
+{
+  "description": "Wire fixture for the AnthropicFollowUpSuggester (docs/contract.md 'v2 Answer extras'). 'input' is the port input; 'body' is the exact Messages API body minus 'system' (the test inserts FOLLOW_UP_PROMPT from backend/src/contracts/model-config.ts after max_tokens, before thinking); 'timeoutMs' is the per-request timeout option.",
+  "input": {
+    "question": "What is estoppel?",
+    "answerExcerpt": "Estoppel bars a party [1] from denying."
+  },
+  "body": {
+    "model": "claude-haiku-5-5",
+    "max_tokens": 400,
+    "thinking": {
+      "type": "disabled"
+    },
+    "output_config": {
+      "effort": "low",
+      "format": {
+        "type": "json_schema",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "followUps": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": ["followUps"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "messages": [
+      {
+        "role": "user",
+        "content": "<question>\nWhat is estoppel?\n</question>\n<answer_start>\nEstoppel bars a party [1] from denying.\n</answer_start>"
+      }
+    ]
+  },
+  "timeoutMs": 15000
+}

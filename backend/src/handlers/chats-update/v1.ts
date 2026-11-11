@@ -25,10 +25,12 @@ export interface ChatsUpdateHandlerDeps {
  */
 export const createChatsUpdateHandler = (deps: ChatsUpdateHandlerDeps) =>
   pathBodyRoute(deps.http, 'chats-update', UpdateChatRequest, async (principal, id, body) => {
-    const { title, docIds } = body;
+    const { title, docIds, pinned, projectId } = body;
     const changes = {
       ...(title === undefined ? {} : { title }),
       ...(docIds === undefined ? {} : { docIds }),
+      ...(pinned === undefined ? {} : { pinned }),
+      ...(projectId === undefined ? {} : { projectId }),
     };
     return toBody(await deps.updateChat(principal, id, changes), (chat) => ({ chat }));
   });

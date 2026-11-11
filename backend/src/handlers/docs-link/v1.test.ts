@@ -13,15 +13,21 @@ describe('docs-link handler v1', () => {
     const seen: unknown[] = [];
     const handler = createDocsLinkHandler({
       http: httpDeps(),
-      getDocLink: (p, id) => (seen.push([p, id]), Promise.resolve(ok(LINK))),
+      getDocLink: (p, id, part) => (seen.push([p, id, part]), Promise.resolve(ok(LINK))),
     });
 
     const res = await handler(httpEvent({ routeKey: ROUTE, path: { id: 'aaaaaaaaaaaaaaaa' } }));
+    await handler(
+      httpEvent({ routeKey: ROUTE, path: { id: 'aaaaaaaaaaaaaaaa' }, query: { part: '12' } }),
+    );
 
     expect([res.statusCode, LinkResponse.parse(bodyOf(res)), seen]).toEqual([
       200,
       LINK,
-      [[{ uid: 'kristoff' }, 'aaaaaaaaaaaaaaaa']],
+      [
+        [{ uid: 'kristoff' }, 'aaaaaaaaaaaaaaaa', undefined],
+        [{ uid: 'kristoff' }, 'aaaaaaaaaaaaaaaa', 12],
+      ],
     ]);
   });
 
@@ -34,5 +40,20 @@ describe('docs-link handler v1', () => {
     expect(
       (await handler(httpEvent({ routeKey: ROUTE, path: { id: 'aaaaaaaaaaaaaaaa' } }))).statusCode,
     ).toBe(404);
+  });
+
+  it.each([['0'], ['1000'], ['x']])('answers 400 for part=%s', async (part) => {
+    const handler = createDocsLinkHandler({
+      http: httpDeps(),
+      getDocLink: () => Promise.reject(new Error('called')),
+    });
+
+    expect(
+      (
+        await handler(
+          httpEvent({ routeKey: ROUTE, path: { id: 'aaaaaaaaaaaaaaaa' }, query: { part } }),
+        )
+      ).statusCode,
+    ).toBe(400);
   });
 });

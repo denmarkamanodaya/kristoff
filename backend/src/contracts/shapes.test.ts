@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import type { Chat, ChatSummary, Citation, Doc, Message, Usage } from '../domain/model.js';
+import type { Chat, ChatSummary, Citation, Doc, Message, Project, Usage } from '../domain/model.js';
 import { ERROR_CODES, WIRE_ERRORS } from './errors.js';
 import { UpdateChatRequest, VerifyRequest } from './requests.js';
 import type {
@@ -8,6 +8,7 @@ import type {
   CitationWire,
   DocWire,
   MessageWire,
+  ProjectWire,
   UsageWire,
 } from './shapes.js';
 import type { z } from 'zod';
@@ -30,6 +31,7 @@ describe('contract shapes', () => {
     expectTypeOf<ChatSummary>().toExtend<WireOf<typeof ChatSummaryWire>>();
     expectTypeOf<Chat>().toExtend<WireOf<typeof ChatWire>>();
     expectTypeOf<Message>().toExtend<WireOf<typeof MessageWire>>();
+    expectTypeOf<Project>().toExtend<WireOf<typeof ProjectWire>>();
   });
 
   it('maps every wire code to the contract status table', () => {
@@ -45,6 +47,8 @@ describe('contract shapes', () => {
       UNAUTHENTICATED: 401,
       DOC_NOT_FOUND: 404,
       CHAT_NOT_FOUND: 404,
+      PROJECT_NOT_FOUND: 404,
+      PROJECT_LIMIT_REACHED: 409,
       UPLOAD_INVALID: 422,
       DAILY_CAP_REACHED: 429,
       AI_DISABLED: 503,

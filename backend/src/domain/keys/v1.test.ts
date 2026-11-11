@@ -7,10 +7,15 @@ import {
   CHAT_SK_PREFIX,
   docKey,
   docObjectKey,
+  docPartKey,
+  docPartsPrefix,
   DOC_SK_PREFIX,
   messageKey,
   MESSAGE_SK_PREFIX,
   ownerPk,
+  projectCountKey,
+  projectKey,
+  PROJECT_SK_PREFIX,
   totpKey,
   usageDayKey,
   usageTotalKey,
@@ -57,5 +62,22 @@ describe('keys v1', () => {
 
   it('builds the S3 key from the owner and the doc id only', () => {
     expect(docObjectKey('kristoff', '0123456789abcdef')).toBe('docs/kristoff/0123456789abcdef.pdf');
+  });
+
+  it('puts projects and their counter under the owner, the counter outside the PROJECT# prefix', () => {
+    expect([projectKey('kristoff', 'p1'), projectCountKey('kristoff'), PROJECT_SK_PREFIX]).toEqual([
+      { PK: 'OWNER#kristoff', SK: 'PROJECT#p1' },
+      { PK: 'OWNER#kristoff', SK: 'COUNT#PROJECTS' },
+      'PROJECT#',
+    ]);
+    expect(projectCountKey('kristoff').SK.startsWith(PROJECT_SK_PREFIX)).toBe(false);
+  });
+
+  it('puts parts under docs/<uid>/<docId>/, which the whole-doc key does not share', () => {
+    expect([docPartsPrefix('k', 'a1'), docPartKey('k', 'a1', 3)]).toEqual([
+      'docs/k/a1/',
+      'docs/k/a1/part-3.pdf',
+    ]);
+    expect(docObjectKey('k', 'a1').startsWith(docPartsPrefix('k', 'a1'))).toBe(false);
   });
 });

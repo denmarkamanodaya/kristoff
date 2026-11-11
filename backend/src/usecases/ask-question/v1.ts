@@ -11,14 +11,26 @@ import {
   MAX_MESSAGE_TEXT,
   NEW_CHAT_TITLE,
 } from '../../domain/limits.js';
-import type { Chat, Citation, Message, Principal, Usage, Versioned } from '../../domain/model.js';
+import type {
+  Chat,
+  Citation,
+  FollowUps,
+  Message,
+  Principal,
+  Usage,
+  Versioned,
+} from '../../domain/model.js';
 import { secondsUntilNextUsageDay, usageDay } from '../../domain/usage/usage-day/index.js';
 import { RETRY_AFTER_DETAIL } from '../../contracts/errors.js';
 import type { AnswerSink } from '../../ports/answer-sink.js';
 import { appError, type AppError } from '../../shared/errors/app-error.js';
 import { err, ok, type Result } from '../../shared/result/result.js';
-import { docObjectKey } from '../../domain/keys/index.js';
+import { docObjectKey, docPartKey } from '../../domain/keys/index.js';
+import type { AttachmentTarget } from '../../domain/docs/attachment-target/index.js';
+import { loadAttachments } from '../load-attachments/index.js';
 import type { AnswerModel } from '../../ports/answer-model.js';
+import type { FollowUpSuggester } from '../../ports/follow-up-suggester.js';
+import { sumUsage } from '../../domain/usage/sum-usage/index.js';
 import type { ChatStore } from '../../ports/chat-store.js';
 import type { Clock } from '../../ports/clock.js';
 import type { DocStore } from '../../ports/doc-store.js';
@@ -26,7 +38,7 @@ import type { FileStore } from '../../ports/file-store.js';
 import type { FlagReader } from '../../ports/flag-reader.js';
 import type { IdGenerator } from '../../ports/id-generator.js';
 import type { UsageMeter } from '../../ports/usage-meter.js';
-import { MODEL_DOC_URL_TTL_SECONDS } from '../../domain/limits.js';
+import { FOLLOW_UP_ANSWER_CHARS, MODEL_DOC_URL_TTL_SECONDS } from '../../domain/limits.js';
 import { loadOwnedChat } from '../load-owned-chat/index.js';
 
 /** Model settings from the env (`MODEL_IDS`, `MAX_TOKENS`, `MAX_HISTORY_TURNS`, `DAILY_QUESTION_CAP`). */
@@ -44,6 +56,7 @@ export interface AskQuestionDeps {
   readonly docs: DocStore;
   readonly files: FileStore;
   readonly model: AnswerModel;
+  readonly followUps: FollowUpSuggester;
   readonly meter: UsageMeter;
   readonly flags: FlagReader;
   readonly ids: IdGenerator;
@@ -51,26 +64,43 @@ export interface AskQuestionDeps {
   readonly config: AskConfig;
 }
 
-/** The chat's ready docs with a 900 s presigned GET each, in the chat's order. */
+/** The model document for one attachment: whole doc, or one part titled with its page range. */
+const toAttached = async (
+  deps: AskQuestionDeps,
+  principal: Principal,
+  target: AttachmentTarget,
+): Promise<Result<AttachedDoc, AppError>> => {
+  const { doc } = target;
+  const key =
+    target.kind === 'whole'
+      ? docObjectKey(principal.uid, doc.id)
+      : docPartKey(principal.uid, doc.id, target.part.n);
+  const url = await deps.files.presignGet(key, MODEL_DOC_URL_TTL_SECONDS);
+  if (!url.ok) return url;
+  const base = { id: doc.id, libraryTitle: doc.title, url: url.value.url };
+  if (target.kind === 'whole') return ok({ ...base, title: doc.title, pageOffset: 0 });
+  const { startPage, endPage } = target.part;
+  const title = `${doc.title} (pp. ${String(startPage)}\u2013${String(endPage)})`;
+  return ok({ ...base, title, pageOffset: startPage - 1 });
+};
+
+/**
+ * The chat's usable attachments (whole docs and parts), each with a 900 s presigned GET, in the
+ * chat's order. Attachments that are no longer usable (deleted, failed) are skipped.
+ */
 const attachDocs = async (
   deps: AskQuestionDeps,
   principal: Principal,
-  docIds: readonly string[],
+  attachmentIds: readonly string[],
 ): Promise<Result<AttachedDoc[], AppError>> => {
-  const found = await deps.docs.getMany(principal.uid, docIds);
-  if (!found.ok) return found;
-  const ready = found.value.filter((d) => d.status === 'ready');
-  const byId = new Map(ready.map((d) => [d.id, d]));
+  const targets = await loadAttachments(deps.docs, principal.uid, attachmentIds);
+  if (!targets.ok) return targets;
   const attached: AttachedDoc[] = [];
-  for (const id of docIds) {
-    const doc = byId.get(id);
-    if (doc === undefined) continue;
-    const url = await deps.files.presignGet(
-      docObjectKey(principal.uid, id),
-      MODEL_DOC_URL_TTL_SECONDS,
-    );
-    if (!url.ok) return url;
-    attached.push({ id, title: doc.title, url: url.value.url });
+  for (const target of targets.value) {
+    if (target === undefined) continue;
+    const doc = await toAttached(deps, principal, target);
+    if (!doc.ok) return doc;
+    attached.push(doc.value);
   }
   return ok(attached);
 };
@@ -148,6 +178,8 @@ const storeQuestion = async (
     model: null,
     stopReason: null,
     at,
+    durationMs: null,
+    followUps: [],
   };
   const stored = await deps.chats.putMessage(chat.value.id, message);
   if (!stored.ok) return stored;
@@ -200,13 +232,37 @@ const streamAnswer = async (
   return { draft, end, model: call.model };
 };
 
+/** The request a finished answer belongs to. */
+interface AnswerContext {
+  readonly principal: Principal;
+  readonly chatId: string;
+  readonly question: string;
+  /** Clock reading when the request started (epoch ms). */
+  readonly startedMs: number;
+  readonly sink: AnswerSink;
+}
+
+/** Suggested next questions for a successful answer (none after a failed one), sent to the sink. */
+const suggestFollowUps = async (
+  deps: AskQuestionDeps,
+  ctx: AnswerContext,
+  answer: Answer,
+): Promise<FollowUps> => {
+  if (!answer.end.ok) return { questions: [], usage: null };
+  const answerExcerpt = answer.draft.text.slice(0, FOLLOW_UP_ANSWER_CHARS);
+  const suggested = await deps.followUps.suggest({ question: ctx.question, answerExcerpt });
+  ctx.sink.followUps(suggested.questions);
+  return suggested;
+};
+
 const storeAnswer = async (
   deps: AskQuestionDeps,
-  principal: Principal,
-  chatId: string,
+  ctx: AnswerContext,
   answer: Answer,
 ): Promise<Result<AskOutcome, AppError>> => {
   const { draft, end } = answer;
+  const followUps = await suggestFollowUps(deps, ctx, answer);
+  const { principal, chatId } = ctx;
   const note = !end.ok ? FAILED_NOTE : end.value.stopReason === 'max_tokens' ? CUT_OFF_NOTE : '';
   const message: Message = {
     id: deps.ids.newUlid(),
@@ -217,6 +273,8 @@ const storeAnswer = async (
     model: answer.model,
     stopReason: end.ok ? end.value.stopReason : 'error',
     at: new Date(deps.clock.now()).toISOString(),
+    durationMs: Math.max(0, deps.clock.now() - ctx.startedMs),
+    followUps: followUps.questions,
   };
   const stored = await deps.chats.putMessage(chatId, message);
   if (!stored.ok) return stored;
@@ -224,7 +282,7 @@ const storeAnswer = async (
   const counted = await deps.meter.addTokens(
     principal.uid,
     usageDay(deps.clock.now()),
-    end.value.usage,
+    sumUsage(end.value.usage, followUps.usage),
   );
   return counted.ok ? ok({ message, usage: end.value.usage }) : counted;
 };
@@ -250,6 +308,7 @@ export const askQuestion =
     question: Question,
     sink: AnswerSink,
   ): Promise<Result<AskOutcome, AppError>> => {
+    const startedMs = deps.clock.now();
     const { text } = question;
     const model = chooseModel(deps.config.modelIds, question.model);
     if (!model.ok) return model;
@@ -273,5 +332,5 @@ export const askQuestion =
       deps.config.maxHistoryTurns,
     ];
     const answer = await streamAnswer(deps, { model: model.value, turns }, docs.value, sink);
-    return storeAnswer(deps, principal, chatId, answer);
+    return storeAnswer(deps, { principal, chatId, question: text, startedMs, sink }, answer);
   };

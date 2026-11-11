@@ -31,6 +31,8 @@ describe('create-doc-upload v1', () => {
           size: 1234,
           status: 'pending',
           createdAt: '2026-11-12T01:00:00.000Z',
+          pageCount: null,
+          parts: [],
         },
         uploadUrl: 'https://put.example/docs/kristoff/0000000000000001.pdf',
         uploadHeaders: { 'Content-Type': 'application/pdf' },

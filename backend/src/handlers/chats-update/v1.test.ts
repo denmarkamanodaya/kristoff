@@ -18,11 +18,13 @@ describe('chats-update handler v1', () => {
 
     const res = await handler(httpEvent({ routeKey: ROUTE, path, body: { title: 'T' } }));
     await handler(httpEvent({ routeKey: ROUTE, path, body: { docIds: [] } }));
+    await handler(httpEvent({ routeKey: ROUTE, path, body: { pinned: true, projectId: null } }));
 
     expect([res.statusCode, ChatResponse.parse(bodyOf(res))]).toEqual([200, { chat: aChat() }]);
     expect(seen).toEqual([
       [{ uid: 'kristoff' }, 'cccccccccccccccc', { title: 'T' }],
       [{ uid: 'kristoff' }, 'cccccccccccccccc', { docIds: [] }],
+      [{ uid: 'kristoff' }, 'cccccccccccccccc', { pinned: true, projectId: null }],
     ]);
   });
 

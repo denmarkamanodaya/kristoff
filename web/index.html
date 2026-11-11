@@ -23,15 +23,19 @@
 
 <!-- App -->
 <div id="app" class="app" hidden>
-  <aside class="sidebar">
+  <div class="topbar">
+    <button type="button" id="drawerBtn" class="icon-btn" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false"><span data-icon="menu"></span></button>
+    <div class="brand small"><div class="mark">K</div><span>Kristoff</span></div>
+  </div>
+  <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
+  <aside id="sidebar" class="sidebar">
     <div class="brand"><div class="mark">K</div><span>Kristoff</span></div>
     <button id="newThread" class="new-thread"><span>New Thread</span><kbd>⌘K</kbd></button>
     <nav>
-      <a data-view="home" class="nav-item"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Home</a>
-      <a data-view="library" class="nav-item"><svg viewBox="0 0 24 24"><path d="M4 4h5v16H4zM10 4h5v16h-5zM16 5l4 1-3 14-4-1z"/></svg>Library</a>
+      <button type="button" data-view="home" class="nav-item"><span data-icon="search"></span>Home</button>
+      <button type="button" data-view="library" class="nav-item"><span data-icon="library"></span>Library</button>
     </nav>
-    <div class="recent-label">Recent</div>
-    <ul id="threadList" class="thread-list"></ul>
+    <div id="sideThreads" class="side-threads"></div>
     <button id="moreThreads" class="more" type="button" hidden>Load more</button>
     <div class="side-foot">
       <div class="theme-toggle" role="group" aria-label="Theme">
@@ -43,7 +47,7 @@
   </aside>
 
   <main class="main">
-    <div id="notice" class="notice" role="alert" hidden><span></span><button type="button" title="Dismiss" aria-label="Dismiss">×</button></div>
+    <div id="notice" class="notice" role="alert" hidden><span></span><button type="button" aria-label="Dismiss">×</button></div>
     <!-- Home -->
     <section id="home" class="view home">
       <h1 class="home-title">What are we researching?</h1>
@@ -60,13 +64,18 @@
     <section id="thread" class="view thread" hidden>
       <div class="thread-head">
         <div id="threadTitle" class="thread-title"></div>
+        <div class="tabs" role="tablist" aria-label="Thread view">
+          <button type="button" role="tab" id="tabAnswer" aria-controls="turns" aria-selected="true">Answer</button>
+          <button type="button" role="tab" id="tabSources" aria-controls="sourcesView" aria-selected="false">Sources <span class="count"></span></button>
+        </div>
         <div class="head-right">
           <div id="threadDocs" class="thread-docs"></div>
-          <button type="button" id="deleteOpenThread" class="tool head-del" aria-label="Delete this thread"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>Delete</button>
+          <button type="button" id="deleteOpenThread" class="tool head-del" aria-label="Delete this thread"><span data-icon="trash-2"></span>Delete</button>
         </div>
         <div id="headConfirm" class="head-confirm" hidden></div>
       </div>
-      <div id="turns" class="turns"></div>
+      <div id="turns" class="turns" role="tabpanel" aria-labelledby="tabAnswer"></div>
+      <div id="sourcesView" class="sources-view" role="tabpanel" aria-labelledby="tabSources" hidden></div>
       <div class="follow-wrap"><div id="threadSlot" class="composer-slot"></div></div>
     </section>
 
@@ -74,9 +83,10 @@
     <section id="library" class="view library" hidden>
       <div class="lib-head">
         <h1>Library</h1>
-        <label class="btn">Upload PDF<input class="fileInput" type="file" accept="application/pdf" multiple hidden></label>
+        <button type="button" id="libUpload" class="btn"><span data-icon="upload"></span>Upload PDF</button>
+        <input id="libFile" class="fileInput" type="file" accept="application/pdf,.pdf" multiple hidden>
       </div>
-      <p class="muted">Your uploaded decisions, statutes and papers. Attach them to a thread from the composer.</p>
+      <p class="muted">Your uploaded decisions, statutes and papers (up to 200 MB each; large files are split into parts). Attach them to a thread from the composer.</p>
       <ul class="upload-list"></ul>
       <div id="libGrid" class="lib-grid"></div>
       <button id="moreDocs" class="more lib-more" type="button" hidden>Load more</button>
@@ -86,21 +96,28 @@
   </main>
 </div>
 
-<!-- Shared composer (moved between home and thread) -->
+<!-- The one composer (moved between home and thread) -->
 <template id="composerTpl">
   <form class="composer">
     <div class="chips"></div>
     <textarea rows="1" maxlength="8000" aria-label="Question" placeholder="Ask anything about your documents…"></textarea>
-    <div class="toolbar">
-      <div class="left">
-        <button type="button" class="tool attach-btn" title="Attach documents"><svg viewBox="0 0 24 24"><path d="M21 11.5 12.5 20a5 5 0 0 1-7-7L14 4.5a3.5 3.5 0 0 1 5 5L10.5 18a2 2 0 0 1-3-3L15 7.5"/></svg>Attach</button>
-        <label class="model-pick" hidden><span class="sr-only">Model</span><select class="model-select"></select></label>
+    <div class="composer-bar">
+      <div class="bar-left">
+        <button type="button" class="icon-btn plus-btn" aria-label="Add files" aria-haspopup="dialog" aria-expanded="false"><span data-icon="plus"></span></button>
       </div>
-      <button type="submit" class="send" title="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+      <div class="bar-right">
+        <label class="model-pick" hidden><span class="sr-only">Model</span><select class="model-select"></select><span class="model-chev" data-icon="chevron-down"></span></label>
+        <button type="button" class="icon-btn mic-btn" aria-label="Dictate" aria-pressed="false" hidden><span data-icon="mic"></span></button>
+        <button type="submit" class="send" aria-label="Send"><span data-icon="arrow-up"></span></button>
+      </div>
     </div>
-    <div class="attach-pop" hidden>
-      <div class="pop-head"><span>Attach from library</span><label class="link">Upload PDF<input class="fileInput" type="file" accept="application/pdf" multiple hidden></label></div>
+    <div class="attach-pop" role="dialog" aria-label="Add files" hidden>
+      <div class="pop-head">
+        <button type="button" class="pop-upload"><span data-icon="upload"></span>Upload PDF</button>
+        <input class="fileInput" type="file" accept="application/pdf,.pdf" multiple hidden data-attach="1">
+      </div>
       <ul class="upload-list"></ul>
+      <div class="pop-sub">From your library</div>
       <div class="pop-hint"></div>
       <ul class="pop-list"></ul>
     </div>

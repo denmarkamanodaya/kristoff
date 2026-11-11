@@ -7,8 +7,8 @@ import { createChatsListHandler } from './v1.js';
 
 describe('chats-list handler v1', () => {
   it('passes the cursor and answers the page of summaries', async () => {
-    const { id, title, docIds, updatedAt } = aChat();
-    const page = { items: [{ id, title, docIds, updatedAt }], nextCursor: null };
+    const { id, title, docIds, updatedAt, pinned, projectId } = aChat();
+    const page = { items: [{ id, title, docIds, updatedAt, pinned, projectId }], nextCursor: null };
     const seen: unknown[] = [];
     const handler = createChatsListHandler({
       http: httpDeps(),

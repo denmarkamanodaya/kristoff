@@ -88,6 +88,16 @@ variable "anthropic_timeout_ms" {
   }
 }
 
+variable "followup_model_id" {
+  description = "FOLLOWUP_MODEL_ID: Anthropic model id of the follow-up-questions call (contract v2, stage data)."
+  type        = string
+  nullable    = false
+  validation {
+    condition     = can(regex("^claude-[a-z0-9-]+$", var.followup_model_id))
+    error_message = "followup_model_id must be a claude-* model id."
+  }
+}
+
 variable "max_attached_docs" {
   description = "MAX_ATTACHED_DOCS (contract: 5)."
   type        = number

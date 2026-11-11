@@ -60,6 +60,8 @@ export const createDocUpload =
       title: titleOf(input.fileName),
       size: input.size,
       status: 'pending',
+      pageCount: null,
+      parts: [],
       createdAt: new Date(deps.clock.now()).toISOString(),
     };
     const key = docObjectKey(principal.uid, doc.id);

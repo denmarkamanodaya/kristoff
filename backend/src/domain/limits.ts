@@ -2,8 +2,8 @@
 // Zod contracts and the use cases both import these. Plan: ~/.claude/plans/hey-claude-we-have-gentle-ripple.md.
 // Configurable limits (attached docs, history turns, daily cap) come from env, not from here.
 
-/** Largest PDF upload in bytes (32 MiB). */
-export const MAX_UPLOAD_BYTES = 33_554_432;
+/** Largest PDF upload in bytes (200 MiB; docs/contract.md "v2 Large PDFs"). */
+export const MAX_UPLOAD_BYTES = 209_715_200;
 /** Longest uploaded file name in characters. */
 export const MAX_FILE_NAME = 255;
 /** Longest document title in characters. */
@@ -42,3 +42,19 @@ export const AUTO_TITLE_CHARS = 60;
 export const PDF_CONTENT_TYPE = 'application/pdf';
 /** The magic bytes every PDF starts with. */
 export const PDF_MAGIC = '%PDF-';
+/** Longest project name in characters. */
+export const MAX_PROJECT_NAME = 80;
+/** Most projects one owner may have. */
+export const MAX_PROJECTS = 50;
+/** Most follow-up questions stored per answer. */
+export const MAX_FOLLOW_UPS = 5;
+/** Longest follow-up question in characters. */
+export const MAX_FOLLOW_UP = 120;
+/** Characters of the answer the follow-up call sees. */
+export const FOLLOW_UP_ANSWER_CHARS = 2000;
+/** Most pages in one model document (whole doc or part). */
+export const PART_MAX_PAGES = 100;
+/** Largest model document (whole doc or part) in bytes (30 MiB). */
+export const PART_MAX_BYTES = 31_457_280;
+/** Most parts one document may have (bounds the stored list). */
+export const MAX_PARTS = 200;

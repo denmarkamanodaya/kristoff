@@ -9,12 +9,10 @@ import { fileURLToPath } from 'node:url';
 
 const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** Lists the browser JS sources (app.js plus services/*.js). */
+/** Lists the browser JS sources (app.js plus services/*.js and ui/*.js). */
 function sources() {
-  const svc = readdirSync(join(webRoot, 'services'))
-    .filter((f) => f.endsWith('.js'))
-    .map((f) => join(webRoot, 'services', f));
-  return [join(webRoot, 'app.js'), ...svc];
+  const inDir = (d) => readdirSync(join(webRoot, d)).filter((f) => f.endsWith('.js')).map((f) => join(webRoot, d, f));
+  return [join(webRoot, 'app.js'), ...inDir('services'), ...inDir('ui')];
 }
 
 /**

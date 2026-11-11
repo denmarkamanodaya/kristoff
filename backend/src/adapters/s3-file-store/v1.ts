@@ -1,15 +1,19 @@
 // S3FileStore: the FileStore port on the docs bucket (docs/contract.md "Routes", "Storage").
 // Presigned PUT signs content-type and content-length, so the browser can only upload a PDF of
-// the declared size to the server-built key. Plan: ~/.claude/plans/hey-claude-we-have-gentle-ripple.md.
+// the declared size to the server-built key. purgePrefix removes every version (bucket is versioned). Plan: ~/.claude/plans/hey-claude-we-have-gentle-ripple.md.
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectVersionsCommand,
   PutObjectCommand,
   type S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { PDF_CONTENT_TYPE } from '../../domain/limits.js';
 import type { FileStore } from '../../ports/file-store.js';
+import { mapLimit } from '../../shared/map-limit/map-limit.js';
+import { upstreamError } from '../../shared/errors/vendor-error.js';
 import { appError, type AppError } from '../../shared/errors/app-error.js';
 import { err, ok, type Result } from '../../shared/result/result.js';
 
@@ -23,12 +27,6 @@ export interface S3Target {
   readonly sign?: typeof getSignedUrl;
 }
 
-const upstream = (operation: string, error: unknown): AppError =>
-  appError('UPSTREAM_UNAVAILABLE', `${operation} failed`, {
-    operation,
-    'error.type': error instanceof Error ? error.name.slice(0, 64) : 'Unknown',
-  });
-
 const isNotFound = (error: unknown): boolean =>
   error instanceof Error &&
   (error.name === 'NotFound' ||
@@ -41,9 +39,40 @@ const attempt = async <T>(
   try {
     return ok(await run());
   } catch (error) {
-    return err(upstream(operation, error));
+    return err(upstreamError(operation, error));
   }
 };
+
+const read =
+  ({ client, bucket }: S3Target): FileStore['read'] =>
+  async (key) => {
+    try {
+      const got = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+      return ok(got.Body ? await got.Body.transformToByteArray() : new Uint8Array());
+    } catch (error) {
+      return err(
+        isNotFound(error)
+          ? appError('UPLOAD_INVALID', 'the file is missing')
+          : upstreamError('s3.GetObject', error),
+      );
+    }
+  };
+
+const put =
+  ({ client, bucket }: S3Target): FileStore['put'] =>
+  async (key, bytes) => {
+    const sent = await attempt('s3.PutObject', () =>
+      client.send(
+        new PutObjectCommand({
+          Bucket: bucket,
+          Key: key,
+          Body: bytes,
+          ContentType: PDF_CONTENT_TYPE,
+        }),
+      ),
+    );
+    return sent.ok ? ok(undefined) : sent;
+  };
 
 const sizeOf =
   ({ client, bucket }: S3Target): FileStore['sizeOf'] =>
@@ -52,7 +81,7 @@ const sizeOf =
       const head = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
       return ok(head.ContentLength ?? 0);
     } catch (error) {
-      return isNotFound(error) ? ok(null) : err(upstream('s3.HeadObject', error));
+      return isNotFound(error) ? ok(null) : err(upstreamError('s3.HeadObject', error));
     }
   };
 
@@ -66,6 +95,78 @@ const firstBytes =
       );
       return got.Body ? await got.Body.transformToByteArray() : new Uint8Array();
     });
+
+/** Most DeleteObject calls in flight at once while purging. */
+const PURGE_CONCURRENCY = 8;
+
+/** Where a ListObjectVersions page starts (both absent = the first page). */
+interface VersionMarker {
+  readonly key?: string | undefined;
+  readonly versionId?: string | undefined;
+}
+
+/** One object version (or delete marker) to remove. */
+interface VersionRef {
+  readonly Key: string;
+  readonly VersionId: string;
+}
+
+/** One page of versions and delete markers under a prefix, plus where the next page starts. */
+const listVersionPage = async (
+  { client, bucket }: S3Target,
+  prefix: string,
+  marker: VersionMarker,
+): Promise<Result<{ refs: VersionRef[]; next?: VersionMarker }, AppError>> =>
+  attempt('s3.ListObjectVersions', async () => {
+    const page = await client.send(
+      new ListObjectVersionsCommand({
+        Bucket: bucket,
+        Prefix: prefix,
+        ...(marker.key === undefined ? {} : { KeyMarker: marker.key }),
+        ...(marker.versionId === undefined ? {} : { VersionIdMarker: marker.versionId }),
+      }),
+    );
+    const refs = [...(page.Versions ?? []), ...(page.DeleteMarkers ?? [])].flatMap((v) =>
+      v.Key !== undefined && v.VersionId !== undefined
+        ? [{ Key: v.Key, VersionId: v.VersionId }]
+        : [],
+    );
+    const next =
+      page.IsTruncated === true
+        ? { key: page.NextKeyMarker, versionId: page.NextVersionIdMarker }
+        : undefined;
+    return next === undefined ? { refs } : { refs, next };
+  });
+
+const deleteVersions = async (
+  { client, bucket }: S3Target,
+  refs: readonly VersionRef[],
+): Promise<Result<void, AppError>> => {
+  const results = await mapLimit(refs, PURGE_CONCURRENCY, (ref) =>
+    attempt('s3.DeleteObject', () =>
+      client.send(
+        new DeleteObjectCommand({ Bucket: bucket, Key: ref.Key, VersionId: ref.VersionId }),
+      ),
+    ),
+  );
+  return results.find((r) => !r.ok) ?? ok(undefined);
+};
+
+const purgePrefix =
+  (target: S3Target): FileStore['purgePrefix'] =>
+  async (prefix) => {
+    let deleted = 0;
+    let marker: VersionMarker | undefined = {};
+    while (marker !== undefined) {
+      const page = await listVersionPage(target, prefix, marker);
+      if (!page.ok) return page;
+      const done = await deleteVersions(target, page.value.refs);
+      if (!done.ok) return done;
+      deleted += page.value.refs.length;
+      marker = page.value.next;
+    }
+    return ok(deleted);
+  };
 
 /**
  * Builds the S3 file store.
@@ -104,5 +205,8 @@ export const s3FileStore = (target: S3Target): FileStore => {
       }),
     sizeOf: sizeOf(target),
     firstBytes: firstBytes(target),
+    purgePrefix: purgePrefix(target),
+    read: read(target),
+    put: put(target),
   };
 };

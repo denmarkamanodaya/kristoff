@@ -7,3 +7,4 @@ model_ids            = ["claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-
 max_tokens           = 4096                                                         # one answer's output cap (backend env bound: <= 64000)
 daily_question_cap   = 100                                                          # questions per UTC day before DAILY_CAP_REACHED (backend env bound: 1..10000)
 anthropic_timeout_ms = 120000                                                       # one model call (backend env bound: <= 140000)
+followup_model_id    = "claude-haiku-5-5"                                           # follow-up questions after each answer (contract v2 "Answer extras")

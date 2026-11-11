@@ -22,14 +22,15 @@ variables {
   max_tokens           = 4096
   daily_question_cap   = 100
   anthropic_timeout_ms = 120000
+  followup_model_id    = "claude-haiku-5-5"
 }
 
-run "fifteen_functions_with_contract_names_and_sizes" {
+run "twenty_one_functions_with_contract_names_and_sizes" {
   command = plan
 
   assert {
-    condition     = sort(keys(output.function_names)) == sort(["authorizer", "auth-verify", "config-get", "docs-list", "docs-create", "docs-confirm", "docs-rename", "docs-link", "chats-list", "chats-create", "chats-get", "chats-update", "chats-delete", "usage-get", "ask-stream"])
-    error_message = "the 15 functions of the contract exist (DELETE /v1/chats/{id} added 2026-11-12)"
+    condition     = sort(keys(output.function_names)) == sort(["authorizer", "auth-verify", "config-get", "docs-list", "docs-create", "docs-confirm", "docs-rename", "docs-link", "chats-list", "chats-create", "chats-get", "chats-update", "chats-delete", "usage-get", "ask-stream", "projects-list", "projects-create", "projects-rename", "projects-delete", "docs-delete", "docs-split"])
+    error_message = "the 21 functions exist: 15 of v1 + chats-delete, plus contract v2's four projects functions, docs-delete and docs-split"
   }
   assert {
     condition     = alltrue([for k, n in output.function_names : n == "kristoff-prod-${k}"])
@@ -45,15 +46,15 @@ run "routes_match_the_contract" {
   command = plan
 
   assert {
-    condition     = sort(module.api.route_keys) == sort(["POST /v1/auth/verify", "GET /v1/config", "GET /v1/docs", "POST /v1/docs", "POST /v1/docs/{id}/confirm", "PATCH /v1/docs/{id}", "GET /v1/docs/{id}/link", "GET /v1/chats", "POST /v1/chats", "GET /v1/chats/{id}", "PATCH /v1/chats/{id}", "DELETE /v1/chats/{id}", "GET /v1/usage"])
-    error_message = "the API serves exactly the contract's 13 routes"
+    condition     = sort(module.api.route_keys) == sort(["POST /v1/auth/verify", "GET /v1/config", "GET /v1/docs", "POST /v1/docs", "POST /v1/docs/{id}/confirm", "PATCH /v1/docs/{id}", "GET /v1/docs/{id}/link", "GET /v1/chats", "POST /v1/chats", "GET /v1/chats/{id}", "PATCH /v1/chats/{id}", "DELETE /v1/chats/{id}", "GET /v1/usage", "GET /v1/projects", "POST /v1/projects", "PATCH /v1/projects/{id}", "DELETE /v1/projects/{id}", "DELETE /v1/docs/{id}"])
+    error_message = "the API serves exactly 18 routes: 13 of v1 + contract v2's four projects routes and DELETE /v1/docs/{id} (docs-split has no route)"
   }
   assert {
     condition     = { for r in local.routes : r.key => r.auth }["POST /v1/auth/verify"] == "none" && alltrue([for r in local.routes : r.auth == "lambda" if r.key != "POST /v1/auth/verify"])
     error_message = "only auth/verify skips the authorizer"
   }
   assert {
-    condition     = length(aws_lambda_permission.api) == 13
+    condition     = length(aws_lambda_permission.api) == 18
     error_message = "one invoke permission per route"
   }
   assert {
@@ -123,6 +124,71 @@ run "stream_and_api_settings_follow_the_contract" {
     condition     = module.ask.function_name == "kristoff-prod-ask-stream"
     error_message = "ask-stream is the streaming function"
   }
+}
+
+run "v2_docs_delete_splits_bucket_and_object_actions" {
+  command = plan
+
+  assert {
+    condition     = one([for st in jsondecode(local.policies["docs-delete"]).Statement : st if st.Sid == "DocObjects"]).Action == ["s3:DeleteObject", "s3:DeleteObjectVersion"] && one([for st in jsondecode(local.policies["docs-delete"]).Statement : st if st.Sid == "DocObjects"]).Resource == ["arn:aws:s3:::kristoff-prod-docs-123456789012/docs/kristoff/*"]
+    error_message = "object delete actions only on docs/<OWNER_ID>/*"
+  }
+  assert {
+    condition     = one([for st in jsondecode(local.policies["docs-delete"]).Statement : st if st.Sid == "DocVersionsList"]).Resource == ["arn:aws:s3:::kristoff-prod-docs-123456789012"] && one([for st in jsondecode(local.policies["docs-delete"]).Statement : st if st.Sid == "DocVersionsList"]).Condition.StringLike["s3:prefix"] == ["docs/kristoff/*"]
+    error_message = "ListBucketVersions on the bucket ARN, only for the prefix docs/<OWNER_ID>/*"
+  }
+  assert {
+    condition     = module.fn["docs-delete"].function_name == "kristoff-prod-docs-delete"
+    error_message = "docs-delete exists"
+  }
+}
+
+run "v2_docs_split_is_async_with_a_dead_letter_queue" {
+  command = plan
+
+  assert {
+    condition     = module.fn["docs-split"].async_retry_attempts == 1
+    error_message = "docs-split retries a failed async run once, then goes to its DLQ"
+  }
+  assert {
+    condition     = contains(output.granted_actions["docs-split"], "sqs:SendMessage") && !contains(output.granted_actions["docs-confirm"], "sqs:SendMessage")
+    error_message = "only docs-split has a DLQ"
+  }
+  assert {
+    condition     = one([for st in jsondecode(local.policies["docs-confirm"]).Statement : st if st.Sid == "InvokeFunctions"]).Resource == ["arn:aws:lambda:ap-southeast-2:123456789012:function:kristoff-prod-docs-split:live"]
+    error_message = "docs-confirm may invoke exactly docs-split's live alias"
+  }
+  assert {
+    condition     = local.envs["docs-confirm"]["DOCS_SPLIT_FUNCTION"] == "kristoff-prod-docs-split:live"
+    error_message = "DOCS_SPLIT_FUNCTION is the qualified name the grant matches"
+  }
+  assert {
+    condition     = length([for k, p in local.policies : k if anytrue([for st in jsondecode(p).Statement : st.Sid == "InvokeFunctions"])]) == 1
+    error_message = "no other function may invoke a function"
+  }
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.docs_split_dlq.threshold == 0 && aws_cloudwatch_metric_alarm.docs_split_dlq.metric_name == "ApproximateNumberOfMessagesVisible"
+    error_message = "any message in the docs-split DLQ alarms"
+  }
+}
+
+run "v2_follow_up_model_reaches_ask_stream" {
+  command = plan
+
+  assert {
+    condition     = local.envs["ask-stream"]["FOLLOWUP_MODEL_ID"] == "claude-haiku-5-5"
+    error_message = "ask-stream gets FOLLOWUP_MODEL_ID"
+  }
+}
+
+run "rejects_scope_invoking_an_unknown_function" {
+  command = plan
+
+  variables {
+    lambda_scope_path = "./tests/fixtures/lambda-scope-bad-invoke.json"
+  }
+
+  expect_failures = [terraform_data.scope_guard]
 }
 
 run "rejects_scope_with_unknown_action" {

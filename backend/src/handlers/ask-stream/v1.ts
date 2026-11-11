@@ -67,6 +67,7 @@ const sseSink = (open: () => ResponseWriter) => {
     },
     text: (text) => writer?.write(sse('text', { text })),
     citation: (citation) => writer?.write(sse('citation', citation)),
+    followUps: (questions) => writer?.write(sse('followups', { followUps: questions })),
   };
   return { sink, writer: () => writer };
 };

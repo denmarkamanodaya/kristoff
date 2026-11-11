@@ -1,6 +1,7 @@
 // In-memory FileStore: `put` simulates the browser's presigned upload.
 import type { FileStore } from '../../../src/ports/file-store.js';
-import { ok } from '../../../src/shared/result/result.js';
+import { appError } from '../../../src/shared/errors/app-error.js';
+import { err, ok } from '../../../src/shared/result/result.js';
 
 /** The fake plus `objects` and the presign calls it saw. */
 export const memoryFileStore = (now: () => number = () => 0) => {
@@ -17,6 +18,19 @@ export const memoryFileStore = (now: () => number = () => 0) => {
       return Promise.resolve(ok({ url: `https://get.example/${key}`, expiresAt: expiry(ttl) }));
     },
     sizeOf: (key) => Promise.resolve(ok(objects.get(key)?.length ?? null)),
+    read: (key) => {
+      const bytes = objects.get(key);
+      return Promise.resolve(bytes ? ok(bytes) : err(appError('UPLOAD_INVALID', 'no object')));
+    },
+    put: (key, bytes) => {
+      objects.set(key, bytes);
+      return Promise.resolve(ok(undefined));
+    },
+    purgePrefix: (prefix) => {
+      const keys = [...objects.keys()].filter((key) => key.startsWith(prefix));
+      keys.forEach((key) => objects.delete(key));
+      return Promise.resolve(ok(keys.length));
+    },
     firstBytes: (key, count) =>
       Promise.resolve(ok((objects.get(key) ?? new Uint8Array()).slice(0, count))),
   };

@@ -5,6 +5,7 @@
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { MAX_CURSOR } from '../../../domain/limits.js';
 import { appError, type AppError } from '../../../shared/errors/app-error.js';
+import { errorTypeOf, upstreamError } from '../../../shared/errors/vendor-error.js';
 import { err, ok, type Result } from '../../../shared/result/result.js';
 
 /** The slice of the document client the adapters use (a stub in tests). */
@@ -22,16 +23,13 @@ export const SCHEMA_VERSION = 1;
 /** Name of the GSI that orders chats by update. */
 export const GSI1 = 'GSI1';
 
-const errorName = (error: unknown): string =>
-  error instanceof Error ? error.name.slice(0, 64) : 'Unknown';
-
 /**
  * Whether a DynamoDB call failed only because its condition expression was false.
  * @param error - What the send rejected with.
  * @returns True for `ConditionalCheckFailedException`.
  */
 const isConditionFailure = (error: unknown): boolean =>
-  errorName(error) === 'ConditionalCheckFailedException';
+  errorTypeOf(error) === 'ConditionalCheckFailedException';
 
 /**
  * Sends one command; a rejected condition becomes `onCondition`, anything else
@@ -50,12 +48,7 @@ export const guarded = async <T>(
     return ok(await run());
   } catch (error) {
     if (onCondition !== undefined && isConditionFailure(error)) return err(onCondition());
-    return err(
-      appError('UPSTREAM_UNAVAILABLE', `${operation} failed`, {
-        operation,
-        'error.type': errorName(error),
-      }),
-    );
+    return err(upstreamError(operation, error));
   }
 };
 

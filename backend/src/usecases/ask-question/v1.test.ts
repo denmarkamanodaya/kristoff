@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AnswerEnd, AnswerEvent } from '../../domain/chats/model-request.js';
-import type { Citation } from '../../domain/model.js';
+import type { Citation, FollowUps } from '../../domain/model.js';
+import type { FollowUpSuggester } from '../../ports/follow-up-suggester.js';
 import { appError, type AppError } from '../../shared/errors/app-error.js';
 import { err, ok, type Result } from '../../shared/result/result.js';
 import { aChat, aDoc } from '../../../test/support/builders.js';
@@ -15,6 +16,7 @@ import { askQuestion } from './v1.js';
 const A = 'aaaaaaaaaaaaaaaa';
 const ME = { uid: 'kristoff' };
 const USAGE = { input: 10, output: 20, cacheRead: 30, cacheWrite: 40 };
+const FOLLOW_USAGE = { input: 1, output: 1, cacheRead: 0, cacheWrite: 0 };
 const EVENTS: AnswerEvent[] = [
   { kind: 'text', text: 'Estoppel bars' },
   {
@@ -38,6 +40,7 @@ const recordingSink = () => {
       open: () => log.push('open'),
       text: (t: string) => log.push(`text:${t}`),
       citation: (c: Citation) => log.push(`citation:${String(c.n)}`),
+      followUps: (q: readonly string[]) => log.push(`followups:${String(q.length)}`),
     },
   };
 };
@@ -48,6 +51,7 @@ const setup = async (
     flags?: Result<boolean, AppError>;
     onFlagRead?: () => void;
     cap?: number;
+    followUps?: FollowUps;
   } = {},
 ) => {
   const chats = memoryChatStore();
@@ -57,11 +61,23 @@ const setup = async (
   await docs.store.create('kristoff', aDoc({ id: A }), 'k');
   await docs.store.create('kristoff', aDoc({ id: 'bbbbbbbbbbbbbbbb', status: 'pending' }), 'k');
   await chats.store.createChat('kristoff', aChat({ docIds: [A, 'bbbbbbbbbbbbbbbb'] }));
+  const clock = fakeClock();
+  const suggestions: unknown[] = [];
+  const followUps: FollowUpSuggester = {
+    suggest: (input) => {
+      suggestions.push(input);
+      clock.advance(1500);
+      return Promise.resolve(
+        opts.followUps ?? { questions: ['What is laches?'], usage: FOLLOW_USAGE },
+      );
+    },
+  };
   const run = askQuestion({
     chats: chats.store,
     docs: docs.store,
     files: memoryFileStore().store,
     model: model.model,
+    followUps,
     meter: usage.meter,
     flags: {
       isAiEnabled: () => {
@@ -70,7 +86,7 @@ const setup = async (
       },
     },
     ids: fakeIds(),
-    clock: fakeClock(),
+    clock,
     config: {
       modelIds: ['claude-sonnet-5-5', 'claude-opus-5-5'],
       maxTokens: 4096,
@@ -78,7 +94,7 @@ const setup = async (
       dailyQuestionCap: opts.cap ?? 3,
     },
   });
-  return { chats, usage, model, run };
+  return { chats, usage, model, run, suggestions };
 };
 
 describe('ask-question v1', () => {
@@ -88,7 +104,13 @@ describe('ask-question v1', () => {
 
     const result = await run(ME, aChat().id, { text: 'What is estoppel?' }, sink);
 
-    expect(log).toEqual(['open', 'text:Estoppel bars', 'citation:1', 'text: denial.']);
+    expect(log).toEqual([
+      'open',
+      'text:Estoppel bars',
+      'citation:1',
+      'text: denial.',
+      'followups:1',
+    ]);
     expect(result).toMatchObject({ ok: true, value: { usage: USAGE } });
     expect(chats.messages.get(aChat().id)).toEqual([
       expect.objectContaining({ role: 'user', text: 'What is estoppel?', usage: null }),
@@ -139,8 +161,10 @@ describe('ask-question v1', () => {
       title: 'Is a verbal lease valid?',
       updatedAt: '2026-11-12T01:00:00.000Z',
     });
-    expect(usage.tokens.get('kristoff/2026-11-12')).toEqual(USAGE);
-    expect(usage.tokens.get('kristoff/TOTAL')).toEqual(USAGE);
+    // The answer's tokens plus the follow-up call's.
+    const both = { input: 11, output: 21, cacheRead: 30, cacheWrite: 40 };
+    expect(usage.tokens.get('kristoff/2026-11-12')).toEqual(both);
+    expect(usage.tokens.get('kristoff/TOTAL')).toEqual(both);
   });
 
   it('titles a chat from the first 60 characters when it has no messages, even if renamed', async () => {
@@ -196,6 +220,58 @@ describe('ask-question v1', () => {
     expect(chats.messages.get(aChat().id)).toBeUndefined();
   });
 
+  it('suggests follow-ups from the question and the first 2,000 answer chars, stores them with durationMs', async () => {
+    const { chats, suggestions, run } = await setup();
+
+    await run(ME, aChat().id, { text: 'What is estoppel?' }, recordingSink().sink);
+
+    expect(suggestions).toEqual([
+      { question: 'What is estoppel?', answerExcerpt: 'Estoppel bars [1] denial.' },
+    ]);
+    expect(chats.messages.get(aChat().id)?.[1]).toMatchObject({
+      followUps: ['What is laches?'],
+      durationMs: 1500,
+    });
+    expect(chats.messages.get(aChat().id)?.[0]).toMatchObject({ followUps: [], durationMs: null });
+  });
+
+  it('adds the follow-up tokens to usage without counting another question', async () => {
+    const { usage, run } = await setup({ cap: 1 });
+
+    const result = await run(ME, aChat().id, { text: 'Q' }, recordingSink().sink);
+
+    expect(result).toMatchObject({ ok: true, value: { usage: USAGE } });
+    expect(usage.tokens.get('kristoff/TOTAL')).toEqual({
+      input: 11,
+      output: 21,
+      cacheRead: 30,
+      cacheWrite: 40,
+    });
+    expect(usage.questions.get('kristoff/2026-11-12')).toBe(1);
+  });
+
+  it('stores [] and still succeeds when the suggester finds nothing', async () => {
+    const { chats, run } = await setup({ followUps: { questions: [], usage: null } });
+    const { sink, log } = recordingSink();
+
+    const result = await run(ME, aChat().id, { text: 'Q' }, sink);
+
+    expect(result.ok).toBe(true);
+    expect(log.at(-1)).toBe('followups:0');
+    expect(chats.messages.get(aChat().id)?.[1]?.followUps).toEqual([]);
+  });
+
+  it('does not ask for follow-ups after a failed answer', async () => {
+    const { suggestions, run } = await setup({
+      end: err(appError('UPSTREAM_UNAVAILABLE', 'down')),
+    });
+    const { sink, log } = recordingSink();
+
+    await run(ME, aChat().id, { text: 'Q' }, sink);
+
+    expect([suggestions, log.some((l) => l.startsWith('followups'))]).toEqual([[], false]);
+  });
+
   it('refuses before the meter and before open when the kill switch is off', async () => {
     const { usage, run } = await setup({ flags: ok(false) });
     const { sink, log } = recordingSink();
@@ -214,7 +290,7 @@ describe('ask-question v1', () => {
     });
   });
 
-  it('refuses the question over the daily cap with Retry-After to the next UTC day', async () => {
+  it('refuses the question over the daily cap with Retry-After to the next UTC day (clock moved 1.5 s by the first answer)', async () => {
     const { model, run } = await setup({ cap: 1 });
     await run(ME, aChat().id, { text: 'Q1' }, recordingSink().sink);
     const { sink, log } = recordingSink();
@@ -222,7 +298,7 @@ describe('ask-question v1', () => {
     const second = await run(ME, aChat().id, { text: 'Q2' }, sink);
 
     expect(second).toMatchObject({
-      error: { code: 'DAILY_CAP_REACHED', details: { retryAfterSeconds: 23 * 3600 } },
+      error: { code: 'DAILY_CAP_REACHED', details: { retryAfterSeconds: 23 * 3600 - 1 } },
     });
     expect([log, model.requests.length]).toEqual([[], 1]);
   });

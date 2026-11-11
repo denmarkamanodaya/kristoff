@@ -5,6 +5,7 @@ import type { AppError } from '../../shared/errors/app-error.js';
 import { aChat } from '../../../test/support/builders.js';
 import { fakeClock } from '../../../test/support/fakes/clock-ids.js';
 import { memoryChatStore } from '../../../test/support/fakes/memory-chat-store.js';
+import { memoryProjectStore } from '../../../test/support/fakes/memory-project-store.js';
 import { updateChat } from './v1.js';
 
 type Resolve = (p: unknown, ids: readonly string[]) => Promise<Result<string[], AppError>>;
@@ -12,8 +13,18 @@ const echo: Resolve = (_p, ids) => Promise.resolve(ok([...ids]));
 
 const setup = async (resolveDocs: Resolve = echo) => {
   const chats = memoryChatStore();
+  const projects = memoryProjectStore();
   await chats.store.createChat('kristoff', aChat());
-  return { chats, run: updateChat({ chats: chats.store, clock: fakeClock(), resolveDocs }) };
+  const p = { id: 'pppppppppppppppp', name: 'Torts', createdAt: 'x', updatedAt: 'x' };
+  await projects.store.create('kristoff', p, 50);
+  await projects.store.create('eve', { ...p, id: 'eeeeeeeeeeeeeeee' }, 50);
+  const run = updateChat({
+    chats: chats.store,
+    projects: projects.store,
+    clock: fakeClock(),
+    resolveDocs,
+  });
+  return { chats, run };
 };
 
 describe('update-chat v1', () => {
@@ -51,5 +62,37 @@ describe('update-chat v1', () => {
     expect(await run({ uid: 'kristoff' }, 'ffffffffffffffff', { title: 'x' })).toMatchObject({
       error: { code: 'CHAT_NOT_FOUND' },
     });
+  });
+
+  it('pins and moves the chat into an existing project of the owner, then ungroups with null', async () => {
+    const { run } = await setup();
+
+    const moved = await run({ uid: 'kristoff' }, aChat().id, {
+      pinned: true,
+      projectId: 'pppppppppppppppp',
+    });
+    const ungrouped = await run({ uid: 'kristoff' }, aChat().id, { projectId: null });
+
+    expect(moved).toMatchObject({
+      ok: true,
+      value: { pinned: true, projectId: 'pppppppppppppppp' },
+    });
+    expect(ungrouped).toMatchObject({ ok: true, value: { pinned: true, projectId: null } });
+  });
+
+  it("answers PROJECT_NOT_FOUND for an unknown project and for another owner's project", async () => {
+    const { chats, run } = await setup();
+
+    expect(
+      await run({ uid: 'kristoff' }, aChat().id, { projectId: 'ffffffffffffffff' }),
+    ).toMatchObject({
+      error: { code: 'PROJECT_NOT_FOUND' },
+    });
+    expect(
+      await run({ uid: 'kristoff' }, aChat().id, { projectId: 'eeeeeeeeeeeeeeee' }),
+    ).toMatchObject({
+      error: { code: 'PROJECT_NOT_FOUND' },
+    });
+    expect(chats.chats.get(`kristoff/${aChat().id}`)?.chat.projectId).toBeNull();
   });
 });

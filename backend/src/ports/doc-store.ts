@@ -1,12 +1,14 @@
 // DocStore port: library documents. Contract: docs/contract.md "Storage" (Doc item).
 import type { AppError } from '../shared/errors/app-error.js';
 import type { Result } from '../shared/result/result.js';
-import type { Doc, Page, Versioned } from '../domain/model.js';
+import type { Doc, DocPart, DocStatus, Page, Versioned } from '../domain/model.js';
 
 /** Fields a doc update may change. */
 export interface DocPatch {
   readonly title?: string;
-  readonly status?: 'ready';
+  readonly status?: Exclude<DocStatus, 'pending'>;
+  readonly pageCount?: number;
+  readonly parts?: readonly DocPart[];
 }
 
 /** Stores an owner's documents. Every method is scoped by `uid`. */
@@ -30,4 +32,6 @@ export interface DocStore {
     patch: DocPatch,
     version: number,
   ): Promise<Result<Doc, AppError>>;
+  /** Deletes the doc item; deleting an absent doc is not an error. */
+  remove(uid: string, docId: string): Promise<Result<void, AppError>>;
 }

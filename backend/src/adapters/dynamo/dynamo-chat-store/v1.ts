@@ -1,6 +1,7 @@
 // DynamoChatStore: the ChatStore port (docs/contract.md "Storage", Chat and Message items). Chats
 // live under the owner with GSI1 ordering them by update; messages under `CHAT#<id>` sorted by
 // ULID. Plan: ~/.claude/plans/hey-claude-we-have-gentle-ripple.md.
+import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import {
   chatGsiKey,
   chatKey,
@@ -19,6 +20,7 @@ import {
   decodeCursor,
   encodeCursor,
   GSI1,
+  guarded,
   mapAll,
   parseRow,
   SCHEMA_VERSION,
@@ -34,23 +36,24 @@ const MAX_ITEM_BYTES = 390_000;
 const toChat = (item: unknown): Result<Versioned<Chat>, AppError> => {
   const row = parseRow(ChatRow, item, 'chat');
   if (!row.ok) return row;
-  const { SK, title, docIds, createdAt, updatedAt, version } = row.value;
+  const { SK, title, docIds, createdAt, updatedAt, pinned, projectId, version } = row.value;
   const id = SK.slice(CHAT_SK_PREFIX.length);
-  return ok({ value: { id, title, docIds, createdAt, updatedAt }, version });
+  return ok({ value: { id, title, docIds, createdAt, updatedAt, pinned, projectId }, version });
 };
 
 const toSummary = (item: unknown): Result<ChatSummary, AppError> => {
   const chat = toChat(item);
   if (!chat.ok) return chat;
-  const { id, title, docIds, updatedAt } = chat.value.value;
-  return ok({ id, title, docIds, updatedAt });
+  const { id, title, docIds, updatedAt, pinned, projectId } = chat.value.value;
+  return ok({ id, title, docIds, updatedAt, pinned, projectId });
 };
 
 const toMessage = (item: unknown): Result<Message, AppError> => {
   const row = parseRow(MessageRow, item, 'message');
   if (!row.ok) return row;
-  const { id, role, text, citations, usage, model, stopReason, at } = row.value;
-  return ok({ id, role, text, citations, usage, model, stopReason, at });
+  const { id, role, text, citations, usage, model, stopReason, at, durationMs, followUps } =
+    row.value;
+  return ok({ id, role, text, citations, usage, model, stopReason, at, durationMs, followUps });
 };
 
 const listChats =
@@ -99,6 +102,8 @@ const createChat =
         ...chatGsiKey(uid, chat.updatedAt, chat.id),
         title: chat.title,
         docIds: chat.docIds,
+        pinned: chat.pinned,
+        projectId: chat.projectId,
         createdAt: chat.createdAt,
         updatedAt: chat.updatedAt,
         schemaVersion: SCHEMA_VERSION,
@@ -167,6 +172,28 @@ const deleteChat =
   (uid, chatId) =>
     deleteItem(target, chatKey(uid, chatId));
 
+const clearProject =
+  (target: DynamoTarget): ChatStore['clearProject'] =>
+  async (uid, chatId, projectId) => {
+    const cleared = await guarded(
+      () =>
+        target.client.send(
+          new UpdateCommand({
+            TableName: target.table,
+            Key: chatKey(uid, chatId),
+            UpdateExpression: 'SET projectId = :none, #v = #v + :one',
+            ConditionExpression: 'projectId = :pid',
+            ExpressionAttributeNames: { '#v': 'version' },
+            ExpressionAttributeValues: { ':none': null, ':one': 1, ':pid': projectId },
+          }),
+        ),
+      'dynamo.UpdateItem',
+      () => appError('VERSION_CONFLICT', 'chat moved meanwhile'),
+    );
+    // A chat that left the project (or was deleted) meanwhile needs no change.
+    return cleared.ok || cleared.error.code === 'VERSION_CONFLICT' ? ok(undefined) : cleared;
+  };
+
 const putMessage =
   (target: DynamoTarget): ChatStore['putMessage'] =>
   async (chatId, message) => {
@@ -201,7 +228,14 @@ export const dynamoChatStore = (target: DynamoTarget): ChatStore => ({
   listChats: listChats(target),
   updateChat: async (uid, chatId, patch, version) => {
     const { GSI1SK } = chatGsiKey(uid, patch.updatedAt, chatId);
-    const fields = { title: patch.title, docIds: patch.docIds, updatedAt: patch.updatedAt, GSI1SK };
+    const fields = {
+      title: patch.title,
+      docIds: patch.docIds,
+      pinned: patch.pinned,
+      projectId: patch.projectId,
+      updatedAt: patch.updatedAt,
+      GSI1SK,
+    };
     const onConflict = () => appError('VERSION_CONFLICT', 'chat changed since it was read');
     const updated = await updateVersioned(target, chatKey(uid, chatId), fields, {
       version,
@@ -215,4 +249,5 @@ export const dynamoChatStore = (target: DynamoTarget): ChatStore => ({
   recentMessages: recentMessages(target),
   deleteMessages: deleteMessages(target),
   deleteChat: deleteChat(target),
+  clearProject: clearProject(target),
 });

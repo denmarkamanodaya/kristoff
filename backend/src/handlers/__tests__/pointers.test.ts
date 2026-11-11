@@ -22,14 +22,26 @@ import * as p9 from '../docs-confirm/index.js';
 import * as v9 from '../docs-confirm/v1.js';
 import * as p10 from '../docs-create/index.js';
 import * as v10 from '../docs-create/v1.js';
-import * as p11 from '../docs-link/index.js';
-import * as v11 from '../docs-link/v1.js';
-import * as p12 from '../docs-list/index.js';
-import * as v12 from '../docs-list/v1.js';
-import * as p13 from '../docs-rename/index.js';
-import * as v13 from '../docs-rename/v1.js';
-import * as p14 from '../usage-get/index.js';
-import * as v14 from '../usage-get/v1.js';
+import * as p11 from '../docs-delete/index.js';
+import * as v11 from '../docs-delete/v1.js';
+import * as p12 from '../docs-link/index.js';
+import * as v12 from '../docs-link/v1.js';
+import * as p13 from '../docs-list/index.js';
+import * as v13 from '../docs-list/v1.js';
+import * as p14 from '../docs-rename/index.js';
+import * as v14 from '../docs-rename/v1.js';
+import * as p15 from '../docs-split/index.js';
+import * as v15 from '../docs-split/v1.js';
+import * as p16 from '../projects-create/index.js';
+import * as v16 from '../projects-create/v1.js';
+import * as p17 from '../projects-delete/index.js';
+import * as v17 from '../projects-delete/v1.js';
+import * as p18 from '../projects-list/index.js';
+import * as v18 from '../projects-list/v1.js';
+import * as p19 from '../projects-rename/index.js';
+import * as v19 from '../projects-rename/v1.js';
+import * as p20 from '../usage-get/index.js';
+import * as v20 from '../usage-get/v1.js';
 
 it('ask-stream pointer exports v1', () => {
   expect(p0.createAskStreamHandler).toBe(v0.createAskStreamHandler);
@@ -64,15 +76,33 @@ it('docs-confirm pointer exports v1', () => {
 it('docs-create pointer exports v1', () => {
   expect(p10.createDocsCreateHandler).toBe(v10.createDocsCreateHandler);
 });
+it('docs-delete pointer exports v1', () => {
+  expect(p11.createDocsDeleteHandler).toBe(v11.createDocsDeleteHandler);
+});
 it('docs-link pointer exports v1', () => {
-  expect(p11.createDocsLinkHandler).toBe(v11.createDocsLinkHandler);
+  expect(p12.createDocsLinkHandler).toBe(v12.createDocsLinkHandler);
 });
 it('docs-list pointer exports v1', () => {
-  expect(p12.createDocsListHandler).toBe(v12.createDocsListHandler);
+  expect(p13.createDocsListHandler).toBe(v13.createDocsListHandler);
 });
 it('docs-rename pointer exports v1', () => {
-  expect(p13.createDocsRenameHandler).toBe(v13.createDocsRenameHandler);
+  expect(p14.createDocsRenameHandler).toBe(v14.createDocsRenameHandler);
+});
+it('docs-split pointer exports v1', () => {
+  expect(p15.createDocsSplitHandler).toBe(v15.createDocsSplitHandler);
+});
+it('projects-create pointer exports v1', () => {
+  expect(p16.createProjectsCreateHandler).toBe(v16.createProjectsCreateHandler);
+});
+it('projects-delete pointer exports v1', () => {
+  expect(p17.createProjectsDeleteHandler).toBe(v17.createProjectsDeleteHandler);
+});
+it('projects-list pointer exports v1', () => {
+  expect(p18.createProjectsListHandler).toBe(v18.createProjectsListHandler);
+});
+it('projects-rename pointer exports v1', () => {
+  expect(p19.createProjectsRenameHandler).toBe(v19.createProjectsRenameHandler);
 });
 it('usage-get pointer exports v1', () => {
-  expect(p14.createUsageGetHandler).toBe(v14.createUsageGetHandler);
+  expect(p20.createUsageGetHandler).toBe(v20.createUsageGetHandler);
 });
