@@ -1,0 +1,4 @@
+{
+  "$comment": "Allowlist for scripts/tf-plan-guard.jq. An entry exempts ONE address for ONE exact action set until `expires` (inclusive, UTC date). It must change in the same PR as the destructive change. Example: {\"address\":\"module.platform.module.table.aws_dynamodb_table.this\",\"actions\":[\"delete\",\"create\"],\"pr\":123,\"expires\":\"2026-11-15\",\"reason\":\"rename\"}",
+  "allow": []
+}

@@ -1,0 +1,26 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "RegionAllowList",
+      "Effect": "Deny",
+      "Resource": "*",
+      "NotAction": [
+        "iam:*",
+        "organizations:*",
+        "sts:*",
+        "budgets:*",
+        "ce:*",
+        "cur:*",
+        "support:*",
+        "trustedadvisor:*",
+        "health:*",
+        "account:*",
+        "servicequotas:*",
+        "pricing:*",
+        "s3:ListAllMyBuckets"
+      ],
+      "Condition": { "StringNotEquals": { "aws:RequestedRegion": ["ap-southeast-2"] } }
+    }
+  ]
+}

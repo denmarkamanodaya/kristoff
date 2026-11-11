@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kristoff</title>
+<meta name="color-scheme" content="light">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Auth gate: nothing else renders or loads until a TOTP code is verified -->
+<div id="gate" class="gate" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
+  <form id="gateForm" class="gate-card" novalidate>
+    <div class="brand"><div class="mark">K</div><span id="gateTitle">Kristoff</span></div>
+    <label for="otp" class="gate-label">Enter the 6-digit code from your authenticator app</label>
+    <input id="otp" name="otp" class="otp" type="text" inputmode="numeric" autocomplete="one-time-code"
+      pattern="[0-9]*" spellcheck="false" aria-describedby="gateMsg" autofocus>
+    <p id="gateMsg" class="gate-msg" role="alert" aria-live="assertive"></p>
+    <button type="submit" class="btn gate-btn">Unlock</button>
+  </form>
+</div>
+
+<!-- App -->
+<div id="app" class="app" hidden>
+  <div class="topbar">
+    <button type="button" id="drawerBtn" class="icon-btn" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false"><span data-icon="menu"></span></button>
+    <div class="brand small"><div class="mark">K</div><span>Kristoff</span></div>
+  </div>
+  <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
+  <aside id="sidebar" class="sidebar">
+    <div class="brand"><div class="mark">K</div><span>Kristoff</span></div>
+    <button id="newThread" class="new-thread"><span>New Thread</span><kbd>⌘K</kbd></button>
+    <nav>
+      <button type="button" data-view="home" class="nav-item"><span data-icon="search"></span>Home</button>
+      <button type="button" data-view="library" class="nav-item"><span data-icon="library"></span>Library</button>
+    </nav>
+    <div id="sideThreads" class="side-threads"></div>
+    <button id="moreThreads" class="more" type="button" hidden>Load more</button>
+    <div class="side-foot">
+      <div class="theme-toggle" role="group" aria-label="Theme">
+        <button type="button" data-theme-choice="light" aria-pressed="true">Light</button>
+        <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
+      </div>
+      <div id="usage" class="usage"></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div id="notice" class="notice" role="alert" hidden><span></span><button type="button" aria-label="Dismiss">×</button></div>
+    <!-- Home -->
+    <section id="home" class="view home">
+      <h1 class="home-title">What are we researching?</h1>
+      <div id="homeSlot" class="composer-slot"></div>
+      <div class="suggestions">
+        <button data-q="Make a case digest: facts, issues, ruling, ratio decidendi and doctrines.">Case digest</button>
+        <button data-q="Summarize the main argument of this paper and the key authorities it relies on.">Summarize a paper</button>
+        <button data-q="Give me 3 bar-exam style questions from this material, with suggested answers.">Bar-style practice</button>
+        <button data-q="Explain this ruling in plain language for a first-year law student.">Explain simply</button>
+      </div>
+    </section>
+
+    <!-- Thread -->
+    <section id="thread" class="view thread" hidden>
+      <div class="thread-head">
+        <div id="threadTitle" class="thread-title"></div>
+        <div class="tabs" role="tablist" aria-label="Thread view">
+          <button type="button" role="tab" id="tabAnswer" aria-controls="turns" aria-selected="true">Answer</button>
+          <button type="button" role="tab" id="tabSources" aria-controls="sourcesView" aria-selected="false">Sources <span class="count"></span></button>
+        </div>
+        <div class="head-right">
+          <div id="threadDocs" class="thread-docs"></div>
+          <button type="button" id="deleteOpenThread" class="tool head-del" aria-label="Delete this thread"><span data-icon="trash-2"></span>Delete</button>
+        </div>
+        <div id="headConfirm" class="head-confirm" hidden></div>
+      </div>
+      <div id="turns" class="turns" role="tabpanel" aria-labelledby="tabAnswer"></div>
+      <div id="sourcesView" class="sources-view" role="tabpanel" aria-labelledby="tabSources" hidden></div>
+      <div class="follow-wrap"><div id="threadSlot" class="composer-slot"></div></div>
+    </section>
+
+    <!-- Library -->
+    <section id="library" class="view library" hidden>
+      <div class="lib-head">
+        <h1>Library</h1>
+        <button type="button" id="libUpload" class="btn"><span data-icon="upload"></span>Upload PDF</button>
+        <input id="libFile" class="fileInput" type="file" accept="application/pdf,.pdf" multiple hidden>
+      </div>
+      <p class="muted">Your uploaded decisions, statutes and papers (up to 200 MB each; large files are split into parts). Attach them to a thread from the composer.</p>
+      <ul class="upload-list"></ul>
+      <div id="libGrid" class="lib-grid"></div>
+      <button id="moreDocs" class="more lib-more" type="button" hidden>Load more</button>
+    </section>
+
+    <div class="disclaimer">AI can be wrong. Verify citations against the SC E-Library, Lawphil or the Official Gazette.</div>
+  </main>
+</div>
+
+<!-- The one composer (moved between home and thread) -->
+<template id="composerTpl">
+  <form class="composer">
+    <div class="chips"></div>
+    <textarea rows="1" maxlength="8000" aria-label="Question" placeholder="Ask anything about your documents…"></textarea>
+    <div class="composer-bar">
+      <div class="bar-left">
+        <button type="button" class="icon-btn plus-btn" aria-label="Add files" aria-haspopup="dialog" aria-expanded="false"><span data-icon="plus"></span></button>
+      </div>
+      <div class="bar-right">
+        <label class="model-pick" hidden><span class="sr-only">Model</span><select class="model-select"></select><span class="model-chev" data-icon="chevron-down"></span></label>
+        <button type="button" class="icon-btn mic-btn" aria-label="Dictate" aria-pressed="false" hidden><span data-icon="mic"></span></button>
+        <button type="submit" class="send" aria-label="Send"><span data-icon="arrow-up"></span></button>
+      </div>
+    </div>
+    <div class="attach-pop" role="dialog" aria-label="Add files" hidden>
+      <div class="pop-head">
+        <button type="button" class="pop-upload"><span data-icon="upload"></span>Upload PDF</button>
+        <input class="fileInput" type="file" accept="application/pdf,.pdf" multiple hidden data-attach="1">
+      </div>
+      <ul class="upload-list"></ul>
+      <div class="pop-sub">From your library</div>
+      <div class="pop-hint"></div>
+      <ul class="pop-list"></ul>
+    </div>
+  </form>
+</template>
+
+<script src="vendor/marked.js"></script>
+<script src="vendor/purify.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

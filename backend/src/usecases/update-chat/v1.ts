@@ -1,0 +1,86 @@
+// PATCH /v1/chats/{id} use case (docs/contract.md "Routes", "v2 Chats"): renames, re-attaches docs,
+// pins/unpins and moves the chat into a project (or out of one with `projectId: null`).
+// Plan: ~/.claude/plans/hey-claude-we-have-gentle-ripple.md.
+import type { Chat, Principal } from '../../domain/model.js';
+import type { ChatPatch, ChatStore } from '../../ports/chat-store.js';
+import type { Clock } from '../../ports/clock.js';
+import type { ProjectStore } from '../../ports/project-store.js';
+import type { ResolveDocs } from '../resolve-attached-docs/index.js';
+import { appError, type AppError } from '../../shared/errors/app-error.js';
+import { err, ok, type Result } from '../../shared/result/result.js';
+import { loadOwnedChat } from '../load-owned-chat/index.js';
+
+/** What update-chat needs. */
+export interface UpdateChatDeps {
+  readonly chats: ChatStore;
+  readonly projects: ProjectStore;
+  readonly clock: Clock;
+  /** The resolve-attached-docs use case, bound to the configured cap. */
+  readonly resolveDocs: ResolveDocs;
+}
+
+/** The fields to change; at least one is present (the request schema enforces it). */
+export interface ChatChanges {
+  readonly title?: string;
+  readonly docIds?: readonly string[];
+  readonly pinned?: boolean;
+  readonly projectId?: string | null;
+}
+
+/** Ok when `projectId` is absent, null (ungroup) or an existing project of the owner. */
+const checkProject = async (
+  projects: ProjectStore,
+  principal: Principal,
+  projectId: string | null | undefined,
+): Promise<Result<void, AppError>> => {
+  if (projectId === undefined || projectId === null) return ok(undefined);
+  const found = await projects.get(principal.uid, projectId);
+  return found.ok ? ok(undefined) : found;
+};
+
+const resolvePatch = async (
+  deps: UpdateChatDeps,
+  principal: Principal,
+  changes: ChatChanges,
+): Promise<Result<ChatPatch, AppError>> => {
+  const updatedAt = new Date(deps.clock.now()).toISOString();
+  const title = changes.title?.trim();
+  if (title === '') return err(appError('VALIDATION_FAILED', 'title is blank'));
+  const project = await checkProject(deps.projects, principal, changes.projectId);
+  if (!project.ok) return project;
+  const base = {
+    updatedAt,
+    ...(title === undefined ? {} : { title }),
+    ...(changes.pinned === undefined ? {} : { pinned: changes.pinned }),
+    ...(changes.projectId === undefined ? {} : { projectId: changes.projectId }),
+  };
+  if (changes.docIds === undefined) return { ok: true, value: base };
+  const docIds = await deps.resolveDocs(principal, changes.docIds);
+  return docIds.ok ? { ok: true, value: { ...base, docIds: docIds.value } } : docIds;
+};
+
+/**
+ * Builds the update-chat use case.
+ *
+ * @version 1
+ * @since 2026-11-12
+ * @change first version
+ * @rollback n/a, first version
+ * @param deps - Chat store, clock and the attached-docs check.
+ * @returns A function from the principal, chat id and changes to the updated chat, or
+ *   `CHAT_NOT_FOUND`, `VALIDATION_FAILED`, `DOC_NOT_FOUND`, `PROJECT_NOT_FOUND` and
+ *   `VERSION_CONFLICT`.
+ */
+export const updateChat =
+  (deps: UpdateChatDeps) =>
+  async (
+    principal: Principal,
+    chatId: string,
+    changes: ChatChanges,
+  ): Promise<Result<Chat, AppError>> => {
+    const found = await loadOwnedChat(deps.chats, principal, chatId);
+    if (!found.ok) return found;
+    const patch = await resolvePatch(deps, principal, changes);
+    if (!patch.ok) return patch;
+    return deps.chats.updateChat(principal.uid, chatId, patch.value, found.value.version);
+  };

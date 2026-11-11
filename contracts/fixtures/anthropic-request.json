@@ -1,0 +1,68 @@
+{
+  "description": "Wire fixture for the AnthropicAnswerModel (docs/contract.md 'Model call'). 'request' is the domain ModelRequest; 'body' is the exact Messages API body the adapter sends, minus 'system', which the test inserts from backend/src/contracts/model-config.ts SYSTEM_PROMPT (one source for the prompt) between max_tokens and messages.",
+  "request": {
+    "model": "claude-sonnet-5-5",
+    "maxTokens": 4096,
+    "turns": [
+      {
+        "role": "user",
+        "blocks": [
+          {
+            "kind": "doc",
+            "title": "People v. Cruz",
+            "url": "https://kristoff-prod-docs.s3.ap-southeast-2.amazonaws.com/docs/kristoff/aaaaaaaaaaaaaaaa.pdf?X-Amz-Signature=a",
+            "isCacheBreakpoint": false
+          },
+          {
+            "kind": "doc",
+            "title": "Civil Code",
+            "url": "https://kristoff-prod-docs.s3.ap-southeast-2.amazonaws.com/docs/kristoff/bbbbbbbbbbbbbbbb.pdf?X-Amz-Signature=b",
+            "isCacheBreakpoint": true
+          },
+          { "kind": "text", "text": "Digest People v. Cruz." }
+        ]
+      },
+      {
+        "role": "assistant",
+        "blocks": [{ "kind": "text", "text": "Facts: ... [1]" }]
+      },
+      {
+        "role": "user",
+        "blocks": [{ "kind": "text", "text": "What was the ratio decidendi?" }]
+      }
+    ]
+  },
+  "body": {
+    "model": "claude-sonnet-5-5",
+    "max_tokens": 4096,
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "document",
+            "source": {
+              "type": "url",
+              "url": "https://kristoff-prod-docs.s3.ap-southeast-2.amazonaws.com/docs/kristoff/aaaaaaaaaaaaaaaa.pdf?X-Amz-Signature=a"
+            },
+            "title": "People v. Cruz",
+            "citations": { "enabled": true }
+          },
+          {
+            "type": "document",
+            "source": {
+              "type": "url",
+              "url": "https://kristoff-prod-docs.s3.ap-southeast-2.amazonaws.com/docs/kristoff/bbbbbbbbbbbbbbbb.pdf?X-Amz-Signature=b"
+            },
+            "title": "Civil Code",
+            "citations": { "enabled": true },
+            "cache_control": { "type": "ephemeral" }
+          },
+          { "type": "text", "text": "Digest People v. Cruz." }
+        ]
+      },
+      { "role": "assistant", "content": "Facts: ... [1]" },
+      { "role": "user", "content": "What was the ratio decidendi?" }
+    ]
+  }
+}
