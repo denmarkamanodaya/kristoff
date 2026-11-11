@@ -25,6 +25,7 @@ module "api" {
   access_log_group_name  = "${module.names.log_group_prefix}/api-access"
   authorizer_invoke_arn  = module.fn["authorizer"].alias_invoke_arn
   cors_allowed_origins   = [var.web_origin]
+  cors_allowed_methods   = ["GET", "POST", "PATCH", "DELETE"]
 
   routes = [
     for r in local.routes : {

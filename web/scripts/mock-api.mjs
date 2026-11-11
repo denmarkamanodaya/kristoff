@@ -2,6 +2,7 @@
 // Serves web/dist on WEB_PORT and the HTTP API + ask stream + fake S3 on API_PORT (a second
 // origin, so CORS and the Authorization preflight are exercised like in prod).
 // TOTP: 123456 is valid, 111111 answers OTP_REPLAYED, 5 wrong codes in a row lock for 15 min.
+// MOCK_ANY_CODE=1: any 6-digit code unlocks (no replay or lockout), for a local preview.
 // Test hook: `curl -X POST localhost:5301/_revoke` drops every token (next call -> UNAUTHENTICATED).
 // Usage: npm run build && npm run mock   -> open http://localhost:5300
 import { createServer } from 'node:http';
@@ -11,6 +12,7 @@ import { extname, join, normalize, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const WEB_PORT = Number(process.env.WEB_PORT ?? 5300);
+const ANY_CODE = process.env.MOCK_ANY_CODE === '1';
 const API_PORT = Number(process.env.API_PORT ?? 5301);
 const API = `http://localhost:${API_PORT}`;
 const WEB_ORIGIN = `http://localhost:${WEB_PORT}`;
@@ -38,7 +40,7 @@ const config = { model: models[0].id, models, maxAttachedDocs: 5, dailyQuestionC
 const cors = {
   'Access-Control-Allow-Origin': WEB_ORIGIN,
   'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
   'Access-Control-Expose-Headers': 'Retry-After',
 };
 function send(res, status, body, headers = {}) {
@@ -67,6 +69,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function verify(req, res) {
   const { code } = await readJson(req);
   if (!/^\d{6}$/.test(code ?? '')) return fail(res, 400, 'VALIDATION_FAILED', 'code must be 6 digits');
+  if (ANY_CODE) return issueToken(res);
   if (Date.now() < db.lockedUntil) {
     return fail(res, 429, 'OTP_LOCKED', 'Too many attempts', { 'Retry-After': String(Math.ceil((db.lockedUntil - Date.now()) / 1000)) });
   }
@@ -77,6 +80,10 @@ async function verify(req, res) {
     return fail(res, 401, 'OTP_INVALID', 'Wrong code');
   }
   db.failCount = 0;
+  return issueToken(res);
+}
+
+function issueToken(res) {
   const token = randomBytes(24).toString('base64url');
   db.tokens.add(token);
   return send(res, 200, { token, expiresAt: new Date(Date.now() + 43200_000).toISOString() });
@@ -212,6 +219,10 @@ async function api(req, res) {
     if (sub === '/ask' && m === 'POST') return askRoute(req, res, chat);
     if (!sub && m === 'GET') return send(res, 200, { chat, messages: db.messages.get(id) });
     if (!sub && m === 'PATCH') return chatPatch(req, res, chat);
+    if (!sub && m === 'DELETE') {
+      db.messages.delete(id); db.chats.delete(id); // docs and usage stay, as in the contract
+      return send(res, 200, { deleted: true });
+    }
   }
   return fail(res, 404, 'VALIDATION_FAILED', `No route ${m} ${p}`);
 }
@@ -240,4 +251,5 @@ const wrap = (fn) => (req, res) => fn(req, res).catch((err) => {
   else res.end();
 });
 createServer(wrap(api)).listen(API_PORT, () => console.log(`mock api   ${API}`));
-createServer(wrap(web)).listen(WEB_PORT, () => console.log(`mock web   ${WEB_ORIGIN}  (TOTP code 123456)`));
+createServer(wrap(web)).listen(WEB_PORT, () =>
+  console.log(`mock web   ${WEB_ORIGIN}  (${ANY_CODE ? 'any 6-digit code unlocks' : 'TOTP code 123456'})`));

@@ -6,6 +6,7 @@ import type { Clock } from '../../ports/clock.js';
 import type { ResolveDocs } from '../resolve-attached-docs/index.js';
 import { appError, type AppError } from '../../shared/errors/app-error.js';
 import { err, type Result } from '../../shared/result/result.js';
+import { loadOwnedChat } from '../load-owned-chat/index.js';
 
 /** What update-chat needs. */
 export interface UpdateChatDeps {
@@ -53,7 +54,7 @@ export const updateChat =
     chatId: string,
     changes: ChatChanges,
   ): Promise<Result<Chat, AppError>> => {
-    const found = await deps.chats.getChat(principal.uid, chatId);
+    const found = await loadOwnedChat(deps.chats, principal, chatId);
     if (!found.ok) return found;
     const patch = await resolvePatch(deps, principal, changes);
     if (!patch.ok) return patch;

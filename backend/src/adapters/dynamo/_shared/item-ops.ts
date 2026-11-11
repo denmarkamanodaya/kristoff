@@ -1,7 +1,9 @@
 // The item operations both stores share (core/dry.md placement: adapters/<service>/_shared):
-// create-if-absent, consistent get, version-locked update and a bounded query, each guarded.
+// create-if-absent, consistent get, version-locked update, unconditional delete and a bounded
+// query, each guarded.
 // Contract: docs/contract.md "Storage". Plan: ~/.claude/plans/hey-claude-we-have-gentle-ripple.md.
 import {
+  DeleteCommand,
   GetCommand,
   PutCommand,
   QueryCommand,
@@ -106,4 +108,21 @@ export const queryPage = async (
   return page.ok
     ? ok({ items: page.value.Items ?? [], lastKey: page.value.LastEvaluatedKey })
     : page;
+};
+
+/**
+ * Deletes one item; deleting an absent item is not an error (idempotent).
+ * @param target - Client and table.
+ * @param key - Primary key.
+ * @returns Ok or `UPSTREAM_UNAVAILABLE`.
+ */
+export const deleteItem = async (
+  { client, table }: DynamoTarget,
+  key: ItemKey,
+): Promise<Result<void, AppError>> => {
+  const removed = await guarded(
+    () => client.send(new DeleteCommand({ TableName: table, Key: key })),
+    'dynamo.DeleteItem',
+  );
+  return removed.ok ? ok(undefined) : removed;
 };

@@ -132,3 +132,5 @@ export const UsageResponse = z.object({ today: UsageWire, total: UsageWire }).st
 export const TextEvent = z.object({ text: z.string().max(MAX_MESSAGE_TEXT) }).strict();
 /** Stream `done` event data. */
 export const DoneEvent = z.object({ message: MessageWire, usage: UsageWire }).strict();
+/** `DELETE /v1/chats/{id}` 200. */
+export const DeletedResponse = z.object({ deleted: z.literal(true) }).strict();

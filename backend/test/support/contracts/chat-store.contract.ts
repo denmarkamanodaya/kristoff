@@ -83,5 +83,20 @@ export const chatStoreContract = (name: string, make: () => Promise<ChatStore>) 
       expect(recent.ok && recent.value.map((m) => m.text)).toEqual(['m2', 'm3']);
       expect(await store.recentMessages('c1', 0)).toEqual({ ok: true, value: [] });
     });
+
+    it('deletes every message and then the chat; both are repeatable', async () => {
+      const store = await make();
+      await store.createChat('u1', aChat());
+      for (const n of [1, 2, 3])
+        await store.putMessage(aChat().id, aMessage({ id: `01J${String(n).padStart(23, '0')}` }));
+      expect(await store.deleteMessages(aChat().id)).toEqual({ ok: true, value: 3 });
+      expect(await store.deleteMessages(aChat().id)).toEqual({ ok: true, value: 0 });
+      expect(await store.recentMessages(aChat().id, 10)).toEqual({ ok: true, value: [] });
+      expect((await store.deleteChat('u1', aChat().id)).ok).toBe(true);
+      expect((await store.deleteChat('u1', aChat().id)).ok).toBe(true);
+      expect(await store.getChat('u1', aChat().id)).toMatchObject({
+        error: { code: 'CHAT_NOT_FOUND' },
+      });
+    });
   });
 };

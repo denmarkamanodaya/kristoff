@@ -138,6 +138,9 @@ export const getChat = (chatId) => request('GET', `/v1/chats/${id(chatId)}`);
 /** `PATCH /v1/chats/{id}` with `{ title? , docIds? }` → `{ chat }`. */
 export const updateChat = (chatId, patch) => request('PATCH', `/v1/chats/${id(chatId)}`, { body: patch });
 
+/** `DELETE /v1/chats/{id}` → `{ deleted: true }`; unknown id → `CHAT_NOT_FOUND`. */
+export const deleteChat = (chatId) => request('DELETE', `/v1/chats/${id(chatId)}`);
+
 /** `GET /v1/usage` → `{ today: Usage, total: Usage }`. */
 export const getUsage = () => request('GET', '/v1/usage');
 

@@ -9,6 +9,7 @@ import {
   CHAT_SK_PREFIX,
   messageKey,
   MESSAGE_SK_PREFIX,
+  type ItemKey,
 } from '../../../domain/keys/index.js';
 import type { Chat, ChatSummary, Message, Versioned } from '../../../domain/model.js';
 import type { ChatStore } from '../../../ports/chat-store.js';
@@ -23,7 +24,8 @@ import {
   SCHEMA_VERSION,
   type DynamoTarget,
 } from '../_shared/dynamo-call.js';
-import { getItem, putNew, queryPage, updateVersioned } from '../_shared/item-ops.js';
+import { deleteItem, getItem, putNew, queryPage, updateVersioned } from '../_shared/item-ops.js';
+import { mapLimit } from '../../../shared/map-limit/map-limit.js';
 import { ChatRow, MessageRow } from '../_shared/rows.js';
 
 /** Largest serialised message item written, in bytes (DynamoDB caps an item at 400 KB). */
@@ -87,6 +89,84 @@ const recentMessages =
     return messages.ok ? ok(messages.value.reverse()) : messages;
   };
 
+const createChat =
+  (target: DynamoTarget): ChatStore['createChat'] =>
+  (uid, chat) =>
+    putNew(
+      target,
+      {
+        ...chatKey(uid, chat.id),
+        ...chatGsiKey(uid, chat.updatedAt, chat.id),
+        title: chat.title,
+        docIds: chat.docIds,
+        createdAt: chat.createdAt,
+        updatedAt: chat.updatedAt,
+        schemaVersion: SCHEMA_VERSION,
+        version: 1,
+      },
+      () => appError('INTERNAL', 'chat id already exists'),
+    );
+
+const getChat =
+  (target: DynamoTarget): ChatStore['getChat'] =>
+  async (uid, chatId) => {
+    const got = await getItem(target, chatKey(uid, chatId));
+    if (!got.ok) return got;
+    return got.value ? toChat(got.value) : err(appError('CHAT_NOT_FOUND', 'no such chat'));
+  };
+
+/** The primary key of a projected item; `INTERNAL` when it is not two strings. */
+const toKey = (item: unknown): Result<ItemKey, AppError> => {
+  const { PK, SK } = (item ?? {}) as Record<string, unknown>;
+  return typeof PK === 'string' && typeof SK === 'string'
+    ? ok({ PK, SK })
+    : err(appError('INTERNAL', 'stored message key is malformed'));
+};
+
+/** Message keys read per page while deleting (bounded query). */
+const DELETE_PAGE = 100;
+/** Most DeleteItem calls in flight at once (docs/contract.md "Thread deletion"). */
+const DELETE_CONCURRENCY = 8;
+
+/** Deletes the keys, at most 8 at a time; the first failure is returned (the rest still ran). */
+const deleteKeys = async (
+  target: DynamoTarget,
+  keys: readonly ItemKey[],
+): Promise<Result<void, AppError>> => {
+  const results = await mapLimit(keys, DELETE_CONCURRENCY, (key) => deleteItem(target, key));
+  return results.find((r) => !r.ok) ?? ok(undefined);
+};
+
+const deleteMessages =
+  (target: DynamoTarget): ChatStore['deleteMessages'] =>
+  async (chatId) => {
+    let deleted = 0;
+    let start: Record<string, unknown> | undefined;
+    do {
+      const page = await queryPage(target, {
+        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+        ExpressionAttributeValues: { ':pk': chatPk(chatId), ':sk': MESSAGE_SK_PREFIX },
+        ProjectionExpression: 'PK, SK',
+        Limit: DELETE_PAGE,
+        ConsistentRead: true,
+        ExclusiveStartKey: start,
+      });
+      if (!page.ok) return page;
+      const keys = mapAll(page.value.items, toKey);
+      if (!keys.ok) return keys;
+      const done = await deleteKeys(target, keys.value);
+      if (!done.ok) return done;
+      deleted += keys.value.length;
+      start = page.value.lastKey;
+    } while (start !== undefined);
+    return ok(deleted);
+  };
+
+const deleteChat =
+  (target: DynamoTarget): ChatStore['deleteChat'] =>
+  (uid, chatId) =>
+    deleteItem(target, chatKey(uid, chatId));
+
 const putMessage =
   (target: DynamoTarget): ChatStore['putMessage'] =>
   async (chatId, message) => {
@@ -116,26 +196,8 @@ const putMessage =
  *   DynamoDB fail it opaquely.
  */
 export const dynamoChatStore = (target: DynamoTarget): ChatStore => ({
-  createChat: (uid, chat) =>
-    putNew(
-      target,
-      {
-        ...chatKey(uid, chat.id),
-        ...chatGsiKey(uid, chat.updatedAt, chat.id),
-        title: chat.title,
-        docIds: chat.docIds,
-        createdAt: chat.createdAt,
-        updatedAt: chat.updatedAt,
-        schemaVersion: SCHEMA_VERSION,
-        version: 1,
-      },
-      () => appError('INTERNAL', 'chat id already exists'),
-    ),
-  getChat: async (uid, chatId) => {
-    const got = await getItem(target, chatKey(uid, chatId));
-    if (!got.ok) return got;
-    return got.value ? toChat(got.value) : err(appError('CHAT_NOT_FOUND', 'no such chat'));
-  },
+  createChat: createChat(target),
+  getChat: getChat(target),
   listChats: listChats(target),
   updateChat: async (uid, chatId, patch, version) => {
     const { GSI1SK } = chatGsiKey(uid, patch.updatedAt, chatId);
@@ -151,4 +213,6 @@ export const dynamoChatStore = (target: DynamoTarget): ChatStore => ({
   },
   putMessage: putMessage(target),
   recentMessages: recentMessages(target),
+  deleteMessages: deleteMessages(target),
+  deleteChat: deleteChat(target),
 });

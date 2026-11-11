@@ -18,6 +18,7 @@ locals {
     "chats-create" = { description = "POST /v1/chats", routes = ["POST /v1/chats"], auth = "lambda" }
     "chats-get"    = { description = "GET /v1/chats/{id}", routes = ["GET /v1/chats/{id}"], auth = "lambda" }
     "chats-update" = { description = "PATCH /v1/chats/{id}", routes = ["PATCH /v1/chats/{id}"], auth = "lambda" }
+    "chats-delete" = { description = "DELETE /v1/chats/{id}: thread + its messages", routes = ["DELETE /v1/chats/{id}"], auth = "lambda", timeout_s = 30 }
     "usage-get"    = { description = "GET /v1/usage", routes = ["GET /v1/usage"], auth = "lambda" }
   }
   stream_function = "ask-stream"
@@ -78,7 +79,7 @@ module "fn" {
   description              = each.value.description
   zip_path                 = local.zip_paths[each.key]
   memory_mb                = var.http_memory_mb
-  timeout_s                = var.http_timeout_s
+  timeout_s                = try(each.value.timeout_s, var.http_timeout_s)
   env                      = local.envs[each.key]
   role_path                = module.names.lambda_role_path
   permissions_boundary_arn = module.names.boundary_arn

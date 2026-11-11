@@ -3,12 +3,25 @@
 // blocks the app until a code is verified. Contract: docs/contract.md.
 import * as api from './services/api.js';
 import * as auth from './services/auth.js';
+import * as prefs from './services/prefs.js';
+
+// ---------- theme (applied first, so the page never paints in the wrong theme) ----------
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  document.querySelectorAll('[data-theme-choice]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.themeChoice === theme)));
+}
+applyTheme(prefs.getTheme());
+document.querySelector('.theme-toggle').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-theme-choice]');
+  if (b) applyTheme(prefs.setTheme(b.dataset.themeChoice));
+});
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const state = {
   model: '', models: [], maxAttachedDocs: 0, chats: [], chatsCursor: null, docs: [], docsCursor: null,
   chat: null, pendingDocIds: [], busy: false, view: 'home', booted: false, uploads: [],
+  confirmDelete: null, // { id, where: 'side' | 'head', busy } while the inline delete confirm shows
 };
 const MAX_UPLOAD_BYTES = 33554432; // contract: POST /v1/docs `size` 1..33554432
 const MAX_FILE_NAME = 255; // contract: POST /v1/docs `fileName` ≤ 255
@@ -314,11 +327,69 @@ function show(view) {
   if (view !== 'library') setTimeout(() => ta.focus(), 0);
 }
 
+const TRASH_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+
+/** Inline delete confirmation, never a blocking dialog. Buttons carry the chat id. */
+function confirmHtml(id) {
+  const busy = state.confirmDelete?.busy;
+  return `<div class="del-confirm" role="group" aria-label="Confirm delete"><p>Delete this thread? This can't be undone.</p>
+    <div class="row"><button type="button" class="yes" data-del-yes="${esc(id)}" ${busy ? 'disabled' : ''}>${busy ? 'Deleting…' : 'Delete'}</button>
+    <button type="button" class="no" data-del-no ${busy ? 'disabled' : ''}>Cancel</button></div></div>`;
+}
+
 function renderThreads() {
-  $('#threadList').innerHTML = state.chats.map((c) =>
-    `<li data-id="${esc(c.id)}" class="${c.id === state.chat?.id ? 'active' : ''}" title="${esc(c.title)}">${esc(c.title)}</li>`).join('')
+  const cd = state.confirmDelete;
+  $('#threadList').innerHTML = state.chats.map((c) => {
+    const active = c.id === state.chat?.id ? ' active' : '';
+    if (cd?.where === 'side' && cd.id === c.id) return `<li data-id="${esc(c.id)}" class="confirming${active}">${confirmHtml(c.id)}</li>`;
+    return `<li data-id="${esc(c.id)}" class="thread-item${active}" title="${esc(c.title)}">
+      <button type="button" class="thread-open">${esc(c.title)}</button>
+      <button type="button" class="thread-del" data-del="${esc(c.id)}" aria-label="Delete thread: ${esc(c.title)}">${TRASH_ICON}</button></li>`;
+  }).join('')
     || '<li class="muted" style="cursor:default">No threads yet</li>';
   $('#moreThreads').hidden = !state.chatsCursor;
+  renderHeadConfirm();
+}
+
+function renderHeadConfirm() {
+  const cd = state.confirmDelete;
+  const on = cd?.where === 'head' && cd.id === state.chat?.id;
+  $('#headConfirm').hidden = !on;
+  $('#headConfirm').innerHTML = on ? confirmHtml(cd.id) : '';
+  $('#deleteOpenThread').hidden = on;
+}
+
+function askDelete(id, where) {
+  if (state.busy && state.chat?.id === id) { notify('Wait for the answer to finish, then delete the thread.'); return; }
+  state.confirmDelete = { id, where, busy: false };
+  renderThreads();
+  (where === 'side' ? $(`#threadList li[data-id="${CSS.escape(id)}"] .no`) : $('#headConfirm .no'))?.focus();
+}
+
+function cancelDelete() {
+  const cd = state.confirmDelete;
+  if (!cd || cd.busy) return;
+  state.confirmDelete = null;
+  renderThreads();
+  (cd.where === 'side' ? $(`#threadList [data-del="${CSS.escape(cd.id)}"]`) : $('#deleteOpenThread'))?.focus();
+}
+
+/** DELETE /v1/chats/{id}; CHAT_NOT_FOUND counts as already gone. Goes home when the open thread is deleted. */
+async function deleteThread(id) {
+  state.confirmDelete = { ...state.confirmDelete, busy: true };
+  renderThreads();
+  try {
+    await api.deleteChat(id);
+  } catch (err) {
+    if (err?.code !== 'CHAT_NOT_FOUND') {
+      state.confirmDelete = null; renderThreads();
+      handleError(err);
+      return;
+    }
+  }
+  state.confirmDelete = null;
+  state.chats = state.chats.filter((c) => c.id !== id);
+  if (state.chat?.id === id) newThread(); else renderThreads();
 }
 
 function renderLibrary() {
@@ -459,7 +530,19 @@ async function ask(text) {
 // ---------- wiring ----------
 $('#newThread').onclick = newThread;
 $$('.nav-item').forEach((a) => (a.onclick = () => (a.dataset.view === 'home' ? newThread() : (renderLibrary(), show('library')))));
-$('#threadList').onclick = guard((e) => { const li = e.target.closest('li[data-id]'); return li ? openThread(li.dataset.id) : undefined; });
+$('#threadList').onclick = guard((e) => {
+  const del = e.target.closest('[data-del]');
+  if (del) { askDelete(del.dataset.del, 'side'); return undefined; }
+  const open = e.target.closest('.thread-open');
+  return open ? openThread(open.closest('li[data-id]').dataset.id) : undefined;
+});
+$('#deleteOpenThread').onclick = () => { if (state.chat) askDelete(state.chat.id, 'head'); };
+document.addEventListener('click', (e) => {
+  const yes = e.target.closest('[data-del-yes]');
+  if (yes) { deleteThread(yes.dataset.delYes); return; }
+  if (e.target.closest('[data-del-no]')) cancelDelete();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && state.confirmDelete) cancelDelete(); });
 $('#moreThreads').onclick = guard(moreThreads);
 $('#moreDocs').onclick = guard(moreDocs);
 $('.suggestions').onclick = (e) => { const b = e.target.closest('button'); if (b) { ta.value = b.dataset.q; autosize(); ta.focus(); } };

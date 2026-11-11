@@ -62,6 +62,7 @@ export const LAMBDA_ENV = {
   'chats-list': pick('STAGE', 'TABLE_NAME'),
   'chats-create': pick('STAGE', 'TABLE_NAME', 'MAX_ATTACHED_DOCS'),
   'chats-get': pick('STAGE', 'TABLE_NAME'),
+  'chats-delete': pick('STAGE', 'TABLE_NAME'),
   'chats-update': pick('STAGE', 'TABLE_NAME', 'MAX_ATTACHED_DOCS'),
   'usage-get': pick('STAGE', 'TABLE_NAME'),
   'ask-stream': pick(

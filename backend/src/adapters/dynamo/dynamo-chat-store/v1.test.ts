@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { aChat, aMessage } from '../../../../test/support/builders.js';
-import { stubClient } from '../../../../test/support/sdk-stub.js';
+import type { DocClient } from '../_shared/dynamo-call.js';
+import { sdkError, stubClient } from '../../../../test/support/sdk-stub.js';
 import { dynamoChatStore } from './v1.js';
 
 const CHAT_ROW = {
@@ -130,5 +131,93 @@ describe('dynamo-chat-store v1', () => {
       Limit: 20,
       ConsistentRead: true,
     });
+  });
+
+  it('deletes messages page by page: projected Query, then one DeleteItem per message', async () => {
+    const keys = [
+      { PK: 'CHAT#c', SK: 'MSG#a' },
+      { PK: 'CHAT#c', SK: 'MSG#b' },
+    ];
+    const { client, calls } = stubClient(
+      { Items: keys.slice(0, 1), LastEvaluatedKey: keys[0] },
+      {},
+      { Items: keys.slice(1) },
+      {},
+    );
+
+    const result = await dynamoChatStore({ client, table: 't' }).deleteMessages('c');
+
+    expect(result).toEqual({ ok: true, value: 2 });
+    expect(calls.map((c) => c.command)).toEqual([
+      'QueryCommand',
+      'DeleteCommand',
+      'QueryCommand',
+      'DeleteCommand',
+    ]);
+    expect(calls[0]?.input).toEqual({
+      TableName: 't',
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+      ExpressionAttributeValues: { ':pk': 'CHAT#c', ':sk': 'MSG#' },
+      ProjectionExpression: 'PK, SK',
+      Limit: 100,
+      ConsistentRead: true,
+      ExclusiveStartKey: undefined,
+    });
+    expect(calls[1]?.input).toEqual({ TableName: 't', Key: keys[0] });
+    expect((calls[2]?.input as { ExclusiveStartKey: unknown }).ExclusiveStartKey).toEqual(keys[0]);
+    expect(calls[3]?.input).toEqual({ TableName: 't', Key: keys[1] });
+  });
+
+  it('never has more than 8 DeleteItem calls in flight', async () => {
+    const items = Array.from({ length: 30 }, (_, i) => ({ PK: 'CHAT#c', SK: `MSG#${String(i)}` }));
+    let inFlight = 0;
+    let peak = 0;
+    let deletes = 0;
+    const client = {
+      send: async (command: { constructor: { name: string } }) => {
+        if (command.constructor.name === 'QueryCommand') return { Items: items };
+        inFlight += 1;
+        deletes += 1;
+        peak = Math.max(peak, inFlight);
+        await new Promise((resolve) => setImmediate(resolve));
+        inFlight -= 1;
+        return {};
+      },
+    } as unknown as DocClient;
+
+    const result = await dynamoChatStore({ client, table: 't' }).deleteMessages('c');
+
+    expect(result).toEqual({ ok: true, value: 30 });
+    expect([deletes, peak]).toEqual([30, 8]);
+  });
+
+  it('returns a failed delete as UPSTREAM_UNAVAILABLE, and deletes the chat item by its owner key', async () => {
+    const { client, calls } = stubClient(
+      { Items: [{ PK: 'CHAT#c', SK: 'MSG#a' }] },
+      sdkError('ProvisionedThroughputExceededException'),
+      {},
+    );
+    const store = dynamoChatStore({ client, table: 't' });
+
+    expect(await store.deleteMessages('c')).toMatchObject({
+      error: { code: 'UPSTREAM_UNAVAILABLE', details: { operation: 'dynamo.DeleteItem' } },
+    });
+    expect(await store.deleteChat('u1', 'cccccccccccccccc')).toEqual({
+      ok: true,
+      value: undefined,
+    });
+    expect(calls[2]).toEqual({
+      command: 'DeleteCommand',
+      input: { TableName: 't', Key: { PK: 'OWNER#u1', SK: 'CHAT#cccccccccccccccc' } },
+    });
+  });
+
+  it('rejects a malformed projected key as INTERNAL without deleting', async () => {
+    const { client, calls } = stubClient({ Items: [{ PK: 'CHAT#c' }] });
+
+    expect(await dynamoChatStore({ client, table: 't' }).deleteMessages('c')).toMatchObject({
+      error: { code: 'INTERNAL' },
+    });
+    expect(calls).toHaveLength(1);
   });
 });

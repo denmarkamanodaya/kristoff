@@ -27,6 +27,7 @@ import type { FlagReader } from '../../ports/flag-reader.js';
 import type { IdGenerator } from '../../ports/id-generator.js';
 import type { UsageMeter } from '../../ports/usage-meter.js';
 import { MODEL_DOC_URL_TTL_SECONDS } from '../../domain/limits.js';
+import { loadOwnedChat } from '../load-owned-chat/index.js';
 
 /** Model settings from the env (`MODEL_IDS`, `MAX_TOKENS`, `MAX_HISTORY_TURNS`, `DAILY_QUESTION_CAP`). */
 interface AskConfig {
@@ -108,7 +109,7 @@ const admit = async (
   const enabled = await deps.flags.isAiEnabled();
   if (!enabled.ok) return enabled;
   if (!enabled.value) return err(appError('AI_DISABLED', 'answers are switched off'));
-  const chat = await deps.chats.getChat(principal.uid, chatId);
+  const chat = await loadOwnedChat(deps.chats, principal, chatId);
   if (!chat.ok) return chat;
   const now = deps.clock.now();
   const admitted = await deps.meter.admitQuestion(

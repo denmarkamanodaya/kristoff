@@ -60,6 +60,15 @@ export const memoryChatStore = () => {
       );
       return Promise.resolve(ok(undefined));
     },
+    deleteMessages: (chatId) => {
+      const count = messages.get(chatId)?.length ?? 0;
+      messages.delete(chatId);
+      return Promise.resolve(ok(count));
+    },
+    deleteChat: (uid, chatId) => {
+      chats.delete(k(uid, chatId));
+      return Promise.resolve(ok(undefined));
+    },
     recentMessages: (chatId, limit) =>
       Promise.resolve(ok(limit <= 0 ? [] : (messages.get(chatId) ?? []).slice(-limit))),
   };

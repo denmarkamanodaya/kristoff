@@ -34,6 +34,10 @@
     <ul id="threadList" class="thread-list"></ul>
     <button id="moreThreads" class="more" type="button" hidden>Load more</button>
     <div class="side-foot">
+      <div class="theme-toggle" role="group" aria-label="Theme">
+        <button type="button" data-theme-choice="light" aria-pressed="true">Light</button>
+        <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
+      </div>
       <div id="usage" class="usage"></div>
     </div>
   </aside>
@@ -54,7 +58,14 @@
 
     <!-- Thread -->
     <section id="thread" class="view thread" hidden>
-      <div class="thread-head"><div id="threadTitle" class="thread-title"></div><div id="threadDocs" class="thread-docs"></div></div>
+      <div class="thread-head">
+        <div id="threadTitle" class="thread-title"></div>
+        <div class="head-right">
+          <div id="threadDocs" class="thread-docs"></div>
+          <button type="button" id="deleteOpenThread" class="tool head-del" aria-label="Delete this thread"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>Delete</button>
+        </div>
+        <div id="headConfirm" class="head-confirm" hidden></div>
+      </div>
       <div id="turns" class="turns"></div>
       <div class="follow-wrap"><div id="threadSlot" class="composer-slot"></div></div>
     </section>

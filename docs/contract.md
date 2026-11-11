@@ -191,3 +191,16 @@ IAM per Lambda: only the table/index actions, bucket prefix and SSM parameters i
   assistant message.
 - The web shows a select in the composer (where the model label was), default = `config.model`, choice kept in
   memory only for the page session, sent with every ask.
+
+## Thread deletion + dark mode (2026-11-12, owner request)
+
+- `DELETE /v1/chats/{id}` (bearer) → `200 { "deleted": true }`; unknown id → `CHAT_NOT_FOUND`. Deletes the chat item
+  and every `MSG#` item under `CHAT#<id>` (paginated Query, then `DeleteItem` per message with bounded concurrency 8;
+  `BatchWriteItem` is outside the Lambda boundary's action ceiling, so it is not used). Messages are deleted first, the chat item last, so a failure midway leaves the thread
+  visible and the delete can be repeated (idempotent; a repeat after success returns `CHAT_NOT_FOUND`). Attached
+  documents are NOT deleted (library stays). Usage counters are untouched. Recovery window = DynamoDB PITR (35 d).
+  New Lambda `chats-delete` (timeout 30 s, memory 256 MB); route `DELETE /v1/chats/{id}`; CORS methods add `DELETE`.
+- Dark mode is web-only: a theme toggle (Light / Dark), default Light. The choice is a per-viewer convenience kept in
+  `localStorage` key `kristoff.theme` (values `light|dark`), read/written only by `web/services/prefs.js`, wrapped in
+  try/catch (falls back to Light). Dark mode redefines the colour tokens under `:root[data-theme="dark"]`; no
+  selector duplication. Session tokens are still never stored.

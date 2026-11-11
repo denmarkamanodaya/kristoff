@@ -24,12 +24,12 @@ variables {
   anthropic_timeout_ms = 120000
 }
 
-run "fourteen_functions_with_contract_names_and_sizes" {
+run "fifteen_functions_with_contract_names_and_sizes" {
   command = plan
 
   assert {
-    condition     = sort(keys(output.function_names)) == sort(["authorizer", "auth-verify", "config-get", "docs-list", "docs-create", "docs-confirm", "docs-rename", "docs-link", "chats-list", "chats-create", "chats-get", "chats-update", "usage-get", "ask-stream"])
-    error_message = "the 14 functions of the contract exist"
+    condition     = sort(keys(output.function_names)) == sort(["authorizer", "auth-verify", "config-get", "docs-list", "docs-create", "docs-confirm", "docs-rename", "docs-link", "chats-list", "chats-create", "chats-get", "chats-update", "chats-delete", "usage-get", "ask-stream"])
+    error_message = "the 15 functions of the contract exist (DELETE /v1/chats/{id} added 2026-11-12)"
   }
   assert {
     condition     = alltrue([for k, n in output.function_names : n == "kristoff-prod-${k}"])
@@ -45,15 +45,15 @@ run "routes_match_the_contract" {
   command = plan
 
   assert {
-    condition     = sort(module.api.route_keys) == sort(["POST /v1/auth/verify", "GET /v1/config", "GET /v1/docs", "POST /v1/docs", "POST /v1/docs/{id}/confirm", "PATCH /v1/docs/{id}", "GET /v1/docs/{id}/link", "GET /v1/chats", "POST /v1/chats", "GET /v1/chats/{id}", "PATCH /v1/chats/{id}", "GET /v1/usage"])
-    error_message = "the API serves exactly the contract's 12 routes"
+    condition     = sort(module.api.route_keys) == sort(["POST /v1/auth/verify", "GET /v1/config", "GET /v1/docs", "POST /v1/docs", "POST /v1/docs/{id}/confirm", "PATCH /v1/docs/{id}", "GET /v1/docs/{id}/link", "GET /v1/chats", "POST /v1/chats", "GET /v1/chats/{id}", "PATCH /v1/chats/{id}", "DELETE /v1/chats/{id}", "GET /v1/usage"])
+    error_message = "the API serves exactly the contract's 13 routes"
   }
   assert {
     condition     = { for r in local.routes : r.key => r.auth }["POST /v1/auth/verify"] == "none" && alltrue([for r in local.routes : r.auth == "lambda" if r.key != "POST /v1/auth/verify"])
     error_message = "only auth/verify skips the authorizer"
   }
   assert {
-    condition     = length(aws_lambda_permission.api) == 12
+    condition     = length(aws_lambda_permission.api) == 13
     error_message = "one invoke permission per route"
   }
   assert {

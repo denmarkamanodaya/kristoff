@@ -33,4 +33,13 @@ export interface ChatStore {
   putMessage(chatId: string, message: Message): Promise<Result<void, AppError>>;
   /** The newest `limit` messages of a chat, returned oldest first. */
   recentMessages(chatId: string, limit: number): Promise<Result<Message[], AppError>>;
+  /**
+   * Deletes every message of a chat (all pages), one item delete at a time with bounded
+   * concurrency. Repeatable: a second call deletes nothing. `UPSTREAM_UNAVAILABLE` when a delete
+   * fails (the chat item is untouched, so the caller can repeat).
+   * @returns How many messages were deleted.
+   */
+  deleteMessages(chatId: string): Promise<Result<number, AppError>>;
+  /** Deletes the chat item under its owner; deleting an absent chat is not an error. */
+  deleteChat(uid: string, chatId: string): Promise<Result<void, AppError>>;
 }

@@ -232,6 +232,25 @@
       },
       "ssm": []
     },
+    "chats-delete": {
+      "env": [
+        "STAGE",
+        "TABLE_NAME"
+      ],
+      "dynamodb": {
+        "table": [
+          "dynamodb:DeleteItem",
+          "dynamodb:GetItem",
+          "dynamodb:Query"
+        ],
+        "gsi1": []
+      },
+      "s3": {
+        "actions": [],
+        "prefix": "docs/"
+      },
+      "ssm": []
+    },
     "usage-get": {
       "env": [
         "STAGE",
