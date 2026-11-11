@@ -44,7 +44,7 @@ export const askStreamDeps = async () => {
       ids: cryptoIdGenerator(() => systemClock.now()),
       clock: systemClock,
       config: {
-        modelId: env.MODEL_ID,
+        modelIds: env.MODEL_IDS,
         maxTokens: env.MAX_TOKENS,
         maxHistoryTurns: env.MAX_HISTORY_TURNS,
         dailyQuestionCap: env.DAILY_QUESTION_CAP,

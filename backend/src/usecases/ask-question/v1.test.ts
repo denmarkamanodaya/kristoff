@@ -46,6 +46,7 @@ const setup = async (
   opts: {
     end?: Result<AnswerEnd, AppError>;
     flags?: Result<boolean, AppError>;
+    onFlagRead?: () => void;
     cap?: number;
   } = {},
 ) => {
@@ -62,11 +63,16 @@ const setup = async (
     files: memoryFileStore().store,
     model: model.model,
     meter: usage.meter,
-    flags: fixedFlags(opts.flags ?? ok(true)),
+    flags: {
+      isAiEnabled: () => {
+        opts.onFlagRead?.();
+        return fixedFlags(opts.flags ?? ok(true)).isAiEnabled();
+      },
+    },
     ids: fakeIds(),
     clock: fakeClock(),
     config: {
-      modelId: 'claude-sonnet-5-5',
+      modelIds: ['claude-sonnet-5-5', 'claude-opus-5-5'],
       maxTokens: 4096,
       maxHistoryTurns: 20,
       dailyQuestionCap: opts.cap ?? 3,
@@ -80,7 +86,7 @@ describe('ask-question v1', () => {
     const { chats, run } = await setup();
     const { sink, log } = recordingSink();
 
-    const result = await run(ME, aChat().id, 'What is estoppel?', sink);
+    const result = await run(ME, aChat().id, { text: 'What is estoppel?' }, sink);
 
     expect(log).toEqual(['open', 'text:Estoppel bars', 'citation:1', 'text: denial.']);
     expect(result).toMatchObject({ ok: true, value: { usage: USAGE } });
@@ -102,7 +108,7 @@ describe('ask-question v1', () => {
   it('sends only ready docs, by presigned URL, to the configured model and max tokens', async () => {
     const { model, run } = await setup();
 
-    await run(ME, aChat().id, 'Q', recordingSink().sink);
+    await run(ME, aChat().id, { text: 'Q' }, recordingSink().sink);
 
     expect(model.requests[0]).toEqual({
       model: 'claude-sonnet-5-5',
@@ -127,7 +133,7 @@ describe('ask-question v1', () => {
   it('titles a new chat from the first question and counts tokens for the day and total', async () => {
     const { chats, usage, run } = await setup();
 
-    await run(ME, aChat().id, '  Is a verbal lease valid? ', recordingSink().sink);
+    await run(ME, aChat().id, { text: '  Is a verbal lease valid? ' }, recordingSink().sink);
 
     expect(chats.chats.get(`kristoff/${aChat().id}`)?.chat).toMatchObject({
       title: 'Is a verbal lease valid?',
@@ -141,25 +147,60 @@ describe('ask-question v1', () => {
     const { chats, run } = await setup();
     await chats.store.updateChat('kristoff', aChat().id, { title: 'Renamed', updatedAt: 'x' }, 1);
 
-    await run(ME, aChat().id, 'q'.repeat(80), recordingSink().sink);
+    await run(ME, aChat().id, { text: 'q'.repeat(80) }, recordingSink().sink);
 
     expect(chats.chats.get(`kristoff/${aChat().id}`)?.chat.title).toBe('q'.repeat(60));
   });
 
   it('keeps the title once the chat has messages', async () => {
     const { chats, run } = await setup();
-    await run(ME, aChat().id, 'First question', recordingSink().sink);
+    await run(ME, aChat().id, { text: 'First question' }, recordingSink().sink);
 
-    await run(ME, aChat().id, 'Second question', recordingSink().sink);
+    await run(ME, aChat().id, { text: 'Second question' }, recordingSink().sink);
 
     expect(chats.chats.get(`kristoff/${aChat().id}`)?.chat.title).toBe('First question');
+  });
+
+  it('calls the model the client chose and stores that id on the answer', async () => {
+    const { chats, model, run } = await setup();
+
+    await run(ME, aChat().id, { text: 'Q', model: 'claude-opus-5-5' }, recordingSink().sink);
+
+    expect(model.requests[0]?.model).toBe('claude-opus-5-5');
+    expect(chats.messages.get(aChat().id)?.[1]?.model).toBe('claude-opus-5-5');
+  });
+
+  it('uses the first allowed model when none is chosen', async () => {
+    const { chats, model, run } = await setup();
+
+    await run(ME, aChat().id, { text: 'Q' }, recordingSink().sink);
+
+    expect([model.requests[0]?.model, chats.messages.get(aChat().id)?.[1]?.model]).toEqual([
+      'claude-sonnet-5-5',
+      'claude-sonnet-5-5',
+    ]);
+  });
+
+  it('refuses a model outside MODEL_IDS with VALIDATION_FAILED before the kill switch and meter', async () => {
+    const flagReads: unknown[] = [];
+    const { chats, usage, model, run } = await setup({
+      flags: ok(true),
+      onFlagRead: () => flagReads.push(1),
+    });
+    const { sink, log } = recordingSink();
+
+    const result = await run(ME, aChat().id, { text: 'Q', model: 'claude-unknown-9' }, sink);
+
+    expect(result).toMatchObject({ ok: false, error: { code: 'VALIDATION_FAILED' } });
+    expect([flagReads, usage.questions.size, model.requests.length, log]).toEqual([[], 0, 0, []]);
+    expect(chats.messages.get(aChat().id)).toBeUndefined();
   });
 
   it('refuses before the meter and before open when the kill switch is off', async () => {
     const { usage, run } = await setup({ flags: ok(false) });
     const { sink, log } = recordingSink();
 
-    const result = await run(ME, aChat().id, 'Q', sink);
+    const result = await run(ME, aChat().id, { text: 'Q' }, sink);
 
     expect(result).toMatchObject({ error: { code: 'AI_DISABLED' } });
     expect([log, usage.questions.size]).toEqual([[], 0]);
@@ -168,17 +209,17 @@ describe('ask-question v1', () => {
   it('fails closed when the kill switch cannot be read', async () => {
     const { run } = await setup({ flags: err(appError('UPSTREAM_UNAVAILABLE', 'ssm')) });
 
-    expect(await run(ME, aChat().id, 'Q', recordingSink().sink)).toMatchObject({
+    expect(await run(ME, aChat().id, { text: 'Q' }, recordingSink().sink)).toMatchObject({
       error: { code: 'UPSTREAM_UNAVAILABLE' },
     });
   });
 
   it('refuses the question over the daily cap with Retry-After to the next UTC day', async () => {
     const { model, run } = await setup({ cap: 1 });
-    await run(ME, aChat().id, 'Q1', recordingSink().sink);
+    await run(ME, aChat().id, { text: 'Q1' }, recordingSink().sink);
     const { sink, log } = recordingSink();
 
-    const second = await run(ME, aChat().id, 'Q2', sink);
+    const second = await run(ME, aChat().id, { text: 'Q2' }, sink);
 
     expect(second).toMatchObject({
       error: { code: 'DAILY_CAP_REACHED', details: { retryAfterSeconds: 23 * 3600 } },
@@ -189,7 +230,7 @@ describe('ask-question v1', () => {
   it('answers CHAT_NOT_FOUND before metering', async () => {
     const { usage, run } = await setup();
 
-    expect(await run(ME, 'ffffffffffffffff', 'Q', recordingSink().sink)).toMatchObject({
+    expect(await run(ME, 'ffffffffffffffff', { text: 'Q' }, recordingSink().sink)).toMatchObject({
       error: { code: 'CHAT_NOT_FOUND' },
     });
     expect(usage.questions.size).toBe(0);
@@ -200,7 +241,7 @@ describe('ask-question v1', () => {
       end: err(appError('UPSTREAM_UNAVAILABLE', 'down')),
     });
 
-    const result = await run(ME, aChat().id, 'Q', recordingSink().sink);
+    const result = await run(ME, aChat().id, { text: 'Q' }, recordingSink().sink);
 
     expect(result).toMatchObject({ error: { code: 'UPSTREAM_UNAVAILABLE' } });
     expect(chats.messages.get(aChat().id)?.[1]).toMatchObject({
@@ -215,7 +256,7 @@ describe('ask-question v1', () => {
   it('notes a cut-off answer when the model stops at max_tokens', async () => {
     const { chats, run } = await setup({ end: ok({ usage: USAGE, stopReason: 'max_tokens' }) });
 
-    await run(ME, aChat().id, 'Q', recordingSink().sink);
+    await run(ME, aChat().id, { text: 'Q' }, recordingSink().sink);
 
     expect(chats.messages.get(aChat().id)?.[1]?.text).toMatch(/Ask "continue" for the rest/);
   });

@@ -28,9 +28,10 @@ import type { IdGenerator } from '../../ports/id-generator.js';
 import type { UsageMeter } from '../../ports/usage-meter.js';
 import { MODEL_DOC_URL_TTL_SECONDS } from '../../domain/limits.js';
 
-/** Model settings from the env (`MODEL_ID`, `MAX_TOKENS`, `MAX_HISTORY_TURNS`, `DAILY_QUESTION_CAP`). */
+/** Model settings from the env (`MODEL_IDS`, `MAX_TOKENS`, `MAX_HISTORY_TURNS`, `DAILY_QUESTION_CAP`). */
 interface AskConfig {
-  readonly modelId: string;
+  /** Allowed model ids, first = default (docs/contract.md "Model choice"). */
+  readonly modelIds: readonly [string, ...string[]];
   readonly maxTokens: number;
   readonly maxHistoryTurns: number;
   readonly dailyQuestionCap: number;
@@ -81,6 +82,23 @@ export interface AskOutcome {
 
 const CUT_OFF_NOTE = '\n\n_(Answer cut off at the length limit. Ask "continue" for the rest.)_';
 const FAILED_NOTE = '\n\n_(The answer was interrupted. Please ask again.)_';
+
+/** One question: its text and the model the client chose (omitted = the default). */
+export interface Question {
+  readonly text: string;
+  readonly model?: string | undefined;
+}
+
+/** The requested model if it is allowed, the default when none was asked for; else VALIDATION_FAILED. */
+const chooseModel = (
+  allowed: readonly [string, ...string[]],
+  requested: string | undefined,
+): Result<string, AppError> => {
+  if (requested === undefined) return ok(allowed[0]);
+  return allowed.includes(requested)
+    ? ok(requested)
+    : err(appError('VALIDATION_FAILED', 'this model is not available'));
+};
 
 const admit = async (
   deps: AskQuestionDeps,
@@ -147,17 +165,24 @@ interface Draft {
   readonly citations: Citation[];
 }
 
+/** A finished (or failed) model call: the accumulated answer, how it ended, the model used. */
+interface Answer {
+  readonly draft: Draft;
+  readonly end: Result<AnswerEnd, AppError>;
+  readonly model: string;
+}
+
 const streamAnswer = async (
   deps: AskQuestionDeps,
-  turns: Parameters<typeof buildModelTurns>,
+  call: { readonly model: string; readonly turns: Parameters<typeof buildModelTurns> },
   docs: readonly AttachedDoc[],
   sink: AnswerSink,
-): Promise<{ draft: Draft; end: Result<AnswerEnd, AppError> }> => {
+): Promise<Answer> => {
   const draft: Draft = { text: '', citations: [] };
   const request = {
-    model: deps.config.modelId,
+    model: call.model,
     maxTokens: deps.config.maxTokens,
-    turns: buildModelTurns(...turns),
+    turns: buildModelTurns(...call.turns),
   };
   sink.open();
   const end = await deps.model.stream(request, (event) => {
@@ -171,14 +196,14 @@ const streamAnswer = async (
       sink.citation(citation);
     }
   });
-  return { draft, end };
+  return { draft, end, model: call.model };
 };
 
 const storeAnswer = async (
   deps: AskQuestionDeps,
   principal: Principal,
   chatId: string,
-  answer: { draft: Draft; end: Result<AnswerEnd, AppError> },
+  answer: Answer,
 ): Promise<Result<AskOutcome, AppError>> => {
   const { draft, end } = answer;
   const note = !end.ok ? FAILED_NOTE : end.value.stopReason === 'max_tokens' ? CUT_OFF_NOTE : '';
@@ -188,7 +213,7 @@ const storeAnswer = async (
     text: `${draft.text}${note}`.slice(0, MAX_MESSAGE_TEXT),
     citations: draft.citations,
     usage: end.ok ? end.value.usage : null,
-    model: deps.config.modelId,
+    model: answer.model,
     stopReason: end.ok ? end.value.stopReason : 'error',
     at: new Date(deps.clock.now()).toISOString(),
   };
@@ -212,7 +237,7 @@ const storeAnswer = async (
  * @rollback n/a, first version
  * @param deps - Stores, file store, model, meter, kill switch, ids, clock and model config.
  * @returns A function from the principal, chat id, question and sink to the stored answer. Before
- *   `sink.open()`: `AI_DISABLED`, `CHAT_NOT_FOUND`, `DAILY_CAP_REACHED` (with the seconds to the
+ *   `sink.open()`, in this order: `VALIDATION_FAILED` (model not in `MODEL_IDS`), `AI_DISABLED`, `CHAT_NOT_FOUND`, `DAILY_CAP_REACHED` (with the seconds to the
  *   next UTC day) or a store failure. After it: `UPSTREAM_UNAVAILABLE` or a store failure, with
  *   both messages already stored when the model failed.
  */
@@ -221,9 +246,12 @@ export const askQuestion =
   async (
     principal: Principal,
     chatId: string,
-    text: string,
+    question: Question,
     sink: AnswerSink,
   ): Promise<Result<AskOutcome, AppError>> => {
+    const { text } = question;
+    const model = chooseModel(deps.config.modelIds, question.model);
+    if (!model.ok) return model;
     const chat = await admit(deps, principal, chatId);
     if (!chat.ok) return chat;
     // At least one message is read, so "no messages yet" is known even when no history is sent.
@@ -243,6 +271,6 @@ export const askQuestion =
       docs.value,
       deps.config.maxHistoryTurns,
     ];
-    const answer = await streamAnswer(deps, turns, docs.value, sink);
+    const answer = await streamAnswer(deps, { model: model.value, turns }, docs.value, sink);
     return storeAnswer(deps, principal, chatId, answer);
   };

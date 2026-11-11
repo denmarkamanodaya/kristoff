@@ -57,7 +57,7 @@ module "compute" {
   lambda_zip_dir       = "${path.root}/../../../dist"
   lambda_scope_path    = "${path.root}/../../../lambda-scope.json"
   owner_id             = var.owner_id
-  model_id             = var.model_id
+  model_ids            = var.model_ids
   max_tokens           = var.max_tokens
   daily_question_cap   = var.daily_question_cap
   anthropic_timeout_ms = var.anthropic_timeout_ms

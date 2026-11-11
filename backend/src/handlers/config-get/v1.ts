@@ -24,7 +24,7 @@ export interface ConfigGetHandlerDeps {
  * @change first version
  * @rollback n/a, first version
  * @param deps - Plumbing and the wired use case.
- * @returns The handler: 200 `{model, maxAttachedDocs, dailyQuestionCap}` or 401.
+ * @returns The handler: 200 `{model, models, maxAttachedDocs, dailyQuestionCap}` or 401.
  */
 export const createConfigGetHandler =
   (deps: ConfigGetHandlerDeps) =>

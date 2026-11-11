@@ -50,6 +50,14 @@ describe('anthropic-answer-model v1', () => {
     expect(JSON.stringify(toParams(FIXTURE.request, SYSTEM_PROMPT))).toBe(expected);
   });
 
+  it('sends the chosen model id as the body model', () => {
+    const chosen = { ...FIXTURE.request, model: 'claude-opus-5-5' };
+
+    const body = JSON.parse(JSON.stringify(toParams(chosen, SYSTEM_PROMPT))) as { model: string };
+
+    expect(body.model).toBe('claude-opus-5-5');
+  });
+
   it('passes that body to messages.stream and maps text, page citations and usage', async () => {
     const { client, bodies } = stubClient([
       { type: 'message_start' } as unknown as MessageStreamEvent,

@@ -27,7 +27,7 @@ locals {
     TABLE_NAME           = module.names.table_name
     DOCS_BUCKET          = module.names.docs_bucket_name
     WEB_ORIGINS          = var.web_origin
-    MODEL_ID             = var.model_id
+    MODEL_IDS            = join(",", var.model_ids)
     MAX_TOKENS           = tostring(var.max_tokens)
     MAX_ATTACHED_DOCS    = tostring(var.max_attached_docs)
     MAX_HISTORY_TURNS    = tostring(var.max_history_turns)

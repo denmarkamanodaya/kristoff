@@ -48,7 +48,7 @@
     "config-get": {
       "env": [
         "STAGE",
-        "MODEL_ID",
+        "MODEL_IDS",
         "MAX_ATTACHED_DOCS",
         "DAILY_QUESTION_CAP"
       ],
@@ -238,7 +238,7 @@
         "OWNER_ID",
         "TABLE_NAME",
         "DOCS_BUCKET",
-        "MODEL_ID",
+        "MODEL_IDS",
         "MAX_TOKENS",
         "MAX_HISTORY_TURNS",
         "DAILY_QUESTION_CAP",

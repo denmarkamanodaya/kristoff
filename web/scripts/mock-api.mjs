@@ -27,7 +27,12 @@ const db = {
   docs: new Map(), files: new Map(), chats: new Map(), messages: new Map(),
   usage: { today: zeroUsage(), total: zeroUsage() },
 };
-const config = { model: 'claude-sonnet-5-5', maxAttachedDocs: 5, dailyQuestionCap: 50 };
+const models = [
+  { id: 'claude-sonnet-5-5', label: 'Sonnet 5.5' },
+  { id: 'claude-opus-5-5', label: 'Opus 5.5' },
+  { id: 'claude-haiku-5-5', label: 'Haiku 5.5' },
+];
+const config = { model: models[0].id, models, maxAttachedDocs: 5, dailyQuestionCap: 50 };
 
 // ---------- helpers ----------
 const cors = {
@@ -119,8 +124,12 @@ async function chatPatch(req, res, chat) {
 }
 
 async function askRoute(req, res, chat) {
-  const { text } = await readJson(req);
+  const { text, model = config.model } = await readJson(req);
   if (typeof text !== 'string' || !text.length || text.length > 8000) return fail(res, 400, 'VALIDATION_FAILED', 'text');
+  if (typeof model !== 'string' || model.length > 64 || !models.some((m) => m.id === model)) {
+    return fail(res, 400, 'VALIDATION_FAILED', 'model is not allowed');
+  }
+  db.lastAskBody = { text, model }; // test: GET /_last-ask shows what the client sent
   const msgs = db.messages.get(chat.id);
   if (!msgs.length) chat.title = text.slice(0, 60);
   msgs.push({ id: ulid(), role: 'user', text, citations: [], usage: null, model: null, stopReason: null, at: now() });
@@ -142,7 +151,7 @@ async function askRoute(req, res, chat) {
   citations.push(c2); answer += ' [2]'; ev('citation', c2);
   const usage = { input: 1200, output: 64, cacheRead: 800, cacheWrite: 0 };
   addUsage(db.usage.today, usage); addUsage(db.usage.total, usage);
-  const message = { id: ulid(), role: 'assistant', text: answer, citations, usage, model: config.model, stopReason: 'end_turn', at: now() };
+  const message = { id: ulid(), role: 'assistant', text: answer, citations, usage, model, stopReason: 'end_turn', at: now() };
   msgs.push(message);
   chat.updatedAt = now();
   ev('done', { message, usage });
@@ -163,6 +172,7 @@ async function api(req, res) {
     if (!file) { res.writeHead(404); return res.end(); }
     res.writeHead(200, { 'Content-Type': 'application/pdf' }); return res.end(file);
   }
+  if (p === '/_last-ask' && m === 'GET') return send(res, 200, db.lastAskBody ?? null);
   if (p === '/_revoke' && m === 'POST') { db.tokens.clear(); res.writeHead(204, cors); return res.end(); } // test: force UNAUTHENTICATED
   if (p === '/v1/auth/verify' && m === 'POST') return verify(req, res);
   if (!authed(req)) return fail(res, 401, 'UNAUTHENTICATED', 'Missing or invalid token');

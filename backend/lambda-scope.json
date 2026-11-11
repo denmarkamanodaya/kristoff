@@ -33,7 +33,7 @@
       "ssm": ["SSM_TOTP_SECRET", "SSM_SESSION_KEY"]
     },
     "config-get": {
-      "env": ["STAGE", "MODEL_ID", "MAX_ATTACHED_DOCS", "DAILY_QUESTION_CAP"],
+      "env": ["STAGE", "MODEL_IDS", "MAX_ATTACHED_DOCS", "DAILY_QUESTION_CAP"],
       "dynamodb": {
         "table": [],
         "gsi1": []
@@ -170,7 +170,7 @@
         "OWNER_ID",
         "TABLE_NAME",
         "DOCS_BUCKET",
-        "MODEL_ID",
+        "MODEL_IDS",
         "MAX_TOKENS",
         "MAX_HISTORY_TURNS",
         "DAILY_QUESTION_CAP",

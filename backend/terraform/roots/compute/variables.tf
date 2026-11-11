@@ -7,9 +7,9 @@ variable "owner_id" {
   nullable    = false
 }
 
-variable "model_id" {
-  description = "MODEL_ID: Anthropic model id."
-  type        = string
+variable "model_ids" {
+  description = "MODEL_IDS: allowed Anthropic model ids, the first is the default."
+  type        = list(string)
   nullable    = false
 }
 

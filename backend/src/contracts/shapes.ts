@@ -91,7 +91,11 @@ export const SessionResponse = z
 /** `GET /v1/config` 200. */
 export const ConfigResponse = z
   .object({
-    model: z.string().max(128),
+    model: z.string().max(64),
+    models: z
+      .array(z.object({ id: z.string().max(64), label: z.string().max(64) }).strict())
+      .min(1)
+      .max(5),
     maxAttachedDocs: z.number().int().min(0).max(MAX_DOC_IDS_CEILING),
     dailyQuestionCap: z.number().int().min(0).max(100_000),
   })

@@ -86,7 +86,9 @@ describe('ask-stream handler v1', () => {
 
     await handler(urlEvent(), open);
 
-    expect(seen).toEqual([[{ uid: 'kristoff' }, 'cccccccccccccccc', 'What is estoppel?']]);
+    expect(seen).toEqual([
+      [{ uid: 'kristoff' }, 'cccccccccccccccc', { text: 'What is estoppel?', model: undefined }],
+    ]);
     expect([out.status, out.headers]).toEqual([
       200,
       {
@@ -103,6 +105,30 @@ describe('ask-stream handler v1', () => {
       DoneEvent.parse(events[2]?.data),
     ]).toEqual([{ text: 'Bars' }, CITATION, { message, usage: USAGE }]);
     expect(out.ended).toBe(1);
+  });
+
+  it('passes the chosen model through and refuses a 65-char model id with 400', async () => {
+    const seen: unknown[] = [];
+    const handler = createAskStreamHandler(
+      deps((_p, _c, question) => {
+        seen.push(question);
+        return Promise.resolve(err(appError('VALIDATION_FAILED', 'this model is not available')));
+      }),
+    );
+    const first = recorder();
+    const second = recorder();
+
+    await handler(
+      urlEvent({ body: JSON.stringify({ text: 'Q', model: 'claude-opus-5-5' }) }),
+      first.open,
+    );
+    await handler(
+      urlEvent({ body: JSON.stringify({ text: 'Q', model: 'x'.repeat(65) }) }),
+      second.open,
+    );
+
+    expect(seen).toEqual([{ text: 'Q', model: 'claude-opus-5-5' }]);
+    expect([first.out.status, second.out.status]).toEqual([400, 400]);
   });
 
   it('answers a pre-stream failure as the JSON envelope with its status and Retry-After', async () => {

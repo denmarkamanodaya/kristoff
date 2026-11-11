@@ -57,5 +57,10 @@ export const UpdateChatRequest = z
     message: 'send title or docIds',
   });
 
-/** Stream `POST /v1/chats/{id}/ask` body. */
-export const AskRequest = z.object({ text: z.string().min(1).max(MAX_QUESTION) }).strict();
+/** Stream `POST /v1/chats/{id}/ask` body; `model` must be in `MODEL_IDS` (checked by the use case). */
+export const AskRequest = z
+  .object({
+    text: z.string().min(1).max(MAX_QUESTION),
+    model: z.string().min(1).max(64).optional(),
+  })
+  .strict();

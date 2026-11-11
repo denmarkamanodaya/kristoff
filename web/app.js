@@ -7,7 +7,7 @@ import * as auth from './services/auth.js';
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const state = {
-  model: '', maxAttachedDocs: 0, chats: [], chatsCursor: null, docs: [], docsCursor: null,
+  model: '', models: [], maxAttachedDocs: 0, chats: [], chatsCursor: null, docs: [], docsCursor: null,
   chat: null, pendingDocIds: [], busy: false, view: 'home', booted: false, uploads: [],
 };
 const MAX_UPLOAD_BYTES = 33554432; // contract: POST /v1/docs `size` 1..33554432
@@ -236,6 +236,17 @@ $('.chips', composer).onclick = guard((e) => {
   return b ? setDocIds(currentDocIds().filter((x) => x !== b.dataset.rm)) : undefined;
 });
 
+// ---------- model picker (choice kept in memory only, docs/contract.md "Model choice") ----------
+const modelSelect = $('.model-select', composer);
+const modelLabel = (id) => state.models.find((m) => m.id === id)?.label ?? id;
+function renderModelPicker() {
+  const models = state.models.length ? state.models : [{ id: state.model, label: state.model }];
+  modelSelect.innerHTML = models.map((m) => `<option value="${esc(m.id)}">${esc(m.label)}</option>`).join('');
+  modelSelect.value = state.model;
+  $('.model-pick', composer).hidden = !state.model;
+}
+modelSelect.onchange = () => { state.model = modelSelect.value; };
+
 const autosize = () => { ta.style.height = 'auto'; ta.style.height = `${ta.scrollHeight}px`; $('.send', composer).disabled = state.busy || !ta.value.trim(); };
 ta.addEventListener('input', autosize);
 ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); composer.requestSubmit(); } });
@@ -341,8 +352,9 @@ function fillAnswer(el, a, final) {
   $('.answer', el).classList.toggle('cursor', !final);
   if (final) {
     const u = a.usage;
+    const modelTag = a.model ? `<span class="answer-model">${esc(modelLabel(a.model))}</span>` : '';
     $('.actions', el).innerHTML = `<button data-copy><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>Copy</button>
-      ${u ? `<span class="tokens">${fmt(u.input + u.cacheRead + u.cacheWrite)} in · ${fmt(u.output)} out</span>` : ''}`;
+      ${modelTag}${u ? `<span class="tokens">${fmt(u.input + u.cacheRead + u.cacheWrite)} in · ${fmt(u.output)} out</span>` : ''}`;
     $('[data-copy]', el).onclick = (e) => {
       const label = e.currentTarget.lastChild;
       navigator.clipboard.writeText(a.text.replace(/ \[\d+\]/g, ''))
@@ -425,6 +437,7 @@ async function ask(text) {
 
   try {
     const done = await api.askStream(chat.id, text, {
+      model: state.model,
       onText: (t) => { a.text += t; paint(); },
       onCitation: (c) => { a.citations.push(c); a.text += ` [${c.n}]`; paint(); },
     });
@@ -460,8 +473,8 @@ async function boot() {
   newThread();
   try {
     const cfg = await api.getConfig();
-    state.model = cfg.model; state.maxAttachedDocs = cfg.maxAttachedDocs;
-    $('.model-tag', composer).textContent = cfg.model;
+    state.model = cfg.model; state.models = cfg.models ?? []; state.maxAttachedDocs = cfg.maxAttachedDocs;
+    renderModelPicker();
     await Promise.all([refreshDocs(), refreshThreads(), renderUsage()]);
     state.booted = true;
   } catch (err) {

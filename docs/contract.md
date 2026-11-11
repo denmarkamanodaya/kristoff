@@ -111,7 +111,7 @@ Block Public Access, no expiry; CORS `PUT`/`GET` from the web origins only.
 ## Config
 
 Lambda env (Zod in `backend/src/composition/env.ts`): `STAGE`, `OWNER_ID`, `TABLE_NAME`, `DOCS_BUCKET`,
-`WEB_ORIGINS` (comma list), `MODEL_ID`, `MAX_TOKENS`, `MAX_ATTACHED_DOCS` (5), `MAX_HISTORY_TURNS` (20),
+`WEB_ORIGINS` (comma list), `MODEL_IDS`, `MAX_TOKENS`, `MAX_ATTACHED_DOCS` (5), `MAX_HISTORY_TURNS` (20),
 `DAILY_QUESTION_CAP`, `SESSION_TTL_SECONDS`, `ANTHROPIC_TIMEOUT_MS`, `SSM_ANTHROPIC_KEY`, `SSM_TOTP_SECRET`,
 `SSM_SESSION_KEY`, `SSM_AI_ENABLED`.
 
@@ -166,8 +166,8 @@ IAM per Lambda: only the table/index actions, bucket prefix and SSM parameters i
 - `GET /v1/docs` returns newest first (`createdAt` descending, tie-break on `id`).
 - Hosting (owner ruling 2026-11-12): no custom domain. The web is served only at the Amplify default domain
   `https://main.<app_id>.amplifyapp.com`; that exact origin is the only CORS origin (`WEB_ORIGINS`).
-- Model id and `MAX_TOKENS` live in Lambda env (`MODEL_ID`, `MAX_TOKENS`, set in tfvars); `model-config.ts` holds the
-  system prompt and retry count only.
+- `MAX_TOKENS` and the model allowlist live in Lambda env (`MAX_TOKENS`, `MODEL_IDS`, see "Model choice"); `model-config.ts` holds the
+  system prompt, retry count and model labels only.
 - Function-URL CORS is owned by Terraform (the function URL config); the `ask-stream` handler sets no CORS headers.
 - Presigned upload PUT: 300 s, signs `Content-Type: application/pdf` and the content length.
 - `GET /v1/chats/{id}` returns the newest 200 messages, oldest first.
@@ -177,3 +177,17 @@ IAM per Lambda: only the table/index actions, bucket prefix and SSM parameters i
 - The HTTP API authorizer's own denials (401 `{"message":"Unauthorized"}` with no token, 403 `{"message":"Forbidden"}`
   for a bad or expired token) carry no envelope; HTTP APIs cannot reshape them. Clients treat a 401/403 without an
   envelope as `UNAUTHENTICATED`.
+
+## Model choice (2026-11-12, owner request)
+
+- Lambda env `MODEL_IDS`: comma list of allowed model ids, the FIRST is the default
+  (prod: `claude-sonnet-5-5,claude-opus-5-5,claude-haiku-5-5`). Replaces `MODEL_ID`. Labels live in
+  `backend/src/contracts/model-config.ts` keyed by id (`Sonnet 5.5`, `Opus 5.5`, `Haiku 5.5`); an id without a
+  label shows the id.
+- `GET /v1/config` → `{ model: <default id>, models: [{ id, label }] (1..5, allowlist order), maxAttachedDocs,
+  dailyQuestionCap }`.
+- `POST {STREAM_URL}/v1/chats/{id}/ask` body `{ text: 1..8000, model?: string ≤ 64 }`. Omitted → default. Not in
+  `MODEL_IDS` → `VALIDATION_FAILED` (400) before the meter. The used id is stored in `Message.model` of the
+  assistant message.
+- The web shows a select in the composer (where the model label was), default = `config.model`, choice kept in
+  memory only for the page session, sent with every ask.

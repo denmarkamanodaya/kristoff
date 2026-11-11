@@ -13,7 +13,7 @@ const FULL = {
   OWNER_ID: 'kristoff',
   TABLE_NAME: 'kristoff-prod-core',
   DOCS_BUCKET: 'kristoff-prod-docs-123',
-  MODEL_ID: 'claude-sonnet-5-5',
+  MODEL_IDS: 'claude-sonnet-5-5, claude-opus-5-5,claude-haiku-5-5',
   MAX_TOKENS: '4096',
   MAX_ATTACHED_DOCS: '5',
   MAX_HISTORY_TURNS: '20',
@@ -59,6 +59,23 @@ describe('composition env', () => {
       'invalid env for ask-stream: MAX_TOKENS, ANTHROPIC_TIMEOUT_MS, SSM_AI_ENABLED',
     );
     expect(() => parseEnv('ask-stream', bad)).not.toThrow(/secret-value/);
+  });
+
+  it('parses MODEL_IDS into a trimmed list, first = default', () => {
+    expect(parseEnv('config-get', FULL).MODEL_IDS).toEqual([
+      'claude-sonnet-5-5',
+      'claude-opus-5-5',
+      'claude-haiku-5-5',
+    ]);
+  });
+
+  it.each([
+    ['empty', ''],
+    ['a duplicate', 'a-1,a-1'],
+    ['six ids', 'a,b,c,d,e,f'],
+    ['an upper-case id', 'Claude'],
+  ])('refuses MODEL_IDS with %s', (_label, value) => {
+    expect(() => parseEnv('config-get', { ...FULL, MODEL_IDS: value })).toThrow('MODEL_IDS');
   });
 
   it('refuses any stage but prod', () => {

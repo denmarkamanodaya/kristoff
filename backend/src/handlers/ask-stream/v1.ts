@@ -2,7 +2,7 @@
 // itself (no authorizer on a function URL; CORS is the function URL's Terraform config), parses the body, runs ask-question, and writes SSE
 // events. Before the stream opens, failures are the JSON envelope with a status; after it, an
 // `error` event. Thin driving adapter. Plan: ~/.claude/plans/hey-claude-we-have-gentle-ripple.md.
-import type { AskOutcome } from '../../usecases/ask-question/index.js';
+import type { AskOutcome, Question } from '../../usecases/ask-question/index.js';
 import type { Principal } from '../../domain/model.js';
 import type { AnswerSink } from '../../ports/answer-sink.js';
 import { AskRequest } from '../../contracts/requests.js';
@@ -29,7 +29,7 @@ export interface AskStreamDeps {
   readonly askQuestion: (
     p: Principal,
     chatId: string,
-    text: string,
+    question: Question,
     sink: AnswerSink,
   ) => Promise<Result<AskOutcome, AppError>>;
 }
@@ -46,12 +46,16 @@ interface UrlEvent {
 const ASK_PATH = /^\/v1\/chats\/([a-f0-9]{16})\/ask$/;
 
 /** Parses method, path and body; the chat id and question, or `VALIDATION_FAILED`. */
-const parseRequest = (event: UrlEvent): Result<{ chatId: string; text: string }, AppError> => {
+const parseRequest = (
+  event: UrlEvent,
+): Result<{ chatId: string; question: Question }, AppError> => {
   const chatId = typeof event.rawPath === 'string' ? ASK_PATH.exec(event.rawPath)?.[1] : undefined;
   if (event.requestContext?.http?.method !== 'POST' || chatId === undefined)
     return err(appError('VALIDATION_FAILED', 'use POST /v1/chats/{id}/ask'));
   const body = parseJson(event.body, event.isBase64Encoded === true, AskRequest);
-  return body.ok ? ok({ chatId, text: body.value.text }) : body;
+  return body.ok
+    ? ok({ chatId, question: { text: body.value.text, model: body.value.model } })
+    : body;
 };
 
 /** A sink that opens the SSE response on first use and remembers the writer. */
@@ -77,7 +81,7 @@ const answer = async (
   if (!principal.ok) return principal;
   const request = parseRequest(event);
   if (!request.ok) return request;
-  return deps.askQuestion(principal.value, request.value.chatId, request.value.text, sink);
+  return deps.askQuestion(principal.value, request.value.chatId, request.value.question, sink);
 };
 
 /** Ends an opened stream with `done` or `error`. */

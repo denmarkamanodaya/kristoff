@@ -1,5 +1,5 @@
 // Model prompt and inference parameters (docs/contract.md "Model call"; stack/ai-features.md).
-// The model id and max tokens are per-stage config (env `MODEL_ID`, `MAX_TOKENS`); the prompt text
+// The allowed model ids and max tokens are per-stage config (env `MODEL_IDS`, `MAX_TOKENS`); the prompt text
 // is copied verbatim from the original server.js SYSTEM_PROMPT. A prompt change is a behaviour
 // change: it goes through review with a benchmark run (stack/ai-features.md "Quality").
 
@@ -16,3 +16,10 @@ How to work:
 
 /** SDK retries per call (one layer owns retries: the adapter). Kept low: the stream Lambda has 300 s. */
 export const MODEL_MAX_RETRIES = 1;
+
+/** Labels the web shows per model id (docs/contract.md "Model choice"); an id without one shows the id. */
+export const MODEL_LABELS: Readonly<Record<string, string>> = {
+  'claude-sonnet-5-5': 'Sonnet 5.5',
+  'claude-opus-5-5': 'Opus 5.5',
+  'claude-haiku-5-5': 'Haiku 5.5',
+};

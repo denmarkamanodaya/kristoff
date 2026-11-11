@@ -18,7 +18,7 @@ variables {
   lambda_zip_dir       = "./tests/no-bundles"
   lambda_scope_path    = "./tests/fixtures/lambda-scope.json"
   owner_id             = "kristoff"
-  model_id             = "claude-sonnet-5-5"
+  model_ids            = ["claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-5"]
   max_tokens           = 4096
   daily_question_cap   = 100
   anthropic_timeout_ms = 120000
@@ -107,7 +107,7 @@ run "env_holds_only_the_listed_keys" {
   command = plan
 
   assert {
-    condition     = sort(keys(local.envs["config-get"])) == sort(["STAGE", "MODEL_ID", "MAX_ATTACHED_DOCS", "DAILY_QUESTION_CAP"])
+    condition     = sort(keys(local.envs["config-get"])) == sort(["STAGE", "MODEL_IDS", "MAX_ATTACHED_DOCS", "DAILY_QUESTION_CAP"])
     error_message = "a function gets only the env keys its scope lists"
   }
   assert {

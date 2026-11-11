@@ -48,13 +48,13 @@ variable "owner_id" {
   }
 }
 
-variable "model_id" {
-  description = "MODEL_ID: Anthropic model id the ask function calls (stage data)."
-  type        = string
+variable "model_ids" {
+  description = "MODEL_IDS: allowed Anthropic model ids, the first is the default (contract \"Model choice\")."
+  type        = list(string)
   nullable    = false
   validation {
-    condition     = can(regex("^claude-[a-z0-9-]+$", var.model_id))
-    error_message = "model_id must be a claude-* model id."
+    condition     = length(var.model_ids) >= 1 && length(var.model_ids) <= 5 && alltrue([for m in var.model_ids : can(regex("^claude-[a-z0-9-]{1,57}$", m))]) && length(distinct(var.model_ids)) == length(var.model_ids)
+    error_message = "model_ids must be 1-5 distinct claude-* model ids."
   }
 }
 

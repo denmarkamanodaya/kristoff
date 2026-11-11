@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 const name = z.string().min(1).max(256);
 const ssmName = z.string().regex(/^\/[A-Za-z0-9_./-]{1,255}$/);
+const modelId = z.string().regex(/^[a-z0-9.-]{1,64}$/);
 const int = (min: number, max: number) => z.coerce.number().int().min(min).max(max);
 
 const fields = {
@@ -12,7 +13,19 @@ const fields = {
   OWNER_ID: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
   TABLE_NAME: name,
   DOCS_BUCKET: name,
-  MODEL_ID: z.string().regex(/^[a-z0-9.-]{1,128}$/),
+  // Allowed model ids, first = default (docs/contract.md "Model choice").
+  MODEL_IDS: z
+    .string()
+    .max(1024)
+    .transform((list) => list.split(',').map((id) => id.trim()))
+    .pipe(
+      z
+        .tuple([modelId], modelId)
+        .refine(
+          (ids) => ids.length <= 5 && new Set(ids).size === ids.length,
+          'at most 5 unique ids',
+        ),
+    ),
   MAX_TOKENS: int(1, 64_000),
   MAX_ATTACHED_DOCS: int(1, 20),
   MAX_HISTORY_TURNS: int(0, 100),
@@ -40,7 +53,7 @@ export const LAMBDA_ENV = {
     'SSM_TOTP_SECRET',
     'SSM_SESSION_KEY',
   ),
-  'config-get': pick('STAGE', 'MODEL_ID', 'MAX_ATTACHED_DOCS', 'DAILY_QUESTION_CAP'),
+  'config-get': pick('STAGE', 'MODEL_IDS', 'MAX_ATTACHED_DOCS', 'DAILY_QUESTION_CAP'),
   'docs-list': pick('STAGE', 'TABLE_NAME'),
   'docs-create': pick('STAGE', 'TABLE_NAME', 'DOCS_BUCKET'),
   'docs-confirm': pick('STAGE', 'TABLE_NAME', 'DOCS_BUCKET'),
@@ -56,7 +69,7 @@ export const LAMBDA_ENV = {
     'OWNER_ID',
     'TABLE_NAME',
     'DOCS_BUCKET',
-    'MODEL_ID',
+    'MODEL_IDS',
     'MAX_TOKENS',
     'MAX_HISTORY_TURNS',
     'DAILY_QUESTION_CAP',

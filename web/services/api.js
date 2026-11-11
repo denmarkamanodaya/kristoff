@@ -108,7 +108,7 @@ const withCursor = (path, cursor) => (cursor ? `${path}?cursor=${encodeURICompon
 /** `POST /v1/auth/verify` → `{ token, expiresAt }`. */
 export const verifyCode = (code) => request('POST', '/v1/auth/verify', { body: { code }, auth: false });
 
-/** `GET /v1/config` → `{ model, maxAttachedDocs, dailyQuestionCap }`. */
+/** `GET /v1/config` → `{ model, models: [{ id, label }], maxAttachedDocs, dailyQuestionCap }`. */
 export const getConfig = () => request('GET', '/v1/config');
 
 /** `GET /v1/docs` → `{ items: Doc[], nextCursor }`. */
@@ -193,11 +193,12 @@ export function parseSse(buf) {
  * Asks a question on the stream URL and dispatches SSE events as they arrive.
  * @param chatId - Chat id.
  * @param text - Question, 1..8000 chars.
- * @param handlers - `{ onText(text), onCitation(citation), signal }`.
+ * @param handlers - `{ model, onText(text), onCitation(citation), signal }`; `model` is an id from
+ *   `config.models` (≤ 64 chars), omitted from the body when empty so the server uses its default.
  * @returns `{ message, usage }` from the `done` event.
  * @throws ApiError for a pre-stream envelope, an `error` event, or a stream that ends without `done`.
  */
-export async function askStream(chatId, text, { onText, onCitation, signal } = {}) {
+export async function askStream(chatId, text, { model, onText, onCitation, signal } = {}) {
   const { streamUrl } = await loadConfig();
   let res;
   try {
@@ -205,7 +206,7 @@ export async function askStream(chatId, text, { onText, onCitation, signal } = {
     res = await fetch(`${streamUrl}/v1/chats/${id(chatId)}/ask`, {
       method: 'POST',
       headers: headersFor(true, true),
-      body: JSON.stringify({ text }),
+      body: JSON.stringify(model ? { text, model } : { text }),
       signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
     });
   } catch (err) {
