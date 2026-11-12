@@ -59,6 +59,8 @@ else
 fi
 gate "cargo deny" cargo deny check licenses advisories
 gate "web check" npm --prefix ../web run -s check
+# The Phase 5 eval set: schema, counts, fictional docs, PDF generator, targets in phlaws.db.
+gate "eval set" node --test scripts/eval-questions.test.mjs
 JSCPD="$(find_jscpd || true)"
 if [ -z "$JSCPD" ] || [ ! -f "$DRY_GATE" ]; then
   echo "FAIL dry-gate (rust)"

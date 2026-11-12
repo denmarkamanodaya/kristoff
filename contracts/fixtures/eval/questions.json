@@ -1,0 +1,658 @@
+{
+ "schemaVersion": 1,
+ "description": "Phase 5 eval set (docs/desktop/phases/phase-5-eval-package.md §1). lookup: the target must be among the retrieved provisions; concept: any target counts; mixed: needs the PDF built from doc.file (fictional decision) and should cite docExpect.page. Labels are as stored in phlaws.db.",
+ "dataset": {
+  "name": "endomorphosis/ipfs_philippines_laws",
+  "revision": "66ffcff9f6fa1288ca5247d7b20141dc841beb45"
+ },
+ "questions": [
+  {
+   "id": "L01",
+   "kind": "lookup",
+   "language": "en",
+   "question": "What does Section 3 of RA 9262 define as violence against women and their children?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 9262",
+     "label": "SEC. 3"
+    }
+   ]
+  },
+  {
+   "id": "L02",
+   "kind": "lookup",
+   "language": "en",
+   "question": "List the rights of the data subject under Section 16 of the Data Privacy Act (RA 10173).",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 10173",
+     "label": "SEC. 16"
+    }
+   ]
+  },
+  {
+   "id": "L03",
+   "kind": "lookup",
+   "language": "en",
+   "question": "What does Section 6 of RA 10175 say about crimes under the Revised Penal Code committed through ICT?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 10175",
+     "label": "SEC. 6"
+    }
+   ]
+  },
+  {
+   "id": "L04",
+   "kind": "lookup",
+   "language": "en",
+   "question": "What is the penalty for possession of dangerous drugs under Section 11 of RA 9165?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 9165",
+     "label": "ARTICLE II SEC. 11"
+    }
+   ]
+  },
+  {
+   "id": "L05",
+   "kind": "lookup",
+   "language": "taglish",
+   "question": "Ano ang sinasabi ng Section 10 ng RA 7610 tungkol sa other acts of child abuse?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 7610",
+     "label": "ARTICLE VI SEC. 10"
+    }
+   ]
+  },
+  {
+   "id": "L06",
+   "kind": "lookup",
+   "language": "en",
+   "question": "Quote the corrupt practices listed in Section 3 of the Anti-Graft and Corrupt Practices Act, RA 3019.",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 3019",
+     "label": "SEC. 3"
+    }
+   ]
+  },
+  {
+   "id": "L07",
+   "kind": "lookup",
+   "language": "en",
+   "question": "What norms of conduct does Section 4 of RA 6713 impose on public officials?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 6713",
+     "label": "SEC. 4"
+    }
+   ]
+  },
+  {
+   "id": "L08",
+   "kind": "lookup",
+   "language": "en",
+   "question": "What acts and penalties does Section 11 of the Safe Spaces Act (RA 11313) provide?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 11313",
+     "label": "Article I SEC. 11"
+    }
+   ]
+  },
+  {
+   "id": "L09",
+   "kind": "lookup",
+   "language": "en",
+   "question": "What is the minimum age of criminal responsibility under Section 6 of RA 9344?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 9344",
+     "label": "SEC. 6"
+    }
+   ]
+  },
+  {
+   "id": "L10",
+   "kind": "lookup",
+   "language": "en",
+   "question": "What rights does Article III, Section 12 of the 1987 Constitution give a person under investigation?",
+   "targets": [
+    {
+     "identifier": "1987 Constitution",
+     "label": "ARTICLE III SECTION 12"
+    }
+   ]
+  },
+  {
+   "id": "L11",
+   "kind": "lookup",
+   "language": "taglish",
+   "question": "Ano ang karapatan ng akusado sa Article III Section 14 ng Constitution?",
+   "targets": [
+    {
+     "identifier": "1987 Constitution",
+     "label": "ARTICLE III SECTION 14"
+    }
+   ]
+  },
+  {
+   "id": "L12",
+   "kind": "lookup",
+   "language": "en",
+   "question": "What powers does Article VIII, Section 5 of the Constitution give the Supreme Court?",
+   "targets": [
+    {
+     "identifier": "1987 Constitution",
+     "label": "ARTICLE VIII SECTION 5"
+    }
+   ]
+  },
+  {
+   "id": "L13",
+   "kind": "lookup",
+   "language": "en",
+   "question": "What does Article 2176 of the Civil Code (RA 386) provide on quasi-delicts?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 386",
+     "label": "ART. 2176"
+    }
+   ]
+  },
+  {
+   "id": "L14",
+   "kind": "lookup",
+   "language": "en",
+   "question": "What does Article 21 of the Civil Code say about acts contrary to morals, good customs or public policy?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 386",
+     "label": "ART. 21"
+    }
+   ]
+  },
+  {
+   "id": "L15",
+   "kind": "lookup",
+   "language": "en",
+   "question": "What does Section 35 of RA 4136 provide on restriction as to speed?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 4136",
+     "label": "ARTICLE I SEC. 35"
+    }
+   ]
+  },
+  {
+   "id": "L16",
+   "kind": "lookup",
+   "language": "en",
+   "question": "What does Section 8 of RA 11058 require employers to provide in personal protective equipment?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 11058",
+     "label": "SEC. 8"
+    }
+   ]
+  },
+  {
+   "id": "L17",
+   "kind": "lookup",
+   "language": "tl",
+   "question": "Ano ang nakasaad sa Seksyon 3 ng RA 10627 tungkol sa anti-bullying policies ng mga paaralan?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 10627",
+     "label": "SEC. 3"
+    }
+   ]
+  },
+  {
+   "id": "L18",
+   "kind": "lookup",
+   "language": "en",
+   "question": "How does Section 3 of RA 7877 define work, education or training-related sexual harassment?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 7877",
+     "label": "SEC. 3"
+    }
+   ]
+  },
+  {
+   "id": "L19",
+   "kind": "lookup",
+   "language": "en",
+   "question": "What acts of trafficking in persons are listed in Section 4 of RA 9208 as amended by RA 10364?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 10364",
+     "label": "SEC. 4"
+    }
+   ]
+  },
+  {
+   "id": "L20",
+   "kind": "lookup",
+   "language": "en",
+   "question": "What works are protected as literary and artistic works under Section 172 of the Intellectual Property Code, RA 8293?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 8293",
+     "label": "SEC. 172"
+    }
+   ]
+  },
+  {
+   "id": "C01",
+   "kind": "concept",
+   "language": "en",
+   "question": "What are the grounds for annulment of marriage?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 386",
+     "label": "ART. 85"
+    }
+   ],
+   "note": "The Family Code (EO 209) is not in the dataset; Civil Code Art. 85 is the closest provision it holds."
+  },
+  {
+   "id": "C02",
+   "kind": "concept",
+   "language": "en",
+   "question": "When is a search or seizure valid, and what makes a warrant valid?",
+   "targets": [
+    {
+     "identifier": "1987 Constitution",
+     "label": "ARTICLE III SECTION 2"
+    }
+   ],
+   "note": "The Rules of Court (Rule 113 warrantless arrests) are not in the dataset."
+  },
+  {
+   "id": "C03",
+   "kind": "concept",
+   "language": "tl",
+   "question": "Ano ang psychological violence laban sa babae at paano ito pinaparusahan?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 9262",
+     "label": "SEC. 3"
+    },
+    {
+     "identifier": "Republic Act No. 9262",
+     "label": "SEC. 5"
+    },
+    {
+     "identifier": "Republic Act No. 9262",
+     "label": "SEC. 6"
+    }
+   ]
+  },
+  {
+   "id": "C04",
+   "kind": "concept",
+   "language": "en",
+   "question": "Do I have the right to a lawyer and to remain silent when the police question me?",
+   "targets": [
+    {
+     "identifier": "1987 Constitution",
+     "label": "ARTICLE III SECTION 12"
+    }
+   ]
+  },
+  {
+   "id": "C05",
+   "kind": "concept",
+   "language": "taglish",
+   "question": "Pwede bang makulong ang isang 14 years old na bata kung nagnakaw siya?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 9344",
+     "label": "SEC. 6"
+    },
+    {
+     "identifier": "Republic Act No. 10630",
+     "label": "SEC. 6"
+    }
+   ]
+  },
+  {
+   "id": "C06",
+   "kind": "concept",
+   "language": "en",
+   "question": "What is the penalty for disclosing someone's personal information without consent?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 10173",
+     "label": "SEC. 32"
+    },
+    {
+     "identifier": "Republic Act No. 10173",
+     "label": "SEC. 25"
+    }
+   ]
+  },
+  {
+   "id": "C07",
+   "kind": "concept",
+   "language": "tl",
+   "question": "Krimen ba ang paninirang-puri sa Facebook at ano ang parusa?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 10175",
+     "label": "SEC. 4"
+    },
+    {
+     "identifier": "Republic Act No. 10175",
+     "label": "SEC. 6"
+    }
+   ]
+  },
+  {
+   "id": "C08",
+   "kind": "concept",
+   "language": "en",
+   "question": "Who pays for damage caused by someone's negligence, and can an employer be liable for its employee?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 386",
+     "label": "ART. 2176"
+    },
+    {
+     "identifier": "Republic Act No. 386",
+     "label": "ART. 2180"
+    },
+    {
+     "identifier": "Republic Act No. 386",
+     "label": "ART. 20"
+    }
+   ]
+  },
+  {
+   "id": "C09",
+   "kind": "concept",
+   "language": "taglish",
+   "question": "Pwede bang hindi ako bigyan ng safety gear ng employer ko sa construction site?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 11058",
+     "label": "SEC. 8"
+    },
+    {
+     "identifier": "Republic Act No. 11058",
+     "label": "SEC. 5"
+    }
+   ]
+  },
+  {
+   "id": "C10",
+   "kind": "concept",
+   "language": "en",
+   "question": "Is catcalling a crime in the Philippines?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 11313",
+     "label": "Article I SEC. 11"
+    }
+   ]
+  },
+  {
+   "id": "M01",
+   "kind": "mixed",
+   "language": "en",
+   "question": "Based on the attached decision, which act of violence was the accused convicted of, and what does that provision of RA 9262 say?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 9262",
+     "label": "SEC. 5"
+    },
+    {
+     "identifier": "Republic Act No. 9262",
+     "label": "SEC. 6"
+    }
+   ],
+   "doc": {
+    "file": "docs/m01-vawc-psychological.txt",
+    "pages": 2
+   },
+   "docExpect": {
+    "page": 2,
+    "mustMention": [
+     "Section 5(i)",
+     "psychological"
+    ]
+   }
+  },
+  {
+   "id": "M02",
+   "kind": "mixed",
+   "language": "taglish",
+   "question": "Sa attached na decision, ano ang ginawa ng lending company at anong section ng Data Privacy Act ang nilabag nito?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 10173",
+     "label": "SEC. 32"
+    }
+   ],
+   "doc": {
+    "file": "docs/m02-data-privacy-disclosure.txt",
+    "pages": 2
+   },
+   "docExpect": {
+    "page": 2,
+    "mustMention": [
+     "Section 32",
+     "unauthorized disclosure"
+    ]
+   }
+  },
+  {
+   "id": "M03",
+   "kind": "mixed",
+   "language": "en",
+   "question": "Why was the penalty in the attached cyber libel decision one degree higher than for ordinary libel?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 10175",
+     "label": "SEC. 6"
+    },
+    {
+     "identifier": "Republic Act No. 10175",
+     "label": "SEC. 4"
+    }
+   ],
+   "doc": {
+    "file": "docs/m03-cyber-libel.txt",
+    "pages": 2
+   },
+   "docExpect": {
+    "page": 2,
+    "mustMention": [
+     "one (1) degree higher",
+     "Section 6"
+    ]
+   }
+  },
+  {
+   "id": "M04",
+   "kind": "mixed",
+   "language": "en",
+   "question": "Was the accused in the attached decision convicted or acquitted, and which statutory procedure did the police fail to follow?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 9165",
+     "label": "Article VIII SEC. 21"
+    },
+    {
+     "identifier": "Republic Act No. 9165",
+     "label": "ARTICLE II SEC. 11"
+    }
+   ],
+   "doc": {
+    "file": "docs/m04-drugs-chain-of-custody.txt",
+    "pages": 2
+   },
+   "docExpect": {
+    "page": 2,
+    "mustMention": [
+     "ACQUITTED",
+     "Section 21"
+    ]
+   }
+  },
+  {
+   "id": "M05",
+   "kind": "mixed",
+   "language": "tl",
+   "question": "Ayon sa naka-attach na desisyon, anong krimen ang napatunayan at anong parusa ang ipinataw?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 7610",
+     "label": "ARTICLE VI SEC. 10"
+    }
+   ],
+   "doc": {
+    "file": "docs/m05-child-abuse.txt",
+    "pages": 2
+   },
+   "docExpect": {
+    "page": 2,
+    "mustMention": [
+     "Section 10(a)",
+     "prision"
+    ]
+   }
+  },
+  {
+   "id": "M06",
+   "kind": "mixed",
+   "language": "en",
+   "question": "What penalty did the court impose in the attached harassment decision, and what elements of the offense did it find?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 7877",
+     "label": "SEC. 3"
+    },
+    {
+     "identifier": "Republic Act No. 7877",
+     "label": "SEC. 7"
+    }
+   ],
+   "doc": {
+    "file": "docs/m06-workplace-harassment.txt",
+    "pages": 2
+   },
+   "docExpect": {
+    "page": 2,
+    "mustMention": [
+     "Section 7",
+     "three (3) months"
+    ]
+   }
+  },
+  {
+   "id": "M07",
+   "kind": "mixed",
+   "language": "en",
+   "question": "Under which provision was the mayor in the attached decision convicted, and what were the elements the court found?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 3019",
+     "label": "SEC. 3"
+    }
+   ],
+   "doc": {
+    "file": "docs/m07-anti-graft.txt",
+    "pages": 2
+   },
+   "docExpect": {
+    "page": 2,
+    "mustMention": [
+     "Section 3(e)",
+     "undue injury"
+    ]
+   }
+  },
+  {
+   "id": "M08",
+   "kind": "mixed",
+   "language": "en",
+   "question": "What acts did the accused commit in the attached decision, and what penalty applies to a first offense?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 11313",
+     "label": "Article I SEC. 11"
+    }
+   ],
+   "doc": {
+    "file": "docs/m08-safe-spaces.txt",
+    "pages": 2
+   },
+   "docExpect": {
+    "page": 2,
+    "mustMention": [
+     "first offense",
+     "One Thousand Pesos"
+    ]
+   }
+  },
+  {
+   "id": "M09",
+   "kind": "mixed",
+   "language": "en",
+   "question": "On what legal basis were the driver and the bus company held liable in the attached civil case?",
+   "targets": [
+    {
+     "identifier": "Republic Act No. 386",
+     "label": "ART. 2176"
+    },
+    {
+     "identifier": "Republic Act No. 386",
+     "label": "ART. 2180"
+    },
+    {
+     "identifier": "Republic Act No. 4136",
+     "label": "ARTICLE I SEC. 35"
+    }
+   ],
+   "doc": {
+    "file": "docs/m09-bus-negligence.txt",
+    "pages": 2
+   },
+   "docExpect": {
+    "page": 2,
+    "mustMention": [
+     "Article 2176",
+     "Article 2180"
+    ]
+   }
+  },
+  {
+   "id": "M10",
+   "kind": "mixed",
+   "language": "en",
+   "question": "Why was the confession in the attached decision excluded, and what constitutional right does that rest on?",
+   "targets": [
+    {
+     "identifier": "1987 Constitution",
+     "label": "ARTICLE III SECTION 12"
+    }
+   ],
+   "doc": {
+    "file": "docs/m10-custodial-confession.txt",
+    "pages": 2
+   },
+   "docExpect": {
+    "page": 2,
+    "mustMention": [
+     "inadmissible",
+     "Section 12"
+    ]
+   }
+  }
+ ]
+}

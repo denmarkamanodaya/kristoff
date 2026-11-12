@@ -1,0 +1,31 @@
+FICTIONAL DECISION - FOR EVALUATION ONLY. This is not a real case. All names, places,
+docket numbers and facts are invented; any resemblance to real persons or cases is
+coincidental. Parties are identified by initials only.
+
+NATIONAL PRIVACY TRIBUNAL (FICTIONAL), CASE NO. NPT-0002
+CCC (complainant) v. DDD LENDING CORPORATION (respondent)
+
+DECISION
+
+The complainant CCC borrowed money through the mobile application of the respondent DDD
+Lending Corporation. When CCC fell behind on payments, collection agents of the respondent
+sent messages to at least thirty (30) persons in CCC's phone contact list, stating that CCC
+was a fraudster and attaching CCC's photo and identification card.
+
+The respondent argued that CCC consented to access to her contacts when she installed the
+application.
+
+<<<PAGE BREAK>>>
+
+RULING
+
+Consent to access a contact list for identity verification is not consent to disclose the
+borrower's personal information to those contacts for collection. The disclosure had no
+lawful purpose and was made without the consent of the data subject.
+
+The Tribunal finds the respondent liable for unauthorized disclosure under Section 32 of
+Republic Act No. 10173, the Data Privacy Act of 2012, and recommends prosecution of the
+responsible officers. The respondent is ordered to stop all third-party collection
+messages and to delete the contact data it collected.
+
+SO ORDERED.
