@@ -7,16 +7,21 @@ import { $ } from './dom.js';
 const POLL_MS = 500;
 const TIMEOUT_MS = 60_000;
 
-/** "Loading 10,870 Philippine laws…", or without the number when it is not known. */
-export const loadingText = (lawCount) =>
-  Number.isFinite(lawCount)
+/**
+ * "Loading 10,870 Philippine laws…", or without the number when it is not known; with cases
+ * expected (`features.cases === true`, Phase 7) "Loading Philippine laws and Supreme Court decisions…".
+ */
+export const loadingText = (lawCount, features = {}) => {
+  if (features?.cases === true) return 'Loading Philippine laws and Supreme Court decisions…';
+  return Number.isFinite(lawCount)
     ? `Loading ${lawCount.toLocaleString('en-US')} Philippine laws…`
     : 'Loading Philippine laws…';
+};
 
 /**
  * Waits until the law index is ready or the time is up.
  * @param api - `{ getConfig, onLawReady }` (services/api.js).
- * @param opts - `{ onCount(lawCount), pollMs, timeoutMs, sleep(ms), now() }`; the last two are for
+ * @param opts - `{ onCount(lawCount, features), pollMs, timeoutMs, sleep(ms), now() }`; the last two are for
  *   tests.
  * @returns `{ timedOut }`: false once ready (event, or `lawReady !== false` in the config).
  */
@@ -32,7 +37,7 @@ export async function waitForLaw(api, opts = {}) {
     while (!ready) {
       const features = await api.getConfig().then((c) => c?.features ?? {}, () => null);
       if (features) {
-        onCount(features.lawCount);
+        onCount(features.lawCount, features);
         if (features.lawReady !== false) return { timedOut: false };
       }
       if (now() - started >= timeoutMs) return { timedOut: true };
@@ -44,9 +49,9 @@ export async function waitForLaw(api, opts = {}) {
   }
 }
 
-/** Shows the launch screen with the law count when known. */
-export function showLoading(lawCount) {
-  $('#loadingText').textContent = loadingText(lawCount);
+/** Shows the launch screen with the law count when known (and the cases wording when expected). */
+export function showLoading(lawCount, features) {
+  $('#loadingText').textContent = loadingText(lawCount, features);
   $('#loading').hidden = false;
 }
 

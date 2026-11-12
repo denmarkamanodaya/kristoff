@@ -7,7 +7,8 @@
 // "ready" 3 s later as a 600-page doc with 6 parts; a name containing "fail" turns "failed" instead.
 // Test hooks: POST /_revoke drops every token; GET /_last-ask returns the last ask body.
 // MOCK_STATUTES=1: config gains `features: { statutes: true, lawCount }` (desktop-style), so the composer shows the
-// Statutes toggle and PATCH accepts `statutes`. Every answer emits one `search` event and one law citation.
+// Statutes toggle and PATCH accepts `statutes`. Every answer emits two `search` events (laws, cases), one law
+// citation and one case citation (sample data).
 // Env: WEB_PORT (5300), API_PORT (5301), DIST_DIR (dist).
 // Usage: npm run build && npm run mock   -> open http://localhost:5300
 import { createServer } from 'node:http';
@@ -48,6 +49,8 @@ const models = [
 ];
 const config = { model: models[0].id, models, maxAttachedDocs: 5, dailyQuestionCap: 50 };
 if (process.env.MOCK_STATUTES === '1') config.features = { statutes: true, lawCount: 10870 }; // sample count
+// MOCK_CASES=1 (with MOCK_STATUTES=1): Phase 7 config `cases: true` + sample `caseCount`.
+if (process.env.MOCK_STATUTES === '1' && process.env.MOCK_CASES === '1') Object.assign(config.features, { cases: true, caseCount: 31180 });
 
 // ---------- helpers ----------
 const cors = {
@@ -262,7 +265,8 @@ async function askRoute(req, res, chat) {
   const citations = [];
   const say = async (t) => { await sleep(150); answer += t; ev('text', { text: t }); };
   const cited = (c) => { citations.push(c); answer += ` [${c.n}]`; ev('citation', c); };
-  ev('search', { query: 'consent requisites contract void', count: 8 });
+  ev('search', { query: 'consent requisites contract void', count: 8, kind: 'laws' });
+  ev('search', { query: 'void contract absence of consent', count: 5, kind: 'cases' });
   await say('## Ruling\n\n'); await say('The Court held that the **contract is void** '); await say('for lack of consent.');
   cited(cite(1, b0, 1, 'There was no meeting of the minds between the parties.'));
   await say('\n\nThe ratio rests on Article 1318 of the Civil Code.');
@@ -272,6 +276,10 @@ async function askRoute(req, res, chat) {
   cited({ n: 4, docId: null, docTitle: 'RA 9262 · Sec. 26', page: null, endPage: null, kind: 'law',
     quote: '[Amended] Battered woman syndrome as a defense. Victim-survivors who are found by the courts to be suffering from battered woman syndrome do not incur any criminal and civil liability.',
     sourceUrl: 'https://lawphil.net/statutes/repacts/ra2004/ra_9262_2004.html' });
+  await say('\n\nThe Court applied the same rule on consent.');
+  cited({ n: 5, docId: null, docTitle: 'G.R. No. 123456 · Sample v. Example (2019)', page: null, endPage: null, kind: 'case',
+    quote: 'Where there is no consent, there is no contract to annul; the contract is void from the beginning.',
+    sourceUrl: 'https://elibrary.judiciary.gov.ph/thebookshelf/showdocs/1/00000' });
   const followUps = ['What are the requisites of a valid contract?', 'How does vitiated consent differ from no consent?', 'Which later cases applied this ruling?'];
   ev('followups', { followUps });
   const usage = { input: 1200, output: 64, cacheRead: 800, cacheWrite: 0 };

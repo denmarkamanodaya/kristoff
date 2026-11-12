@@ -75,6 +75,22 @@ test('a failing get_config keeps polling until the timeout', async () => {
 test('the loading text names the law count when known', () => {
   assert.equal(loadingText(10870), 'Loading 10,870 Philippine laws…');
   assert.equal(loadingText(undefined), 'Loading Philippine laws…');
+  assert.equal(loadingText(10870, { statutes: true }), 'Loading 10,870 Philippine laws…');
+});
+
+test('the loading text names Supreme Court decisions when config expects cases', () => {
+  assert.equal(loadingText(12289, { cases: true, caseCount: 31180 }), 'Loading Philippine laws and Supreme Court decisions…');
+  assert.equal(loadingText(undefined, { cases: true }), 'Loading Philippine laws and Supreme Court decisions…');
+});
+
+test('onCount receives the config features next to the law count', async () => {
+  const withCases = { features: { statutes: true, lawCount: 12289, lawReady: true, cases: true, caseCount: 31180 } };
+  const { api, clock } = fakes([withCases]);
+  const seen = [];
+
+  await waitForLaw(api, { ...clock, onCount: (n, f) => seen.push([n, f]) });
+
+  assert.deepEqual(seen, [[12289, withCases.features]]);
 });
 
 test('the desktop index.html has no gate and shows the launch screen at once', () => {

@@ -1,6 +1,7 @@
 /* Kristoff web styles. Colours come only from the tokens below; dark mode redefines tokens only.
    WCAG AA: every text token is >= 4.5:1 on bg, side, panel and raise in both themes.
    Law citations (sand): --law-ink on --law is 5.96:1 light / 7.83:1 dark; --ink and --muted on --law >= 6.4:1.
+   Case citations (plum): --case-ink on --case is 6.79:1 light / 7.29:1 dark; --ink and --muted on --case >= 6.4:1.
    Doc citations (teal): --accent on a 10% accent tint of --panel is 4.74:1 light / 5.36:1 dark. */
 :root {
   color-scheme: light;
@@ -8,6 +9,7 @@
   --ink: #1d1f1e; --muted: #4f5351; --faint: #5f6361;
   --accent: #16766f; --accent-ink: #fff; --pill: #ebebe5; --danger: #b8402f; --danger-ink: #fff;
   --law: #f4ead6; --law-ink: #7a4f0e;
+  --case: #ece6f5; --case-ink: #5b3f8c;
   --shadow: 0 6px 24px rgba(0,0,0,.10); --pop-shadow: 0 12px 40px rgba(0,0,0,.18);
   --serif: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
 }
@@ -17,6 +19,7 @@
   --ink: #e8e8e6; --muted: #b0b4b2; --faint: #9a9e9c;
   --accent: #3fb8af; --accent-ink: #0d1716; --pill: #333737; --danger: #ef8a7e; --danger-ink: #1a0f0d;
   --law: #352e22; --law-ink: #e2c27f;
+  --case: #2f2a3a; --case-ink: #c6b3ea;
   --shadow: 0 6px 24px rgba(0,0,0,.35); --pop-shadow: 0 12px 40px rgba(0,0,0,.5);
 }
 /* Hide the page until app.js applies the saved theme (no flash, no inline script under the CSP). */
@@ -244,6 +247,8 @@ button.cite-chip:hover { background: var(--accent); color: var(--accent-ink); }
 .cite-chip.doc { background: color-mix(in srgb, var(--accent) 10%, var(--panel)); color: var(--accent); }
 .cite-chip.law { background: var(--law); color: var(--law-ink); }
 button.cite-chip.law:hover { background: var(--law-ink); color: var(--law); }
+.cite-chip.case { background: var(--case); color: var(--case-ink); }
+button.cite-chip.case:hover { background: var(--case-ink); color: var(--case); }
 .cite-chip.deleted { text-decoration: line-through; opacity: .75; cursor: not-allowed; }
 .cursor > :last-child::after, .cursor:empty::after { content: "▍"; color: var(--accent); animation: blink 1s steps(2) infinite; margin-left: 2px; }
 @keyframes blink { 50% { opacity: 0; } }
@@ -292,6 +297,8 @@ button.src-body:hover { border-color: color-mix(in srgb, var(--ink) 28%, var(--l
 .src-card.doc .src-body { border-left: 3px solid var(--accent); }
 .src-card.law .src-body { background: var(--law); border-color: color-mix(in srgb, var(--law-ink) 25%, var(--law)); border-left: 3px solid var(--law-ink); }
 .src-card.law .src-title svg, .src-card.law .src-link { color: var(--law-ink); }
+.src-card.case .src-body { background: var(--case); border-color: color-mix(in srgb, var(--case-ink) 25%, var(--case)); border-left: 3px solid var(--case-ink); }
+.src-card.case .src-title svg, .src-card.case .src-link { color: var(--case-ink); }
 .src-badge { align-self: flex-start; font-size: 11px; font-weight: 600; padding: 0 8px; border-radius: 999px; border: 1px solid var(--law-ink); color: var(--law-ink); }
 .search-line p { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; font-size: 13px; color: var(--muted); }
 .search-line svg { width: 14px; height: 14px; flex: none; }

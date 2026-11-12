@@ -37,13 +37,24 @@ async function toggleStatutes() {
 
 const lawCountFormat = new Intl.NumberFormat();
 
+const isCount = (n) => Number.isInteger(n) && n >= 0;
+
+/** The note beside the Statutes pill, from config counts (contract "Config: features"), or '' when unknown. */
+function statutesNote(f = {}) {
+  if (!isCount(f.lawCount)) return '';
+  const laws = lawCountFormat.format(f.lawCount);
+  if (f.cases === true && isCount(f.caseCount)) {
+    return `Searches ${laws} laws and ${lawCountFormat.format(f.caseCount)} Supreme Court decisions on this Mac`;
+  }
+  return `Searches ${laws} Republic Acts and the 1987 Constitution on this Mac`;
+}
+
 function renderStatutes() {
   const shown = state.features?.statutes === true;
-  const n = state.features?.lawCount; // number of laws in the bundled index (contract "Config: features")
-  const hasCount = Number.isInteger(n) && n >= 0;
+  const note = statutesNote(state.features);
   statPill.hidden = !shown;
-  statNote.hidden = !shown || !hasCount;
-  statNote.textContent = hasCount ? `Searches ${lawCountFormat.format(n)} Republic Acts and the 1987 Constitution on this Mac` : '';
+  statNote.hidden = !shown || !note;
+  statNote.textContent = note;
   statPill.setAttribute('aria-pressed', String(statutesOn()));
 }
 
