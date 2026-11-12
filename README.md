@@ -23,10 +23,19 @@ bundled statute index (Republic Acts and the 1987 Constitution). The plan and ph
 - **Licences:** `desktop/THIRD_PARTY_NOTICES` (regenerate with
   `node desktop/scripts/third-party-notices.mjs`); it ships inside the app.
 
-## Web app (until retirement)
+## Web app and AWS backend (retired 2026-11-12, code kept)
 
-The sections below describe the web version. They stay until the AWS stack and the web app are
-retired (Phase 6 of the desktop plan).
+The web app and its AWS backend were retired on 2026-11-12 (Phase 6 of the desktop plan,
+`docs/desktop/phases/phase-6-retire-aws.md`). Every live resource was destroyed, and the
+`kristoff-prod` AWS account was closed. The code stays in this repo for future use: `web/`,
+`backend/` (Lambda source and `backend/terraform/`, including `bootstrap/`).
+
+To bring it back you need a new AWS account, then bootstrap, the platform and compute stacks, and
+the SSM secrets. Follow `docs/runbooks/owner-setup.md`, and get an owner yes for each apply. A final
+data backup and all Terraform state files are on the owner's Mac in
+`~/Backups/kristoff-aws-final-2026-11-12/`.
+
+The sections below describe the web version as it was.
 
 ### Setup
 
