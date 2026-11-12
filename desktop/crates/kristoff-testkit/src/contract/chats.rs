@@ -60,6 +60,7 @@ fn updates_at_the_read_version_only(store: &impl ChatStore) {
         doc_ids: Some(vec!["00000000000000d2".into(), DOC.into()]),
         pinned: Some(true),
         project: Some(ProjectChange::MoveTo(PROJECT.into())),
+        statutes: Some(false),
     };
     let patch = ChatPatch {
         changes,
@@ -78,6 +79,7 @@ fn updates_at_the_read_version_only(store: &impl ChatStore) {
     );
     assert_eq!(updated.doc_ids, ["00000000000000d2", DOC]);
     assert_eq!(updated.project_id.as_deref(), Some(PROJECT));
+    assert!(!updated.statutes);
     assert_eq!(store.get_chat(A).unwrap().value, updated);
     assert_code(
         store.update_chat(A, &patch, read.version),

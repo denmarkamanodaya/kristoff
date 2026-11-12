@@ -24,4 +24,9 @@ pub trait LawSearch: Send + Sync {
     /// # Errors
     /// `INTERNAL` when the index fails.
     fn get_article(&self, law: LawRef, article: &str) -> AppResult<Option<ArticleView>>;
+    /// How many laws the index holds (its build metadata); `None` when the build does not say.
+    ///
+    /// # Errors
+    /// `INTERNAL` when the index fails.
+    fn law_count(&self) -> AppResult<Option<u64>>;
 }

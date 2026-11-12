@@ -141,6 +141,8 @@ pub struct ChatChanges {
     pub pinned: Option<bool>,
     /// Ungroup or move into a project.
     pub project: Option<ProjectChange>,
+    /// Turn statute search on or off.
+    pub statutes: Option<bool>,
 }
 
 /// A chat update as stored: the changes plus the new `updated_at_ms`.
@@ -167,6 +169,9 @@ impl ChatPatch {
         }
         if let Some(change) = &changes.project {
             chat.project_id = change.target().map(str::to_owned);
+        }
+        if let Some(statutes) = changes.statutes {
+            chat.statutes = statutes;
         }
         chat.updated_at_ms = self.updated_at_ms;
     }

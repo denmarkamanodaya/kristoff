@@ -5,21 +5,21 @@
 //! auto-title), the stream, follow-ups, and ALWAYS the assistant message (with a note when the
 //! answer failed or was cut off); then usage.
 
-use crate::domain::citation::map_citation;
-use crate::domain::model_request::{AnswerEnd, AttachedDoc, ModelEvent, ModelRequest};
+use crate::domain::model_request::{AnswerEnd, ModelRequest};
 use crate::domain::model_turns::build_model_turns;
 use crate::error::{AppError, AppResult, ErrorCode};
-use crate::limits::{FOLLOW_UP_ANSWER_CHARS, MAX_CITATIONS, MAX_MESSAGE_TEXT};
+use crate::limits::{FOLLOW_UP_ANSWER_CHARS, MAX_MESSAGE_TEXT};
 use crate::model::{Citation, Message, Role, Usage};
 use crate::ports::{
     AnswerModel, AnswerSink, CancelSignal, ChatStore, Clock, DocStore, FollowUpSuggester,
-    IdGenerator, UsageMeter,
+    IdGenerator, LawSearch, UsageMeter,
 };
 use crate::util::text::truncate_utf16;
 use crate::util::time::{seconds_until_next_utc_day, utc_day};
 
 mod attach;
 mod store;
+mod turns;
 
 pub use store::{CUT_OFF_NOTE, FAILED_NOTE};
 
@@ -46,6 +46,8 @@ pub struct AskDeps<'a> {
     pub model: &'a dyn AnswerModel,
     /// The follow-up suggester.
     pub follow_ups: &'a dyn FollowUpSuggester,
+    /// The PH law index; `None` while it warms up or when the build has none (no tools then).
+    pub law: Option<&'a dyn LawSearch>,
     /// The daily meter and token counters.
     pub meter: &'a dyn UsageMeter,
     /// Ids.
@@ -107,50 +109,6 @@ fn admit(deps: &AskDeps<'_>, now_ms: i64) -> AppResult<()> {
     })
 }
 
-fn stream_answer(
-    deps: &AskDeps<'_>,
-    request: &ModelRequest,
-    docs: &[AttachedDoc],
-    io: (&mut dyn AnswerSink, &dyn CancelSignal),
-) -> Answer {
-    let (sink, cancel) = io;
-    let mut text = String::new();
-    let mut citations: Vec<Citation> = Vec::new();
-    sink.open();
-    let end = deps
-        .model
-        .stream(request, cancel, &mut |event| match event {
-            ModelEvent::Text(piece) => {
-                text.push_str(&piece);
-                sink.text(&piece);
-            }
-            ModelEvent::Citation(source) if citations.len() < MAX_CITATIONS => {
-                let n = u32::try_from(citations.len() + 1).unwrap_or(u32::MAX);
-                let citation = map_citation(&source, docs, n);
-                text.push_str(" [");
-                text.push_str(&n.to_string());
-                text.push(']');
-                sink.citation(&citation);
-                citations.push(citation);
-            }
-            ModelEvent::Citation(_) => {}
-        });
-    let end = if cancel.is_cancelled() && end.is_ok() {
-        Err(AppError::new(
-            ErrorCode::UpstreamUnavailable,
-            "the answer was cancelled",
-        ))
-    } else {
-        end
-    };
-    Answer {
-        text,
-        citations,
-        end,
-        model: request.model.clone(),
-    }
-}
-
 /// Answers one question in a chat, streaming into `sink`.
 ///
 /// # Errors
@@ -187,10 +145,12 @@ pub fn ask(
             &docs,
             deps.config.max_history_turns,
         ),
-        statutes_on: false,
+        statutes_on: chat.value.statutes && deps.law.is_some(),
         tool_rounds: vec![],
+        tool_choice_none: false,
     };
-    let answer = stream_answer(deps, &request, &docs, (sink, cancel));
+    sink.open();
+    let answer = turns::answer(deps, request, &docs, (sink, cancel));
     // Follow-ups only after a successful answer (a cancelled one already ended as a failure).
     let follow_ups = match &answer.end {
         Ok(_) => {

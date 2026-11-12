@@ -114,6 +114,8 @@ pub struct ChatSummaryDto {
     pub pinned: bool,
     /// Project, or null.
     pub project_id: Option<String>,
+    /// Statute search on for this chat (desktop, Phase 4; readers treat it absent as true).
+    pub statutes: bool,
 }
 
 /// A chat with its creation instant (`ChatWire = ChatSummaryWire.extend({createdAt})`). Flattening

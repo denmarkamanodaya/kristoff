@@ -56,12 +56,17 @@ impl TestApp {
 
     /// A locked app whose model plays `script` and suggests `follow_ups`; real lopdf splitter.
     pub fn answering(script: Script, follow_ups: FollowUps) -> Self {
+        Self::answering_turns(vec![script], follow_ups)
+    }
+
+    /// The same, with one script per model turn (the last repeats).
+    pub fn answering_turns(scripts: Vec<Script>, follow_ups: FollowUps) -> Self {
         let dir = tempfile::tempdir().unwrap();
         let clock = Arc::new(FixedClock::at(START_MS));
         let remote = Arc::new(MemoryRemoteFiles::new());
         let log = Arc::new(MemoryLogger::default());
         let ai = AiPorts {
-            model: Box::new(ScriptedModel::new(script)),
+            model: Box::new(ScriptedModel::turns(scripts)),
             follow_ups: Box::new(FixedFollowUps::returning(follow_ups)),
             remote: Box::new(RemoteRef(Arc::clone(&remote))),
             splitter: Box::new(LopdfSplitter),

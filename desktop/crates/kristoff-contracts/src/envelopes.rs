@@ -28,6 +28,19 @@ pub struct ConfigResponse {
     pub max_attached_docs: usize,
     /// Questions per UTC day.
     pub daily_question_cap: u32,
+    /// Desktop features (Phase 4).
+    pub features: FeaturesDto,
+}
+
+/// `get_config` features: statute search and the size of its index.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FeaturesDto {
+    /// Statute search is available (the law index is installed).
+    pub statutes: bool,
+    /// Laws in the index; omitted when the index is unavailable or does not say.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub law_count: Option<u64>,
 }
 
 /// `list_docs`.

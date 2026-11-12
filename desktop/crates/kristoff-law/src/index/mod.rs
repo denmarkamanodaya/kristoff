@@ -16,7 +16,7 @@ use kristoff_core::domain::law::reference::parse_references;
 use kristoff_core::domain::law::{ArticleView, LawFilters, LawHit, LawRef, LawSummary};
 use kristoff_core::error::AppResult;
 use kristoff_core::ports::LawSearch;
-use rusqlite::{Connection, OpenFlags, Row};
+use rusqlite::{Connection, OpenFlags, OptionalExtension, Row};
 
 use crate::error::LawIndexError;
 use crate::fusion::{RankedList, fuse};
@@ -211,5 +211,16 @@ impl LawSearch for LawIndex {
 
     fn get_article(&self, law: LawRef, article: &str) -> AppResult<Option<ArticleView>> {
         Ok(self.article(law, article)?)
+    }
+
+    fn law_count(&self) -> AppResult<Option<u64>> {
+        let conn = self.conn()?;
+        let value: Option<String> = conn
+            .query_row("SELECT value FROM meta WHERE key = 'law_count'", [], |r| {
+                r.get(0)
+            })
+            .optional()
+            .map_err(LawIndexError::from)?;
+        Ok(value.and_then(|v| v.trim().parse().ok()))
     }
 }

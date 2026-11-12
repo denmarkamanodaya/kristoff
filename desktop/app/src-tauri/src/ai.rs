@@ -7,7 +7,6 @@ use kristoff_anthropic::{
     AnthropicAnswerModel, AnthropicFiles, AnthropicFollowUpSuggester, AnthropicFollowUps,
     AnthropicModel, AnthropicRemoteFiles, AnthropicRuntime, ApiConfig, build_client,
 };
-use kristoff_contracts::model_config::SYSTEM_PROMPT;
 use kristoff_core::error::{AppError, AppResult, ErrorCode};
 use kristoff_core::ports::{AnswerModel, FollowUpSuggester, Logger, PdfSplitter, RemoteFiles};
 use kristoff_pdf::LopdfSplitter;
@@ -48,11 +47,7 @@ impl AiPorts {
         let follow_ups = AnthropicFollowUps::new(client.clone(), config.clone());
         let files = AnthropicFiles::new(client, config);
         Ok(Self {
-            model: Box::new(AnthropicAnswerModel::new(
-                Arc::clone(&rt),
-                model,
-                SYSTEM_PROMPT,
-            )),
+            model: Box::new(AnthropicAnswerModel::new(Arc::clone(&rt), model)),
             follow_ups: Box::new(AnthropicFollowUpSuggester::new(
                 Arc::clone(&rt),
                 follow_ups,

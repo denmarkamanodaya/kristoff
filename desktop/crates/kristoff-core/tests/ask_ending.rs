@@ -100,6 +100,7 @@ impl AnswerModel for FinishesDespiteCancel {
         Ok(AnswerEnd {
             usage: ANSWER_USAGE,
             stop_reason: Some("end_turn".into()),
+            ..AnswerEnd::default()
         })
     }
 }

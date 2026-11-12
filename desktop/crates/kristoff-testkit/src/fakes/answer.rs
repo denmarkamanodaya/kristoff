@@ -15,10 +15,11 @@ pub struct Script {
     pub end: AppResult<AnswerEnd>,
 }
 
-/// Streams a [`Script`], checking the cancel signal before every event, and records requests.
+/// Streams a [`Script`] per turn, checking the cancel signal before every event, and records
+/// requests. Turn `i` plays script `i` (the last one repeats).
 #[derive(Debug)]
 pub struct ScriptedModel {
-    script: Script,
+    scripts: Vec<Script>,
     requests: Mutex<Vec<ModelRequest>>,
 }
 
@@ -26,8 +27,14 @@ impl ScriptedModel {
     /// A model that plays `script` for every request.
     #[must_use]
     pub fn new(script: Script) -> Self {
+        Self::turns(vec![script])
+    }
+
+    /// A model that plays `scripts[i]` on its `i`-th request (the last repeats).
+    #[must_use]
+    pub fn turns(scripts: Vec<Script>) -> Self {
         Self {
-            script,
+            scripts,
             requests: Mutex::new(vec![]),
         }
     }
@@ -54,11 +61,15 @@ impl AnswerModel for ScriptedModel {
         cancel: &dyn CancelSignal,
         on_event: &mut dyn FnMut(ModelEvent),
     ) -> AppResult<AnswerEnd> {
-        self.requests
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .push(request.clone());
-        for event in &self.script.events {
+        let turn = {
+            let mut requests = self.requests.lock().unwrap_or_else(PoisonError::into_inner);
+            requests.push(request.clone());
+            requests.len() - 1
+        };
+        let Some(script) = self.scripts.get(turn).or(self.scripts.last()) else {
+            return Err(cancelled());
+        };
+        for event in &script.events {
             if cancel.is_cancelled() {
                 return Err(cancelled());
             }
@@ -67,7 +78,7 @@ impl AnswerModel for ScriptedModel {
         if cancel.is_cancelled() {
             return Err(cancelled());
         }
-        self.script.end.clone()
+        script.end.clone()
     }
 }
 

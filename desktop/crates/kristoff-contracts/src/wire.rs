@@ -85,6 +85,7 @@ impl From<&Chat> for ChatSummaryDto {
             updated_at: iso_instant(c.updated_at_ms),
             pinned: c.pinned,
             project_id: c.project_id.clone(),
+            statutes: c.statutes,
         }
     }
 }

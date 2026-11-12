@@ -9,6 +9,7 @@
       ],
       "updatedAt": "2026-11-12T02:00:00.000Z",
       "pinned": true,
+      "statutes": true,
       "projectId": "01a1cd44ca800020"
     },
     {
@@ -17,6 +18,7 @@
       "docIds": [],
       "updatedAt": "2026-11-12T01:45:00.000Z",
       "pinned": false,
+      "statutes": false,
       "projectId": null
     }
   ],

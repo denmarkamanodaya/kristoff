@@ -187,6 +187,7 @@ impl Composition {
             docs: &self.store,
             model: self.ai.model.as_ref(),
             follow_ups: self.ai.follow_ups.as_ref(),
+            law: self.law_search(),
             meter: &self.store,
             ids: self.ids.as_ref(),
             clock: self.clock.as_ref(),

@@ -36,6 +36,7 @@ pub fn default_script() -> Script {
         end: Ok(AnswerEnd {
             usage: ANSWER_USAGE,
             stop_reason: Some("end_turn".into()),
+            ..AnswerEnd::default()
         }),
     }
 }
@@ -63,6 +64,8 @@ pub struct World {
     pub limits: SplitLimits,
     /// Questions per day for ask.
     pub daily_cap: u32,
+    /// The law index ask may search (none unless set: no tools are sent then).
+    pub law: Option<crate::fakes::MemoryLawSearch>,
 }
 
 impl Default for World {
@@ -78,6 +81,7 @@ impl Default for World {
             follow_ups: FixedFollowUps::returning(FollowUps::default()),
             limits: SplitLimits::CLAUDE,
             daily_cap: 100,
+            law: None,
         }
     }
 }
@@ -122,6 +126,10 @@ impl World {
             docs: &self.store,
             model: &self.model,
             follow_ups: &self.follow_ups,
+            law: self
+                .law
+                .as_ref()
+                .map(|l| l as &dyn kristoff_core::ports::LawSearch),
             meter: &self.store,
             ids: &self.ids,
             clock: &self.clock,

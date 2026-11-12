@@ -156,6 +156,8 @@ pub struct ChatPatchRequest {
     /// Move into a project, or null to ungroup.
     #[serde(default, deserialize_with = "project_change")]
     pub project_id: Option<ProjectChange>,
+    /// Turn statute search on or off (desktop, Phase 4).
+    pub statutes: Option<bool>,
 }
 
 impl ChatPatchRequest {
@@ -176,10 +178,11 @@ impl ChatPatchRequest {
         let empty = self.title.is_none()
             && self.doc_ids.is_none()
             && self.pinned.is_none()
-            && self.project_id.is_none();
+            && self.project_id.is_none()
+            && self.statutes.is_none();
         if empty {
             return Err(invalid(
-                "patch (send at least one of title, docIds, pinned, projectId)",
+                "patch (send at least one of title, docIds, pinned, projectId, statutes)",
             ));
         }
         if let Some(title) = &self.title {
@@ -196,12 +199,14 @@ impl ChatPatchRequest {
             doc_ids,
             pinned,
             project_id,
+            statutes,
         } = self;
         Ok(ChatChanges {
             title,
             doc_ids,
             pinned,
             project: project_id,
+            statutes,
         })
     }
 }

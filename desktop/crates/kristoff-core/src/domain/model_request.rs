@@ -45,12 +45,12 @@ pub struct ModelTurn {
 }
 
 /// One finished statute tool round (Phase 4): the assistant content exactly as the API produced
-/// it, as raw JSON, and the answers sent back. Empty until the tool loop exists.
+/// it, as raw JSON, and the answers sent back.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ToolRound {
-    /// The assistant content blocks as a JSON array, verbatim (D-11).
+    /// The assistant content blocks as a JSON array, verbatim (D-11), thinking blocks included.
     pub assistant_content_json: String,
-    /// One answer per `tool_use` block.
+    /// One answer per `tool_use` block, in the same order.
     pub answers: Vec<ToolAnswer>,
 }
 
@@ -59,8 +59,63 @@ pub struct ToolRound {
 pub struct ToolAnswer {
     /// The `tool_use` id being answered.
     pub tool_use_id: String,
-    /// The results, in rank order.
-    pub results: Vec<SearchResult>,
+    /// What goes back.
+    pub content: ToolAnswerContent,
+}
+
+/// What a tool answer carries.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ToolAnswerContent {
+    /// Search results in rank order (none: a short "nothing found" text is sent).
+    Results(Vec<SearchResult>),
+    /// A refused call (bad input, unknown tool, over the cap), sent with `is_error: true`.
+    Error(String),
+}
+
+/// The arguments of one `search_ph_laws` call as the model sent them, unvalidated.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RawSearchInput {
+    /// Search text.
+    pub query: Option<String>,
+    /// Law to restrict to, e.g. `RA 9262`.
+    pub law_number: Option<String>,
+    /// Earliest approval year.
+    pub year_from: Option<i64>,
+    /// Latest approval year.
+    pub year_to: Option<i64>,
+    /// Most results.
+    pub limit: Option<i64>,
+}
+
+/// The arguments of one `get_law_article` call as the model sent them, unvalidated.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RawArticleInput {
+    /// The law, e.g. `RA 9262` or `Constitution`.
+    pub law_number: Option<String>,
+    /// The provision, e.g. `Sec. 5`.
+    pub article: Option<String>,
+}
+
+/// One tool call as the adapter read it; core validates the values.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ToolInput {
+    /// `search_ph_laws`.
+    SearchLaws(RawSearchInput),
+    /// `get_law_article`.
+    GetLawArticle(RawArticleInput),
+    /// A known tool whose input was not an object of the expected field types.
+    Malformed(String),
+    /// A tool this app does not offer.
+    Unknown(String),
+}
+
+/// One `tool_use` block of a finished turn.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ToolCall {
+    /// The `tool_use` id.
+    pub id: String,
+    /// What the model asked for.
+    pub input: ToolInput,
 }
 
 /// One statute search result.
@@ -83,10 +138,12 @@ pub struct ModelRequest {
     pub max_tokens: u32,
     /// Alternating turns that start and end with a user turn.
     pub turns: Vec<ModelTurn>,
-    /// Whether the statute tool is offered (always false until Phase 4).
+    /// Whether the statute tools are offered.
     pub statutes_on: bool,
-    /// Tool rounds already run for this question (always empty until Phase 4).
+    /// Tool rounds already run for this question.
     pub tool_rounds: Vec<ToolRound>,
+    /// The tool-call cap is reached: send `tool_choice: none` so the model answers.
+    pub tool_choice_none: bool,
 }
 
 /// A citation exactly as the model reported it.
@@ -134,13 +191,29 @@ pub enum ModelEvent {
     Citation(CitationSource),
 }
 
-/// How a finished answer ended.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// How a finished model turn ended.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct AnswerEnd {
     /// Token usage of the call.
     pub usage: Usage,
-    /// `end_turn`, `max_tokens`, `refusal`, ...; `None` when the API sent none.
+    /// `end_turn`, `max_tokens`, `tool_use`, `refusal`, ...; `None` when the API sent none.
     pub stop_reason: Option<String>,
+    /// The `tool_use` blocks of this turn (empty unless `stop_reason` is `tool_use`).
+    pub tool_calls: Vec<ToolCall>,
+    /// The turn's assistant content blocks as a JSON array, verbatim, for the next tool round.
+    pub assistant_content_json: String,
+}
+
+impl AnswerEnd {
+    /// A turn that ended without tool calls.
+    #[must_use]
+    pub fn finished(usage: Usage, stop_reason: &str) -> Self {
+        Self {
+            usage,
+            stop_reason: Some(stop_reason.to_owned()),
+            ..Self::default()
+        }
+    }
 }
 
 /// Suggested follow-up questions and what the call cost.

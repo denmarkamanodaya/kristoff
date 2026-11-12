@@ -13,6 +13,7 @@ mod http;
 mod model;
 pub mod request;
 pub mod sse;
+pub mod tools;
 
 pub use bridge::{
     AnthropicAnswerModel, AnthropicFollowUpSuggester, AnthropicRemoteFiles, AnthropicRuntime,

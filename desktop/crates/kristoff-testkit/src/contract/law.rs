@@ -21,6 +21,12 @@ pub fn law_search_contract(search: &impl LawSearch) {
     a_cited_provision_ranks_first(search);
     limits_and_filters_hold(search);
     get_article_returns_the_provision_and_its_neighbours(search);
+    counts_at_least_the_laws_it_holds(search);
+}
+
+fn counts_at_least_the_laws_it_holds(search: &impl LawSearch) {
+    let count = search.law_count().unwrap();
+    assert!(count.is_some_and(|n| n >= 2), "law count {count:?}");
 }
 
 fn a_cited_provision_ranks_first(search: &impl LawSearch) {

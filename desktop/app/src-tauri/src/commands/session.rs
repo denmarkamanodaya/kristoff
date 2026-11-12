@@ -3,7 +3,7 @@
 use super::{CommandResult, Shared, blocking, unlocked};
 use crate::composition::Composition;
 use kristoff_contracts::config::LOCAL_TOKEN;
-use kristoff_contracts::envelopes::{ConfigResponse, SessionResponse, UsageResponse};
+use kristoff_contracts::envelopes::{ConfigResponse, FeaturesDto, SessionResponse, UsageResponse};
 use kristoff_contracts::requests;
 use kristoff_contracts::shapes::{ModelOptionDto, UsageDto};
 use kristoff_core::usecases::{auth, settings};
@@ -40,6 +40,13 @@ pub fn config(app: &Composition) -> CommandResult<ConfigResponse> {
         models: models.collect(),
         max_attached_docs: c.max_attached_docs,
         daily_question_cap: c.daily_question_cap,
+        features: {
+            let f = settings::features(app.law_search());
+            FeaturesDto {
+                statutes: f.statutes,
+                law_count: f.law_count,
+            }
+        },
     })
 }
 

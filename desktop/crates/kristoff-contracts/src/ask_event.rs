@@ -50,6 +50,13 @@ pub enum AskEvent {
     },
     /// A failure after the stream opened (always the last on failure).
     Error(StreamErrorData),
+    /// A statute search ran (display only): `{ query, count }`.
+    Search {
+        /// The search text the model sent.
+        query: String,
+        /// How many articles came back.
+        count: usize,
+    },
 }
 
 impl AskEvent {

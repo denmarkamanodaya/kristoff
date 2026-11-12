@@ -15,5 +15,9 @@
     }
   ],
   "maxAttachedDocs": 5,
-  "dailyQuestionCap": 100
+  "dailyQuestionCap": 100,
+  "features": {
+    "statutes": true,
+    "lawCount": 10870
+  }
 }

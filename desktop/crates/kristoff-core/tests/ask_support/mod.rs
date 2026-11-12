@@ -39,6 +39,9 @@ impl AnswerSink for Recorder<'_> {
     fn follow_ups(&mut self, questions: &[String]) {
         self.events.push(format!("followups:{}", questions.len()));
     }
+    fn search(&mut self, query: &str, count: usize) {
+        self.events.push(format!("search:{query}:{count}"));
+    }
 }
 
 pub fn world_with_chat(doc_ids: &[&str]) -> World {
@@ -77,6 +80,7 @@ pub fn script(events: Vec<ModelEvent>, stop: &str) -> Script {
         end: Ok(AnswerEnd {
             usage: ANSWER_USAGE,
             stop_reason: Some(stop.into()),
+            ..AnswerEnd::default()
         }),
     }
 }

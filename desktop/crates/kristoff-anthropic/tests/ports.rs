@@ -9,9 +9,8 @@ use kristoff_anthropic::{
     AnthropicAnswerModel, AnthropicFiles, AnthropicFollowUpSuggester, AnthropicFollowUps,
     AnthropicModel, AnthropicRemoteFiles, AnthropicRuntime, ApiConfig, build_client,
 };
-use kristoff_contracts::model_config::SYSTEM_PROMPT;
 use kristoff_core::domain::model_request::{
-    AnswerEnd, CitationSource, FollowUps, ModelEvent, ModelRequest,
+    AnswerEnd, CitationSource, FollowUps, ModelEvent, ModelRequest, ToolCall, ToolInput,
 };
 use kristoff_core::error::AppResult;
 use kristoff_core::ports::{AnswerModel, CancelSignal, FollowUpSuggester, RemoteFiles};
@@ -81,6 +80,28 @@ fn frame(data: &serde_json::Value) -> String {
 }
 
 /// The script as the Messages API would stream it.
+/// Each scripted search call as a `tool_use` block whose input streams in two JSON fragments.
+fn tool_use_frames(calls: &[ToolCall]) -> String {
+    let mut out = String::new();
+    for (i, call) in (1..).zip(calls) {
+        let ToolInput::SearchLaws(raw) = &call.input else {
+            panic!("not scripted: {call:?}")
+        };
+        let input = json!({ "query": raw.query, "law_number": raw.law_number }).to_string();
+        let (a, b) = input.split_at(input.len() / 2);
+        out += &frame(
+            &json!({ "type": "content_block_start", "index": i, "content_block":
+            { "type": "tool_use", "id": call.id, "name": "search_ph_laws", "input": {} } }),
+        );
+        for part in [a, b] {
+            out += &frame(&json!({ "type": "content_block_delta", "index": i,
+                "delta": { "type": "input_json_delta", "partial_json": part } }));
+        }
+        out += &frame(&json!({ "type": "content_block_stop", "index": i }));
+    }
+    out
+}
+
 fn sse_of(script: &Script) -> Vec<u8> {
     let end = script.end.clone().unwrap();
     let u = end.usage;
@@ -108,6 +129,7 @@ fn sse_of(script: &Script) -> Vec<u8> {
         };
         out += &frame(&json!({ "type": "content_block_delta", "index": 0, "delta": delta }));
     }
+    out += &tool_use_frames(&end.tool_calls);
     out += &frame(
         &json!({ "type": "message_delta", "delta": { "stop_reason": end.stop_reason }, "usage": { "output_tokens": u.output } }),
     );
@@ -116,11 +138,7 @@ fn sse_of(script: &Script) -> Vec<u8> {
 
 fn answer_model(replies: Vec<Reply>) -> Served<AnthropicAnswerModel> {
     served(replies, |config, rt| {
-        AnthropicAnswerModel::new(
-            rt,
-            AnthropicModel::new(build_client().unwrap(), config),
-            SYSTEM_PROMPT,
-        )
+        AnthropicAnswerModel::new(rt, AnthropicModel::new(build_client().unwrap(), config))
     })
 }
 

@@ -117,6 +117,8 @@ pub struct Chat {
     pub created_at_ms: i64,
     /// Last change, epoch ms (the list order).
     pub updated_at_ms: i64,
+    /// Whether statute search (the law tools) is offered for this chat's questions.
+    pub statutes: bool,
 }
 
 /// Who wrote a message.

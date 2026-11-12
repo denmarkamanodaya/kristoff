@@ -10,8 +10,8 @@ use rusqlite::{Connection, OptionalExtension, Row, params};
 
 /// The chat columns, with the attachment ids folded in order.
 const SELECT: &str = "SELECT id, title, pinned, project_id, created_at, updated_at, version, \
-    (SELECT group_concat(attachment_id, ',' ORDER BY pos) FROM chat_docs WHERE chat_id = id) \
-    FROM chats";
+    (SELECT group_concat(attachment_id, ',' ORDER BY pos) FROM chat_docs WHERE chat_id = id), \
+    statutes FROM chats";
 
 pub(super) fn not_found() -> AppError {
     AppError::new(ErrorCode::ChatNotFound, "no such chat")
@@ -29,6 +29,7 @@ fn chat_row(row: &Row<'_>) -> rusqlite::Result<(Chat, i64)> {
         doc_ids: doc_ids
             .map(|s| s.split(',').map(str::to_owned).collect())
             .unwrap_or_default(),
+        statutes: row.get(8)?,
     };
     Ok((chat, row.get(6)?))
 }
@@ -55,14 +56,15 @@ impl SqliteStore {
     pub(super) fn insert_chat(&self, chat: &Chat) -> AppResult<()> {
         self.write(|tx| {
             let sql = "INSERT INTO chats (id, title, pinned, project_id, created_at, updated_at, \
-                       version) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1)";
+                       version, statutes) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7)";
             let values = params![
                 chat.id,
                 chat.title,
                 chat.pinned,
                 chat.project_id,
                 chat.created_at_ms,
-                chat.updated_at_ms
+                chat.updated_at_ms,
+                chat.statutes
             ];
             tx.execute(sql, values)
                 .map_err(|e| insert_failure(&e, "chat"))?;
@@ -97,12 +99,13 @@ impl SqliteStore {
             let mut chat = find(tx, chat_id)?.ok_or_else(not_found)?.value;
             patch.apply_to(&mut chat);
             let sql = "UPDATE chats SET title = ?1, pinned = ?2, project_id = ?3, updated_at = ?4, \
-                       version = version + 1 WHERE id = ?5 AND version = ?6";
+                       statutes = ?5, version = version + 1 WHERE id = ?6 AND version = ?7";
             let values = params![
                 chat.title,
                 chat.pinned,
                 chat.project_id,
                 chat.updated_at_ms,
+                chat.statutes,
                 chat_id,
                 version
             ];

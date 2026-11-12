@@ -58,6 +58,7 @@ fn answering(events: Vec<ModelEvent>, stop: &str, follow_ups: Vec<String>) -> Te
         end: Ok(AnswerEnd {
             usage: ANSWER_USAGE,
             stop_reason: Some(stop.into()),
+            ..AnswerEnd::default()
         }),
     };
     TestApp::answering(

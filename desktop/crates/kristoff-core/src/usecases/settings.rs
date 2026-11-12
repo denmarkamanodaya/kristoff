@@ -2,7 +2,7 @@
 
 use crate::error::AppResult;
 use crate::model::UsageReport;
-use crate::ports::{Clock, UsageMeter};
+use crate::ports::{Clock, LawSearch, UsageMeter};
 use crate::util::time::utc_day;
 
 /// One selectable model: its API id and the label the web shows.
@@ -63,6 +63,25 @@ pub fn get_config(source: &ConfigSource<'_>) -> ClientConfig {
             .collect(),
         max_attached_docs: source.max_attached_docs,
         daily_question_cap: source.daily_question_cap,
+    }
+}
+
+/// What the desktop offers beyond the web contract (Phase 4).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Features {
+    /// Statute search is available (the law index is installed).
+    pub statutes: bool,
+    /// Laws in the index, when it is available and says.
+    pub law_count: Option<u64>,
+}
+
+/// The features given the law index (`None` while it warms up or when the build has none).
+#[must_use]
+pub fn features(law: Option<&dyn LawSearch>) -> Features {
+    Features {
+        statutes: law.is_some(),
+        // Recovery: the count is display-only; an index that cannot read it still searches.
+        law_count: law.and_then(|l| l.law_count().ok().flatten()),
     }
 }
 

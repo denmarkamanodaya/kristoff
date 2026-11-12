@@ -3,7 +3,8 @@
 use super::assert_code;
 use crate::fakes::{CancelFlag, Script};
 use kristoff_core::domain::model_request::{
-    AnswerEnd, CitationSource, ModelEvent, ModelRequest, ModelTurn, TurnBlock,
+    AnswerEnd, CitationSource, ModelEvent, ModelRequest, ModelTurn, RawSearchInput, ToolCall,
+    ToolInput, TurnBlock,
 };
 use kristoff_core::error::ErrorCode;
 use kristoff_core::model::{Role, Usage};
@@ -26,6 +27,7 @@ pub fn sample_request() -> ModelRequest {
         }],
         statutes_on: false,
         tool_rounds: vec![],
+        tool_choice_none: false,
     }
 }
 
@@ -53,6 +55,7 @@ pub fn sample_script(stop_reason: &str) -> Script {
                 cache_write: 10_214,
             },
             stop_reason: Some(stop_reason.into()),
+            ..AnswerEnd::default()
         }),
     }
 }
@@ -62,7 +65,55 @@ pub fn sample_script(stop_reason: &str) -> Script {
 pub fn answer_model_contract<M: AnswerModel>(make: impl Fn(&Script) -> M) {
     plays_the_answer_in_order(&make);
     keeps_a_max_tokens_stop(&make);
+    reports_the_tool_calls_of_a_tool_use_turn(&make);
     refuses_when_already_cancelled(&make);
+}
+
+/// A turn that stops to call `search_ph_laws` once.
+#[must_use]
+pub fn tool_use_script() -> Script {
+    let call = ToolCall {
+        id: "toolu_01".into(),
+        input: ToolInput::SearchLaws(RawSearchInput {
+            query: Some("battered woman syndrome".into()),
+            law_number: Some("RA 9262".into()),
+            ..RawSearchInput::default()
+        }),
+    };
+    Script {
+        events: vec![ModelEvent::Text("Let me check.".into())],
+        end: Ok(AnswerEnd {
+            usage: Usage {
+                input: 40,
+                output: 30,
+                cache_read: 0,
+                cache_write: 0,
+            },
+            stop_reason: Some("tool_use".into()),
+            tool_calls: vec![call],
+            assistant_content_json: "[]".into(),
+        }),
+    }
+}
+
+/// The parts of an end every adapter must report (the assistant JSON is adapter-specific).
+fn reported(end: &AnswerEnd) -> (Usage, Option<&str>, &[ToolCall]) {
+    (end.usage, end.stop_reason.as_deref(), &end.tool_calls)
+}
+
+fn reports_the_tool_calls_of_a_tool_use_turn<M: AnswerModel>(make: &impl Fn(&Script) -> M) {
+    let script = tool_use_script();
+
+    let end = make(&script)
+        .stream(&sample_request(), &NeverCancelled, &mut |_| {})
+        .unwrap();
+
+    let want = script.end.as_ref().unwrap();
+    assert_eq!(reported(&end), reported(want));
+    assert!(
+        !end.assistant_content_json.is_empty(),
+        "a tool round needs the assistant content"
+    );
 }
 
 fn plays_the_answer_in_order<M: AnswerModel>(make: &impl Fn(&Script) -> M) {
@@ -72,7 +123,10 @@ fn plays_the_answer_in_order<M: AnswerModel>(make: &impl Fn(&Script) -> M) {
     let end = make(&script).stream(&sample_request(), &NeverCancelled, &mut |e| seen.push(e));
 
     assert_eq!(seen, script.events);
-    assert_eq!(end, script.end);
+    assert_eq!(
+        reported(&end.unwrap()),
+        reported(script.end.as_ref().unwrap())
+    );
 }
 
 fn keeps_a_max_tokens_stop<M: AnswerModel>(make: &impl Fn(&Script) -> M) {

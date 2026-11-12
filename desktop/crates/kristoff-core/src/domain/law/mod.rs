@@ -4,6 +4,7 @@
 pub mod provision;
 pub mod reference;
 pub mod roman;
+pub mod tools;
 
 pub use reference::LawRef;
 

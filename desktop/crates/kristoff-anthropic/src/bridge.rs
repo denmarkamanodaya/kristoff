@@ -9,6 +9,8 @@ use crate::followups::AnthropicFollowUps;
 use crate::model::AnthropicModel;
 use crate::request::messages_body;
 use crate::sse::StreamEvent;
+use crate::tools::tool_call;
+use kristoff_contracts::model_config::answer_system_prompt;
 use kristoff_core::domain::model_request::{AnswerEnd, FollowUps, ModelEvent, ModelRequest};
 use kristoff_core::error::{AppError, AppResult, ErrorCode};
 use kristoff_core::ports::{AnswerModel, CancelSignal, FollowUpSuggester, Logger, RemoteFiles};
@@ -67,18 +69,18 @@ fn to_app(e: &AnthropicError) -> AppError {
     )
 }
 
-/// `AnswerModel` on the streaming Messages API.
+/// `AnswerModel` on the streaming Messages API. The system prompt is `kristoff-contracts`'
+/// `answer_system_prompt` (with the statute addition when the tools are offered).
 pub struct AnthropicAnswerModel {
     rt: Arc<AnthropicRuntime>,
     model: AnthropicModel,
-    system: &'static str,
 }
 
 impl AnthropicAnswerModel {
-    /// Binds `model` to the runtime with the system prompt from `kristoff-contracts`.
+    /// Binds `model` to the runtime.
     #[must_use]
-    pub fn new(rt: Arc<AnthropicRuntime>, model: AnthropicModel, system: &'static str) -> Self {
-        Self { rt, model, system }
+    pub fn new(rt: Arc<AnthropicRuntime>, model: AnthropicModel) -> Self {
+        Self { rt, model }
     }
 }
 
@@ -104,11 +106,13 @@ impl AnswerModel for AnthropicAnswerModel {
                 "the answer was cancelled",
             ));
         }
-        let body = messages_body(request, self.system);
+        let body = messages_body(request, &answer_system_prompt(request.statutes_on));
         let token = CancelToken::new();
+        let mut tool_calls = Vec::new();
         let mut forward = |event: &StreamEvent| match event {
             StreamEvent::TextDelta(text) => on_event(ModelEvent::Text(text.clone())),
             StreamEvent::CitationDelta(source) => on_event(ModelEvent::Citation(source.clone())),
+            StreamEvent::ToolUse { id, name, input } => tool_calls.push(tool_call(id, name, input)),
             _ => {}
         };
         let outcome = self.rt.block_on(async {
@@ -121,6 +125,8 @@ impl AnswerModel for AnthropicAnswerModel {
         Ok(AnswerEnd {
             usage: outcome.usage,
             stop_reason: outcome.stop_reason,
+            tool_calls,
+            assistant_content_json: serde_json::Value::Array(outcome.content).to_string(),
         })
     }
 }

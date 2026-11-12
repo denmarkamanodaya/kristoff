@@ -117,11 +117,16 @@ fn updates_title_pin_attachments_and_project() {
         doc_ids: Some(ids(&[READY])),
         pinned: Some(true),
         project: Some(ProjectChange::MoveTo(project.id.clone())),
+        statutes: Some(false),
     };
 
     let updated = update_chat(&w.chats(), &c.id, &changes).unwrap();
 
     assert_eq!((updated.title.as_str(), updated.pinned), ("Digest", true));
+    assert!(
+        c.statutes && !updated.statutes,
+        "new chats start with statutes on"
+    );
     assert_eq!(
         (updated.doc_ids, updated.project_id),
         (ids(&[READY]), Some(project.id))

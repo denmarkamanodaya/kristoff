@@ -108,7 +108,7 @@ impl MemoryLawSearch {
             law: p.law.clone(),
             label: p.label.clone(),
             text: p.text.clone(),
-            source_url: String::new(),
+            source_url: format!("https://lawphil.net/fake/{}", p.law.number.unwrap_or(1987)),
             status: "current".to_owned(),
             truncated: false,
             part: 0,
@@ -142,6 +142,16 @@ impl MemoryLawSearch {
 impl LawSearch for MemoryLawSearch {
     fn warm(&self) -> AppResult<()> {
         Ok(())
+    }
+
+    fn law_count(&self) -> AppResult<Option<u64>> {
+        let mut laws: Vec<&str> = self
+            .provisions
+            .iter()
+            .map(|p| p.law.identifier.as_str())
+            .collect();
+        laws.dedup();
+        Ok(Some(laws.len() as u64))
     }
 
     fn search(&self, query: &str, filters: &LawFilters, limit: usize) -> AppResult<Vec<LawHit>> {

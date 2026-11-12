@@ -55,4 +55,6 @@ pub trait AnswerSink {
     fn citation(&mut self, citation: &Citation);
     /// The suggested follow-up questions, sent once after the answer.
     fn follow_ups(&mut self, questions: &[String]);
+    /// A statute search ran: its query and how many articles it returned (display only).
+    fn search(&mut self, query: &str, count: usize);
 }

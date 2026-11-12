@@ -55,6 +55,20 @@ pub const MAX_FOLLOW_UPS: usize = 5;
 pub const MAX_FOLLOW_UP: usize = 120;
 /// Characters of the answer the follow-up call sees.
 pub const FOLLOW_UP_ANSWER_CHARS: usize = 2000;
+/// Desktop only: statute tool calls per question; after them the model must answer.
+pub const MAX_TOOL_CALLS: usize = 3;
+/// Desktop only: longest `search_ph_laws` query in characters.
+pub const TOOL_QUERY_MAX: usize = 300;
+/// Desktop only: longest `law_number` tool argument in characters.
+pub const TOOL_LAW_NUMBER_MAX: usize = 40;
+/// Desktop only: longest `article` tool argument in characters.
+pub const TOOL_ARTICLE_MAX: usize = 40;
+/// Desktop only: earliest `year_from` / `year_to` a law search accepts.
+pub const TOOL_YEAR_MIN: u32 = 1900;
+/// Desktop only: latest `year_from` / `year_to` a law search accepts.
+pub const TOOL_YEAR_MAX: u32 = 2100;
+/// Desktop only: most results one law search returns (also its default `limit`).
+pub const TOOL_RESULTS_MAX: usize = 8;
 /// Desktop only: processing runs a doc gets (the first, plus one retry at app start).
 pub const MAX_PROCESSING_ATTEMPTS: u32 = 2;
 /// Desktop only: most past messages sent to the model (the web had this as env `MAX_HISTORY_TURNS`).

@@ -6,16 +6,14 @@
 //! unchanged.
 
 use kristoff_contracts::model_config::{
-    FOLLOW_UP_MAX_TOKENS, FOLLOW_UP_MODEL, FOLLOW_UP_PROMPT, FOLLOW_UP_SCHEMA, STATUTE_TOOL,
+    FOLLOW_UP_MAX_TOKENS, FOLLOW_UP_MODEL, FOLLOW_UP_PROMPT, FOLLOW_UP_SCHEMA, law_tools,
 };
+use kristoff_core::domain::law::tools::NO_RESULTS_TEXT;
 use kristoff_core::domain::model_request::{
-    ModelRequest, ModelTurn, SearchResult, ToolAnswer, ToolRound, TurnBlock,
+    ModelRequest, ModelTurn, SearchResult, ToolAnswer, ToolAnswerContent, ToolRound, TurnBlock,
 };
 use kristoff_core::model::Role;
 use serde_json::{Value, json};
-
-/// Text sent as a tool answer when the search found nothing.
-pub const NO_RESULTS_TEXT: &str = "No matching statutes were found.";
 
 /// The streaming Messages body for one answer call.
 #[must_use]
@@ -32,7 +30,10 @@ pub fn messages_body(request: &ModelRequest, system: &str) -> Value {
         "messages": messages,
     });
     if request.statutes_on {
-        body["tools"] = json!([parse_constant(STATUTE_TOOL)]);
+        body["tools"] = law_tools();
+        if request.tool_choice_none {
+            body["tool_choice"] = json!({ "type": "none" });
+        }
     }
     body
 }
@@ -109,15 +110,19 @@ fn tool_round(round: &ToolRound) -> [Value; 2] {
 }
 
 fn tool_result(answer: &ToolAnswer) -> Value {
-    if answer.results.is_empty() {
-        return json!({
-            "type": "tool_result",
-            "tool_use_id": answer.tool_use_id,
-            "content": NO_RESULTS_TEXT,
-        });
+    let id = &answer.tool_use_id;
+    match &answer.content {
+        ToolAnswerContent::Error(message) => {
+            json!({ "type": "tool_result", "tool_use_id": id, "content": message, "is_error": true })
+        }
+        ToolAnswerContent::Results(results) if results.is_empty() => {
+            json!({ "type": "tool_result", "tool_use_id": id, "content": NO_RESULTS_TEXT })
+        }
+        ToolAnswerContent::Results(results) => {
+            let content: Vec<Value> = results.iter().map(search_result).collect();
+            json!({ "type": "tool_result", "tool_use_id": id, "content": content })
+        }
     }
-    let content: Vec<Value> = answer.results.iter().map(search_result).collect();
-    json!({ "type": "tool_result", "tool_use_id": answer.tool_use_id, "content": content })
 }
 
 fn search_result(result: &SearchResult) -> Value {

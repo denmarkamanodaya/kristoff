@@ -60,11 +60,14 @@ ALTER TABLE doc_parts ADD COLUMN file_id TEXT;
 /// Processing runs per doc, bounding the retries at app start (expand only).
 const V3: &str = "ALTER TABLE docs ADD COLUMN processing_attempts INTEGER NOT NULL DEFAULT 0;";
 
+/// Phase 4: the per-chat statute search toggle, on unless switched off (expand only).
+const V4: &str = "ALTER TABLE chats ADD COLUMN statutes INTEGER NOT NULL DEFAULT 1;";
+
 /// Every schema step, oldest first.
-const STEPS: [&str; 3] = [V1, V2, V3];
+const STEPS: [&str; 4] = [V1, V2, V3, V4];
 
 /// The schema version this build writes.
-pub(crate) const CURRENT: i64 = 3;
+pub(crate) const CURRENT: i64 = 4;
 
 /// Applies every step after the stored version in one immediate transaction.
 ///
@@ -146,5 +149,16 @@ mod tests {
         let (file_id, attempts): (Option<String>, u32) =
             pair(&conn, "SELECT file_id, processing_attempts FROM docs");
         assert_eq!((file_id.as_deref(), attempts), (Some("file_x"), 0));
+    }
+
+    #[test]
+    fn a_v3_file_migrates_with_statutes_on_for_existing_chats() {
+        let conn = migrated_from(
+            3,
+            "INSERT INTO chats VALUES ('00000000000000c1','Torts',0,NULL,1,2,1);",
+        );
+
+        let (title, statutes): (String, bool) = pair(&conn, "SELECT title, statutes FROM chats");
+        assert_eq!((title.as_str(), statutes), ("Torts", true));
     }
 }

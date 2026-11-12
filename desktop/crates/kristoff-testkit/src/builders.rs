@@ -52,6 +52,7 @@ pub fn chat(id: &str, updated_at_ms: i64, doc_ids: &[&str]) -> Chat {
         project_id: None,
         created_at_ms: updated_at_ms,
         updated_at_ms,
+        statutes: true,
     }
 }
 

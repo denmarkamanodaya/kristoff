@@ -7,7 +7,8 @@ mod support;
 use kristoff_anthropic::request::{follow_up_body, messages_body};
 use kristoff_contracts::model_config::{FOLLOW_UP_PROMPT, FOLLOW_UP_TIMEOUT_MS, SYSTEM_PROMPT};
 use kristoff_core::domain::model_request::{
-    AttachedDoc, ModelRequest, ModelTurn, SearchResult, ToolAnswer, ToolRound, TurnBlock,
+    AttachedDoc, ModelRequest, ModelTurn, SearchResult, ToolAnswer, ToolAnswerContent, ToolRound,
+    TurnBlock,
 };
 use kristoff_core::domain::model_turns::build_model_turns;
 use kristoff_core::model::{Message, Role};
@@ -21,6 +22,7 @@ fn request(model: &str, max_tokens: u32, turns: Vec<ModelTurn>) -> ModelRequest 
         turns,
         statutes_on: false,
         tool_rounds: vec![],
+        tool_choice_none: false,
     }
 }
 
@@ -122,7 +124,28 @@ fn the_first_statute_turn_matches_the_s5_fixture_plus_stream() {
     );
     req.statutes_on = true;
 
-    assert_eq!(messages_body(&req, str_of(&expected, "system")), expected);
+    assert_matches_s5(messages_body(&req, str_of(&expected, "system")), expected);
+}
+
+/// Fixture mismatch (reported, fixture unchanged): S5 recorded one tool with `query` and
+/// `law_number`; Phase 4 sends two tools and more optional search fields. Everything else must
+/// match exactly, and the S5 tool must survive unchanged as a subset of ours.
+fn assert_matches_s5(mut body: serde_json::Value, mut expected: serde_json::Value) {
+    let ours = body.as_object_mut().unwrap().remove("tools").unwrap();
+    let theirs = expected.as_object_mut().unwrap().remove("tools").unwrap();
+    assert_eq!(body, expected);
+    assert_eq!(ours, kristoff_contracts::model_config::law_tools());
+    let (o, t) = (&ours[0], &theirs[0]);
+    for key in ["name", "description", "strict"] {
+        assert_eq!(o[key], t[key], "{key}");
+    }
+    for prop in ["query", "law_number"] {
+        assert_eq!(
+            o["input_schema"]["properties"][prop],
+            t["input_schema"]["properties"][prop]
+        );
+    }
+    assert_eq!(o["input_schema"]["required"], t["input_schema"]["required"]);
 }
 
 #[test]
@@ -142,18 +165,20 @@ fn a_tool_round_sends_assistant_content_verbatim_and_search_results() {
         assistant_content_json: expected["messages"][1]["content"].to_string(),
         answers: vec![ToolAnswer {
             tool_use_id: "toolu_01XQjecWVTYPp6oVaCy1QPcS".into(),
-            results: results
-                .iter()
-                .map(|r| SearchResult {
-                    source: str_of(r, "source").into(),
-                    title: str_of(r, "title").into(),
-                    text: str_of(&r["content"][0], "text").into(),
-                })
-                .collect(),
+            content: ToolAnswerContent::Results(
+                results
+                    .iter()
+                    .map(|r| SearchResult {
+                        source: str_of(r, "source").into(),
+                        title: str_of(r, "title").into(),
+                        text: str_of(&r["content"][0], "text").into(),
+                    })
+                    .collect(),
+            ),
         }],
     }];
 
-    assert_eq!(messages_body(&req, str_of(&expected, "system")), expected);
+    assert_matches_s5(messages_body(&req, str_of(&expected, "system")), expected);
 }
 
 #[test]
@@ -179,7 +204,7 @@ fn an_empty_search_answers_with_a_plain_text_tool_result() {
             r#"[{"type":"tool_use","id":"t1","name":"search_ph_laws","input":{}}]"#.into(),
         answers: vec![ToolAnswer {
             tool_use_id: "t1".into(),
-            results: vec![],
+            content: ToolAnswerContent::Results(vec![]),
         }],
     }];
 
@@ -187,7 +212,7 @@ fn an_empty_search_answers_with_a_plain_text_tool_result() {
 
     assert_eq!(
         body["messages"][2]["content"][0]["content"],
-        json!("No matching statutes were found.")
+        json!(kristoff_core::domain::law::tools::NO_RESULTS_TEXT)
     );
 }
 
@@ -223,4 +248,95 @@ fn no_sampling_parameters_or_beta_fields_are_ever_sent() {
             .any(|b| b["type"] == "text" && b.get("citations").is_some());
         assert!(!cited_text, "a user text block carries citations");
     }
+}
+
+/// Any `text` block carrying `citations`, at any depth of `value`.
+fn has_cited_text(value: &Value) -> bool {
+    match value {
+        Value::Object(map) => {
+            (map.get("type") == Some(&json!("text")) && map.contains_key("citations"))
+                || map.values().any(has_cited_text)
+        }
+        Value::Array(items) => items.iter().any(has_cited_text),
+        _ => false,
+    }
+}
+
+/// A question asked with statutes on, after one tool round with a result and a refused call.
+fn tool_round_request() -> ModelRequest {
+    let mut req = request("m", 64, vec![user_text("q")]);
+    req.statutes_on = true;
+    let result = SearchResult {
+        source: "https://lawphil.net/ra9262".into(),
+        title: "Republic Act No. 9262 \u{b7} SEC. 26".into(),
+        text: "SEC. 26. Battered Woman Syndrome as a Defense.".into(),
+    };
+    req.tool_rounds = vec![ToolRound {
+        assistant_content_json: r#"[{"type":"tool_use","id":"t1","name":"search_ph_laws","input":{}},{"type":"tool_use","id":"t2","name":"search_ph_laws","input":{}}]"#.into(),
+        answers: vec![
+            ToolAnswer { tool_use_id: "t1".into(), content: ToolAnswerContent::Results(vec![result]) },
+            ToolAnswer { tool_use_id: "t2".into(), content: ToolAnswerContent::Error("query is required".into()) },
+        ],
+    }];
+    req
+}
+
+#[test]
+fn no_user_turn_ever_carries_a_cited_text_block_even_inside_tool_results() {
+    let body = messages_body(&tool_round_request(), "s");
+
+    let user_turns: Vec<&Value> = body["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|m| m["role"] == "user")
+        .collect();
+
+    assert!(!user_turns.iter().any(|m| has_cited_text(m)), "{body}");
+    assert_eq!(
+        body["messages"][2]["content"][0]["content"][0]["citations"],
+        json!({ "enabled": true })
+    );
+}
+
+#[test]
+fn a_refused_call_goes_back_as_an_error_tool_result() {
+    let body = messages_body(&tool_round_request(), "s");
+
+    let refused = &body["messages"][2]["content"][1];
+
+    assert_eq!(
+        refused,
+        &json!({ "type": "tool_result", "tool_use_id": "t2", "content": "query is required", "is_error": true })
+    );
+    assert!(body["messages"][2]["content"][0].get("is_error").is_none());
+}
+
+#[test]
+fn statutes_off_sends_no_tools_and_no_tool_choice() {
+    let mut req = request("m", 64, vec![user_text("q")]);
+    req.tool_choice_none = true;
+
+    let body = messages_body(&req, "s");
+
+    assert!(
+        body.get("tools").is_none() && body.get("tool_choice").is_none(),
+        "{body}"
+    );
+}
+
+#[test]
+fn the_cap_sends_tool_choice_none_with_the_tools_still_listed() {
+    let mut req = tool_round_request();
+    req.tool_choice_none = true;
+
+    let body = messages_body(&req, "s");
+
+    assert_eq!(body["tool_choice"], json!({ "type": "none" }));
+    assert_eq!(body["tools"], kristoff_contracts::model_config::law_tools());
+    assert!(
+        messages_body(&tool_round_request(), "s")
+            .get("tool_choice")
+            .is_none()
+    );
 }

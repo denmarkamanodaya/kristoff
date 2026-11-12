@@ -8,7 +8,7 @@
 use kristoff_contracts::config::{DAILY_QUESTION_CAP, MAX_ATTACHED_DOCS, MODEL_IDS, MODEL_LABELS};
 use kristoff_contracts::envelopes::{
     ChatResponse, ChatWithMessagesResponse, ChatsPageResponse, ConfigResponse, DeletedResponse,
-    DocResponse, DocUploadResponse, DocsPageResponse, LinkResponse, ProjectResponse,
+    DocResponse, DocUploadResponse, DocsPageResponse, FeaturesDto, LinkResponse, ProjectResponse,
     ProjectsResponse, SessionResponse, UploadChunkResponse, UsageResponse,
 };
 use kristoff_contracts::error::ErrorDto;
@@ -159,6 +159,10 @@ fn the_app_config_converts_to_the_config_fixture() {
         models: models.collect(),
         max_attached_docs: config.max_attached_docs,
         daily_question_cap: config.daily_question_cap,
+        features: FeaturesDto {
+            statutes: true,
+            law_count: Some(10_870),
+        },
     };
 
     let json = serde_json::to_value(wire).unwrap();

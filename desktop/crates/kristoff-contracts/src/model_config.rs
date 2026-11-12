@@ -1,7 +1,13 @@
-//! The model prompts, the statute tool and the follow-up schema: the single source on the desktop
-//! (phase-2 §2). The prompt texts are copied verbatim from `backend/src/contracts/model-config.ts`
-//! and a contracts test pins them to that file. A prompt change is a behaviour change: it goes
+//! The model prompts, the statute tools and the follow-up schema: the single source on the desktop
+//! (phase-2 §2, phase-4 §1 and §3). The shared prompt texts are copied verbatim from
+//! `backend/src/contracts/model-config.ts` and a contracts test pins them to that file; the
+//! desktop-only statute addition is a separate constant. A prompt change is a behaviour change: it goes
 //! through review with a benchmark run (stack/ai-features.md "Quality").
+
+use kristoff_core::limits::{
+    TOOL_ARTICLE_MAX, TOOL_LAW_NUMBER_MAX, TOOL_QUERY_MAX, TOOL_RESULTS_MAX, TOOL_YEAR_MAX,
+    TOOL_YEAR_MIN,
+};
 
 /// `max_tokens` of an answer.
 pub const MAX_TOKENS: u32 = 4096;
@@ -35,21 +41,91 @@ pub const FOLLOW_UP_TIMEOUT_MS: u64 = 15_000;
 /// JSON schema the follow-up call's output must follow (structured output).
 pub const FOLLOW_UP_SCHEMA: &str = r#"{"type":"object","properties":{"followUps":{"type":"array","items":{"type":"string"}}},"required":["followUps"],"additionalProperties":false}"#;
 
-/// Name of the statute search tool (Phase 4 offers it).
-pub const STATUTE_TOOL_NAME: &str = "search_ph_laws";
+/// The desktop addition to [`SYSTEM_PROMPT`] for chats with statute search on (phase-4 §3, D-14).
+/// Desktop only, so the backend parity test does not cover it.
+pub const STATUTE_PROMPT: &str = "Statute search (the search_ph_laws and get_law_article tools):
+- The indexed laws are Republic Acts and the 1987 Constitution only. They do not include the Revised Penal Code, the Family Code, the Labor Code or the Rules of Court; for those, say they are not indexed and suggest uploading the code as a PDF.
+- Cite a law number and section for every statutory claim. When no indexed law supports a claim, say \"not found in the indexed laws\".
+- When a result is marked [Repealed], [Amended], [Partially repealed] or [Declared unconstitutional], say so.
+- The index is an interim snapshot (about 1,400 laws are missing), and the Official Gazette text prevails.
+- Search at most 3 times per question.";
 
-/// The statute search tool definition (spike S5), as sent in `tools`.
-pub const STATUTE_TOOL: &str = r#"{"name":"search_ph_laws","description":"Search Philippine statutes (Republic Acts, 1987 Constitution). Returns matching articles as citable search results.","input_schema":{"type":"object","properties":{"query":{"type":"string","maxLength":300},"law_number":{"type":"string","maxLength":40}},"required":["query"],"additionalProperties":false},"strict":true}"#;
+/// The system prompt of an answer: the shared base, plus [`STATUTE_PROMPT`] when the law tools
+/// are offered.
+#[must_use]
+pub fn answer_system_prompt(statutes_on: bool) -> String {
+    if statutes_on {
+        format!("{SYSTEM_PROMPT}\n\n{STATUTE_PROMPT}")
+    } else {
+        SYSTEM_PROMPT.to_owned()
+    }
+}
+
+/// Name of the statute search tool.
+pub const SEARCH_TOOL_NAME: &str = "search_ph_laws";
+
+/// Name of the article lookup tool.
+pub const ARTICLE_TOOL_NAME: &str = "get_law_article";
+
+/// The two statute tools as sent in `tools` (the one definition; the bounds are core's limits,
+/// which the ask use case also enforces). Integer ranges are stated in the descriptions, not as
+/// schema keywords, because strict tool schemas reject numeric constraints.
+#[must_use]
+pub fn law_tools() -> serde_json::Value {
+    let year = format!("year, {TOOL_YEAR_MIN}-{TOOL_YEAR_MAX}.");
+    serde_json::json!([
+        {
+            "name": SEARCH_TOOL_NAME,
+            "description": "Search Philippine statutes (Republic Acts, 1987 Constitution). Returns matching articles as citable search results.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "query": { "type": "string", "maxLength": TOOL_QUERY_MAX },
+                    "law_number": { "type": "string", "maxLength": TOOL_LAW_NUMBER_MAX },
+                    "year_from": { "type": "integer", "description": format!("Earliest approval {year}") },
+                    "year_to": { "type": "integer", "description": format!("Latest approval {year}") },
+                    "limit": { "type": "integer", "description": format!("Most results, 1-{TOOL_RESULTS_MAX} (default {TOOL_RESULTS_MAX}).") }
+                },
+                "required": ["query"],
+                "additionalProperties": false
+            },
+            "strict": true
+        },
+        {
+            "name": ARTICLE_TOOL_NAME,
+            "description": "Get one provision of a Philippine statute, e.g. law_number \"RA 9262\" and article \"Sec. 26\", with the provisions around it, as citable search results.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "law_number": { "type": "string", "maxLength": TOOL_LAW_NUMBER_MAX },
+                    "article": { "type": "string", "maxLength": TOOL_ARTICLE_MAX }
+                },
+                "required": ["law_number", "article"],
+                "additionalProperties": false
+            },
+            "strict": true
+        }
+    ])
+}
 
 #[cfg(test)]
 mod tests {
-    use super::{FOLLOW_UP_SCHEMA, STATUTE_TOOL, STATUTE_TOOL_NAME};
+    use super::{FOLLOW_UP_SCHEMA, SEARCH_TOOL_NAME, answer_system_prompt, law_tools};
 
     #[test]
-    fn the_schema_and_the_tool_are_valid_json_naming_the_tool() {
+    fn the_schema_is_valid_json_and_the_tools_are_named_once() {
         let schema: serde_json::Value = serde_json::from_str(FOLLOW_UP_SCHEMA).unwrap();
-        let tool: serde_json::Value = serde_json::from_str(STATUTE_TOOL).unwrap();
         assert_eq!(schema["required"][0], "followUps");
-        assert_eq!(tool["name"], STATUTE_TOOL_NAME);
+        let tools = law_tools();
+        assert_eq!(tools[0]["name"], SEARCH_TOOL_NAME);
+        assert_eq!(tools.as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn the_statute_addition_is_sent_only_with_the_tools() {
+        assert!(
+            answer_system_prompt(true).contains("Republic Acts and the 1987 Constitution only")
+        );
+        assert!(!answer_system_prompt(false).contains("search_ph_laws"));
     }
 }

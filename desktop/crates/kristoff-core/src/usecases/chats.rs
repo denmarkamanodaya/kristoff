@@ -107,6 +107,7 @@ pub fn create_chat(deps: &ChatDeps<'_>, doc_ids: &[String]) -> AppResult<Chat> {
         project_id: None,
         created_at_ms: now,
         updated_at_ms: now,
+        statutes: true,
     };
     deps.chats.create_chat(&chat)?;
     Ok(chat)
@@ -148,6 +149,7 @@ fn resolve_patch(deps: &ChatDeps<'_>, changes: &ChatChanges) -> AppResult<ChatPa
         doc_ids: doc_ids.transpose()?,
         pinned: changes.pinned,
         project: changes.project.clone(),
+        statutes: changes.statutes,
     };
     Ok(ChatPatch {
         changes,

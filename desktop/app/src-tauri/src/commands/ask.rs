@@ -47,6 +47,13 @@ impl AnswerSink for ChannelSink<'_> {
         self.send(AskEvent::Citation(CitationDto::from(citation)));
     }
 
+    fn search(&mut self, query: &str, count: usize) {
+        self.send(AskEvent::Search {
+            query: query.to_owned(),
+            count,
+        });
+    }
+
     fn follow_ups(&mut self, questions: &[String]) {
         self.send(AskEvent::Followups {
             follow_ups: questions.to_vec(),
