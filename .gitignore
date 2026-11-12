@@ -19,3 +19,5 @@ desktop/.env.local
 desktop/data/*
 !desktop/data/dataset.lock
 !desktop/data/model.lock
+# Release DMGs and their SHA-256 files (desktop/scripts/build-dmg.sh).
+desktop/dist/
