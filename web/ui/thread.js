@@ -71,13 +71,13 @@ function followUpsHtml(list = []) {
 
 /**
  * Activity lines from the live `search` events (not persisted): "Searched PH laws: “q” → 8 articles",
- * or "Searched SC decisions: “q” → 5 decisions" when `kind` is "cases" (absent means laws).
+ * or "Searched SC decisions: “q” → 5 decisions" when `kind` is "case" (absent or "law" means laws).
  */
 function searchLineHtml(searches = []) {
   return searches.map((s) => {
     const n = Number(s?.count) || 0;
-    const [what, unit] = s?.kind === 'cases' ? ['SC decisions', 'decision'] : ['PH laws', 'article'];
-    return `<p>${icon(s?.kind === 'cases' ? 'gavel' : 'search')}<span>Searched ${what}: “${esc(String(s?.query ?? '').slice(0, 200))}” → ${n} ${unit}${n === 1 ? '' : 's'}</span></p>`;
+    const [what, unit] = s?.kind === 'case' ? ['SC decisions', 'decision'] : ['PH laws', 'article'];
+    return `<p>${icon(s?.kind === 'case' ? 'gavel' : 'search')}<span>Searched ${what}: “${esc(String(s?.query ?? '').slice(0, 200))}” → ${n} ${unit}${n === 1 ? '' : 's'}</span></p>`;
   }).join('');
 }
 

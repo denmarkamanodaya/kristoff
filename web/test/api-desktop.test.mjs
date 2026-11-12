@@ -185,15 +185,15 @@ test('askStream sends ask with a Channel and maps every event to its callback', 
   assert.deepEqual(seen, [['search', { query: 'RA 9262 protection order', count: 8 }], ['text', 'Hi'], ['citation', cite], ['followups', ['Why?']]]);
 });
 
-test('askStream passes a search event kind (laws or cases) through to onSearch unchanged', async () => {
+test('askStream passes a search event kind (law or case) through to onSearch unchanged', async () => {
   const seen = [];
   const { p } = startAsk({ onSearch: (s) => seen.push(s) });
   await Promise.resolve();
-  lastChannel.onmessage({ event: 'search', data: { query: 'psychological incapacity', count: 5, kind: 'cases' } });
+  lastChannel.onmessage({ event: 'search', data: { query: 'psychological incapacity', count: 5, kind: 'case' } });
   lastChannel.onmessage({ event: 'search', data: { query: 'RA 9262', count: 8 } });
   lastChannel.onmessage({ event: 'done', data: { message: {}, usage: {} } });
   await p;
-  assert.deepEqual(seen, [{ query: 'psychological incapacity', count: 5, kind: 'cases' }, { query: 'RA 9262', count: 8 }]);
+  assert.deepEqual(seen, [{ query: 'psychological incapacity', count: 5, kind: 'case' }, { query: 'RA 9262', count: 8 }]);
 });
 
 test('askStream ignores a search event when no onSearch is given (old callers)', async () => {

@@ -7,7 +7,7 @@
 // "ready" 3 s later as a 600-page doc with 6 parts; a name containing "fail" turns "failed" instead.
 // Test hooks: POST /_revoke drops every token; GET /_last-ask returns the last ask body.
 // MOCK_STATUTES=1: config gains `features: { statutes: true, lawCount }` (desktop-style), so the composer shows the
-// Statutes toggle and PATCH accepts `statutes`. Every answer emits two `search` events (laws, cases), one law
+// Statutes toggle and PATCH accepts `statutes`. Every answer emits two `search` events (kind law, case), one law
 // citation and one case citation (sample data).
 // Env: WEB_PORT (5300), API_PORT (5301), DIST_DIR (dist).
 // Usage: npm run build && npm run mock   -> open http://localhost:5300
@@ -265,8 +265,8 @@ async function askRoute(req, res, chat) {
   const citations = [];
   const say = async (t) => { await sleep(150); answer += t; ev('text', { text: t }); };
   const cited = (c) => { citations.push(c); answer += ` [${c.n}]`; ev('citation', c); };
-  ev('search', { query: 'consent requisites contract void', count: 8, kind: 'laws' });
-  ev('search', { query: 'void contract absence of consent', count: 5, kind: 'cases' });
+  ev('search', { query: 'consent requisites contract void', count: 8, kind: 'law' });
+  ev('search', { query: 'void contract absence of consent', count: 5, kind: 'case' });
   await say('## Ruling\n\n'); await say('The Court held that the **contract is void** '); await say('for lack of consent.');
   cited(cite(1, b0, 1, 'There was no meeting of the minds between the parties.'));
   await say('\n\nThe ratio rests on Article 1318 of the Civil Code.');
