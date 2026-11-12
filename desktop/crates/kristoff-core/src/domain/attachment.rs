@@ -89,6 +89,7 @@ mod tests {
             created_at_ms: 0,
             page_count: None,
             parts,
+            file_id: None,
         }
     }
 
@@ -98,6 +99,7 @@ mod tests {
             start_page: 1,
             end_page: 100,
             size: 5,
+            file_id: None,
         }
     }
 

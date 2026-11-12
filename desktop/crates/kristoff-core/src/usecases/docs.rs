@@ -9,6 +9,7 @@ use crate::limits::{DOC_LINK_TTL_SECONDS, DOCS_PAGE_SIZE, MAX_DOC_TITLE};
 use crate::model::{Doc, DocStatus, Page};
 use crate::ports::{
     ChatChanges, ChatPatch, ChatStore, Clock, DocPatch, DocStore, FileStore, IdGenerator,
+    RemoteFiles,
 };
 use crate::usecases::chats::each_chat;
 use crate::usecases::viewer::ready_doc;
@@ -25,6 +26,8 @@ pub struct LibraryDeps<'a> {
     pub clock: &'a dyn Clock,
     /// Ids.
     pub ids: &'a dyn IdGenerator,
+    /// The Files API copies (delete removes them, best effort).
+    pub remote: &'a dyn RemoteFiles,
 }
 
 /// The upload request: original file name and declared size in bytes.
@@ -67,6 +70,7 @@ pub fn create_doc(deps: &LibraryDeps<'_>, input: &DocUploadInput) -> AppResult<D
         created_at_ms: deps.clock.now_ms(),
         page_count: None,
         parts: vec![],
+        file_id: None,
     };
     deps.docs.create_doc(&doc)?;
     let url = upload_url(&doc.id);
@@ -138,13 +142,14 @@ fn unlink_from_chat(deps: &LibraryDeps<'_>, chat_id: &str, doc_id: &str) -> AppR
         .map(|_| ())
 }
 
-/// Deletes a doc: unlinks it (and its parts) from every chat, purges its files, then removes the
-/// doc LAST, so a failure midway can simply be repeated.
+/// Deletes a doc: unlinks it (and its parts) from every chat, purges its files, deletes its Files
+/// API copies (best effort, logged by the adapter), then removes the doc LAST, so a failure midway
+/// can simply be repeated.
 ///
 /// # Errors
 /// `DOC_NOT_FOUND`, `VERSION_CONFLICT` and store failures (the doc then still exists).
 pub fn delete_doc(deps: &LibraryDeps<'_>, doc_id: &str) -> AppResult<()> {
-    deps.docs.get_doc(doc_id)?;
+    let doc = deps.docs.get_doc(doc_id)?.value;
     let attached = each_chat(deps.chats, |c| {
         c.doc_ids.iter().any(|id| is_attachment_of(id, doc_id))
     })?;
@@ -152,5 +157,6 @@ pub fn delete_doc(deps: &LibraryDeps<'_>, doc_id: &str) -> AppResult<()> {
         unlink_from_chat(deps, &chat_id, doc_id)?;
     }
     deps.files.purge(doc_id)?;
+    deps.remote.delete(&doc.remote_file_ids());
     deps.docs.remove_doc(doc_id)
 }

@@ -2,6 +2,12 @@
 //! single-owner and local, so unlike the web backend no method takes an owner id.
 //! Each port has an in-memory fake and a contract suite in `kristoff-testkit`.
 
+mod answer;
+mod processing;
+
+pub use answer::{AnswerModel, AnswerSink, CancelSignal, FollowUpSuggester, NeverCancelled};
+pub use processing::{Logger, PdfSplitter, RemoteFiles};
+
 use crate::error::AppResult;
 use crate::model::{
     Chat, Doc, DocPart, DocStatus, Message, Page, Project, TotpState, Usage, UsageReport, Versioned,
@@ -38,6 +44,8 @@ pub struct DocPatch {
     pub page_count: Option<u32>,
     /// Parts, once split.
     pub parts: Option<Vec<DocPart>>,
+    /// Files API id of the whole PDF, once uploaded.
+    pub file_id: Option<String>,
 }
 
 impl DocPatch {
@@ -54,6 +62,9 @@ impl DocPatch {
         }
         if let Some(parts) = &self.parts {
             doc.parts.clone_from(parts);
+        }
+        if self.file_id.is_some() {
+            doc.file_id.clone_from(&self.file_id);
         }
     }
 }
@@ -299,6 +310,11 @@ pub trait FileStore: Send + Sync {
     /// # Errors
     /// `INTERNAL` on an IO failure.
     fn partial_head(&self, doc_id: &str, n: usize) -> AppResult<Vec<u8>>;
+    /// Stores part `n` of `doc_id` (replacing an earlier one), for the viewer and the upload.
+    ///
+    /// # Errors
+    /// `INTERNAL` on an IO failure.
+    fn write_part(&self, doc_id: &str, n: u32, bytes: &[u8]) -> AppResult<()>;
     /// Turns the upload into the stored PDF.
     ///
     /// # Errors
@@ -314,23 +330,4 @@ pub trait FileStore: Send + Sync {
     /// # Errors
     /// `INTERNAL` on an IO failure.
     fn purge(&self, doc_id: &str) -> AppResult<()>;
-}
-
-/// What processing a confirmed PDF found out.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct ProcessedDoc {
-    /// Pages, if counted.
-    pub page_count: Option<u32>,
-    /// Parts, if split.
-    pub parts: Vec<DocPart>,
-}
-
-/// Processes a confirmed PDF (page count and split). Phase 1 binds a no-op adapter; Phase 2
-/// binds the lopdf splitter and the Files API upload.
-pub trait DocProcessor: Send + Sync {
-    /// Processes the stored PDF of `doc`.
-    ///
-    /// # Errors
-    /// `UPLOAD_INVALID` for an unreadable PDF; `INTERNAL` on an IO failure.
-    fn process(&self, doc: &Doc) -> AppResult<ProcessedDoc>;
 }

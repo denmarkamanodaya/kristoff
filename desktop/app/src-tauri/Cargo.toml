@@ -23,12 +23,15 @@ kristoff-contracts.workspace = true
 kristoff-core.workspace = true
 kristoff-contracts.workspace = true
 kristoff-adapters.workspace = true
+kristoff-anthropic.workspace = true
+kristoff-pdf.workspace = true
 tauri.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
 kristoff-testkit.workspace = true
+kristoff-pdf.workspace = true
 tempfile.workspace = true
 
 [lints]

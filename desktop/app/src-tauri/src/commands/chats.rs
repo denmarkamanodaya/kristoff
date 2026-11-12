@@ -1,5 +1,5 @@
-//! Chat commands: `list_chats`, `create_chat`, `get_chat`, `update_chat`, `delete_chat`, plus
-//! `ask` (Phase 1: `AI_DISABLED`) and `cancel_ask`.
+//! Chat commands: `list_chats`, `create_chat`, `get_chat`, `update_chat` and `delete_chat`.
+//! Asking: `ask.rs`.
 
 use super::{CommandResult, Shared, blocking, unlocked};
 use crate::composition::Composition;
@@ -8,10 +8,8 @@ use kristoff_contracts::envelopes::{
 };
 use kristoff_contracts::requests::{self, ChatPatchRequest};
 use kristoff_contracts::shapes::{ChatDto, ChatSummaryDto, MessageDto};
-use kristoff_core::error::{AppError, ErrorCode};
 use kristoff_core::usecases::chats;
 use tauri::State;
-use tauri::ipc::Channel;
 
 /// One page of chats.
 ///
@@ -82,32 +80,6 @@ pub fn delete(app: &Composition, chat_id: &str) -> CommandResult<DeletedResponse
     Ok(DeletedResponse { deleted: true })
 }
 
-/// Phase 1: asking is not built yet, so every valid question answers `AI_DISABLED`.
-///
-/// # Errors
-/// `UNAUTHENTICATED`, `VALIDATION_FAILED`, then always `AI_DISABLED` (no `retryAfter`).
-pub fn ask_now(
-    app: &Composition,
-    chat_id: &str,
-    text: &str,
-    model: Option<&str>,
-) -> CommandResult<()> {
-    unlocked(app)?;
-    requests::id(chat_id)?;
-    requests::ask(text, model)?;
-    Err(AppError::new(ErrorCode::AiDisabled, "asking arrives in the next build").into())
-}
-
-/// Cancels a running answer (Phase 1: none can run).
-///
-/// # Errors
-/// `UNAUTHENTICATED`, `VALIDATION_FAILED`.
-pub fn cancel(app: &Composition, chat_id: &str) -> CommandResult<()> {
-    unlocked(app)?;
-    requests::id(chat_id)?;
-    Ok(())
-}
-
 /// `list_chats {cursor}`.
 ///
 /// # Errors
@@ -167,32 +139,4 @@ pub async fn delete_chat(
     chat_id: String,
 ) -> CommandResult<DeletedResponse> {
     blocking(&app, move |c| delete(c, &chat_id)).await
-}
-
-/// `ask {chatId, text, model, onEvent}`. Phase 2 streams text, citation, followups and done
-/// events through `on_event`.
-///
-/// # Errors
-/// Those of the plain function it runs, as an `ErrorDto`.
-// The State plus the four IPC arguments {chatId, text, model, onEvent} are the wire contract.
-#[allow(clippy::too_many_arguments)]
-#[tauri::command]
-pub async fn ask(
-    app: State<'_, Shared>,
-    chat_id: String,
-    text: String,
-    model: Option<String>,
-    on_event: Channel<serde_json::Value>,
-) -> CommandResult<()> {
-    let _unused_until_phase_2 = on_event;
-    blocking(&app, move |c| ask_now(c, &chat_id, &text, model.as_deref())).await
-}
-
-/// `cancel_ask {chatId}`.
-///
-/// # Errors
-/// Those of the plain function it runs, as an `ErrorDto`.
-#[tauri::command]
-pub async fn cancel_ask(app: State<'_, Shared>, chat_id: String) -> CommandResult<()> {
-    blocking(&app, move |c| cancel(c, &chat_id)).await
 }

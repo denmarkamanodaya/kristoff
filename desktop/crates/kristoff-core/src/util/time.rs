@@ -23,6 +23,13 @@ pub fn utc_day(ms: i64) -> String {
     format!("{y:04}-{m:02}-{d:02}")
 }
 
+/// Whole seconds from `ms` to the next 00:00 UTC (at least 1), the wait after the daily cap.
+#[must_use]
+pub fn seconds_until_next_utc_day(ms: i64) -> u64 {
+    let left_ms = DAY_MS - ms.rem_euclid(DAY_MS);
+    u64::try_from((left_ms + 999) / 1000).unwrap_or(1).max(1)
+}
+
 /// ISO-8601 UTC with milliseconds and `Z`, e.g. `2026-11-12T01:00:00.000Z`.
 #[must_use]
 pub fn iso_instant(ms: i64) -> String {

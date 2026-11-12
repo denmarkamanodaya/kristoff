@@ -9,4 +9,5 @@
 pub mod builders;
 pub mod contract;
 pub mod fakes;
+pub mod pdf;
 pub mod world;

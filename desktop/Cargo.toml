@@ -5,6 +5,8 @@ members = [
     "crates/kristoff-contracts",
     "crates/kristoff-adapters",
     "crates/kristoff-testkit",
+    "crates/kristoff-anthropic",
+    "crates/kristoff-pdf",
     "app/src-tauri",
 ]
 
@@ -23,6 +25,8 @@ kristoff-core = { path = "crates/kristoff-core" }
 kristoff-contracts = { path = "crates/kristoff-contracts" }
 kristoff-adapters = { path = "crates/kristoff-adapters" }
 kristoff-testkit = { path = "crates/kristoff-testkit" }
+kristoff-anthropic = { path = "crates/kristoff-anthropic" }
+kristoff-pdf = { path = "crates/kristoff-pdf" }
 tauri = { version = "=2.12.3", features = [] }
 tauri-build = { version = "=2.7.2", features = [] }
 rusqlite = { version = "=0.41.1", features = ["bundled"] }
@@ -31,6 +35,12 @@ serde_json = "=1.0.152"
 ring = "=0.17.14"
 tempfile = "=3.27.0"
 proptest = "=1.12.0"
+# Phase 2 (owner-approved 2026-11-12). reqwest and tokio are the DexFS pins (tokio 1.53.3 is from
+# 2026-10-13). lopdf 0.47.0 was published 2026-11-04 (8 days old on 2026-11-12); default features
+# off (no chrono, no rayon).
+reqwest = { version = "=0.13.5", default-features = false, features = ["rustls", "multipart"] }
+tokio = { version = "=1.53.3", features = ["rt-multi-thread", "net", "time", "sync", "macros", "io-util"] }
+lopdf = { version = "=0.47.0", default-features = false }
 
 [workspace.lints.rust]
 missing_docs = "warn"

@@ -15,6 +15,16 @@ pub fn doc(id: &str, status: DocStatus) -> Doc {
         created_at_ms: 1_794_445_200_000,
         page_count: None,
         parts: vec![],
+        file_id: None,
+    }
+}
+
+/// A ready, uploaded, unsplit doc: file id `file_<id>`.
+#[must_use]
+pub fn uploaded_doc(id: &str) -> Doc {
+    Doc {
+        file_id: Some(format!("file_{id}")),
+        ..doc(id, DocStatus::Ready)
     }
 }
 
@@ -26,6 +36,7 @@ pub fn part(n: u32) -> DocPart {
         start_page: 100 * (n - 1) + 1,
         end_page: 100 * n,
         size: 500,
+        file_id: Some(format!("file_part_{n}")),
     }
 }
 

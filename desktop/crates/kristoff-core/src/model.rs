@@ -54,7 +54,7 @@ impl DocStatus {
 }
 
 /// One part of a large document: 1-based inclusive original page range and size in bytes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DocPart {
     /// Part number, 1-based.
     pub n: u32,
@@ -64,6 +64,8 @@ pub struct DocPart {
     pub end_page: u32,
     /// Size in bytes.
     pub size: u64,
+    /// Files API id of this part, once uploaded (never on the wire).
+    pub file_id: Option<String>,
 }
 
 /// A library document.
@@ -83,6 +85,17 @@ pub struct Doc {
     pub page_count: Option<u32>,
     /// Parts of a large PDF (empty when attached whole).
     pub parts: Vec<DocPart>,
+    /// Files API id of the whole PDF, once uploaded (unsplit docs only; never on the wire).
+    pub file_id: Option<String>,
+}
+
+impl Doc {
+    /// Every Files API id this doc holds: the whole file and each part's.
+    #[must_use]
+    pub fn remote_file_ids(&self) -> Vec<String> {
+        let parts = self.parts.iter().filter_map(|p| p.file_id.clone());
+        self.file_id.iter().cloned().chain(parts).collect()
+    }
 }
 
 /// A chat. Listed chats carry the same fields; the list shape drops `created_at_ms`.

@@ -1,10 +1,12 @@
 //! Knowledge parity with the TypeScript sources (core/dry.md: one source per fact): the error
-//! codes, the shared limits and the model labels must equal the backend's, read from its files.
+//! codes, the shared limits, the model labels and the prompts must equal the backend's, read from
+//! its files.
 
 // Test helpers outside #[test] fns: a failed setup must fail the test loudly.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use kristoff_contracts::config::MODEL_LABELS;
+use kristoff_contracts::model_config;
 use kristoff_core::error::ErrorCode;
 use kristoff_core::limits;
 use std::path::PathBuf;
@@ -96,5 +98,58 @@ fn model_labels_equal_the_backend_labels() {
             ts.contains(&format!("'{id}': '{label}'")),
             "{id} -> {label}"
         );
+    }
+}
+
+/// The text of `export const NAME = `...`;` (a template literal without substitutions).
+fn ts_template(text: &str, name: &str) -> String {
+    let marker = format!("export const {name} = `");
+    let from = text
+        .find(&marker)
+        .unwrap_or_else(|| panic!("{name} missing"))
+        + marker.len();
+    text[from..from + text[from..].find('`').unwrap()].to_owned()
+}
+
+#[test]
+fn prompts_and_follow_up_settings_equal_the_backend_ones() {
+    let ts = backend("contracts/model-config.ts");
+    assert_eq!(
+        model_config::SYSTEM_PROMPT,
+        ts_template(&ts, "SYSTEM_PROMPT")
+    );
+    assert_eq!(
+        model_config::FOLLOW_UP_PROMPT,
+        ts_template(&ts, "FOLLOW_UP_PROMPT")
+    );
+    assert_eq!(
+        u64::from(model_config::FOLLOW_UP_MAX_TOKENS),
+        ts_number(&ts, "FOLLOW_UP_MAX_TOKENS")
+    );
+    assert_eq!(
+        model_config::FOLLOW_UP_TIMEOUT_MS,
+        ts_number(&ts, "FOLLOW_UP_TIMEOUT_MS")
+    );
+}
+
+#[test]
+fn ask_and_split_limits_equal_the_backend_values() {
+    let ts = backend("domain/limits.ts");
+    let ask_limits = [
+        ("PART_MAX_PAGES", u64::from(limits::PART_MAX_PAGES)),
+        ("PART_MAX_BYTES", limits::PART_MAX_BYTES),
+        ("MAX_MESSAGE_TEXT", limits::MAX_MESSAGE_TEXT as u64),
+        ("MAX_CITATIONS", limits::MAX_CITATIONS as u64),
+        ("MAX_QUOTE", limits::MAX_QUOTE as u64),
+        ("AUTO_TITLE_CHARS", limits::AUTO_TITLE_CHARS as u64),
+        ("MAX_FOLLOW_UPS", limits::MAX_FOLLOW_UPS as u64),
+        ("MAX_FOLLOW_UP", limits::MAX_FOLLOW_UP as u64),
+        (
+            "FOLLOW_UP_ANSWER_CHARS",
+            limits::FOLLOW_UP_ANSWER_CHARS as u64,
+        ),
+    ];
+    for (name, rust) in ask_limits {
+        assert_eq!(rust, ts_number(&ts, name), "{name}");
     }
 }

@@ -1,0 +1,23 @@
+[package]
+name = "kristoff-anthropic"
+description = "Driven adapters on the Claude Messages and Files APIs: AnswerModel, FollowUpSuggester and RemoteFiles."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+kristoff-core.workspace = true
+kristoff-contracts.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+reqwest.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+kristoff-testkit.workspace = true
+proptest.workspace = true
+
+[lints]
+workspace = true

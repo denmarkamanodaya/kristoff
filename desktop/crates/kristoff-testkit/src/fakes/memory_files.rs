@@ -27,13 +27,6 @@ impl MemoryFiles {
         self.0.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    /// Stores part `n` of `doc_id` (what the Phase-2 splitter will write).
-    pub fn put_part(&self, doc_id: &str, n: u32, bytes: &[u8]) {
-        self.files()
-            .parts
-            .insert((doc_id.to_owned(), n), bytes.to_vec());
-    }
-
     /// The committed PDF of `doc_id`, if any (for assertions).
     #[must_use]
     pub fn stored(&self, doc_id: &str) -> Option<Vec<u8>> {
@@ -62,6 +55,13 @@ impl FileStore for MemoryFiles {
         let files = self.files();
         let buf = files.partial.get(doc_id).map_or(&[][..], Vec::as_slice);
         Ok(buf.iter().take(n).copied().collect())
+    }
+
+    fn write_part(&self, doc_id: &str, n: u32, bytes: &[u8]) -> AppResult<()> {
+        self.files()
+            .parts
+            .insert((doc_id.to_owned(), n), bytes.to_vec());
+        Ok(())
     }
 
     fn commit_partial(&self, doc_id: &str) -> AppResult<()> {

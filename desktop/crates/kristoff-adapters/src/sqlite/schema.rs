@@ -51,11 +51,17 @@ CREATE TABLE auth_state (
 ) STRICT;
 ";
 
+/// Phase 2: the Files API id of a whole doc and of each part (expand only; nothing is removed).
+const V2: &str = "
+ALTER TABLE docs ADD COLUMN file_id TEXT;
+ALTER TABLE doc_parts ADD COLUMN file_id TEXT;
+";
+
 /// Every schema step, oldest first.
-const STEPS: [&str; 1] = [V1];
+const STEPS: [&str; 2] = [V1, V2];
 
 /// The schema version this build writes.
-pub(crate) const CURRENT: i64 = 1;
+pub(crate) const CURRENT: i64 = 2;
 
 /// Applies every step after the stored version in one immediate transaction.
 ///
@@ -80,4 +86,40 @@ pub(crate) fn migrate(conn: &Connection) -> AppResult<()> {
     tx.pragma_update(None, "user_version", CURRENT)
         .map_err(|e| store_failure(&e))?;
     tx.commit().map_err(|e| store_failure(&e))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CURRENT, V1, migrate};
+    use rusqlite::Connection;
+
+    #[test]
+    fn a_v1_file_migrates_to_v2_and_keeps_its_docs_and_parts() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(V1).unwrap();
+        conn.pragma_update(None, "user_version", 1).unwrap();
+        conn.execute_batch(
+            "INSERT INTO docs VALUES ('00000000000000d1','Case',10,'ready',1,150,1);
+             INSERT INTO doc_parts VALUES ('00000000000000d1',1,1,100,5);",
+        )
+        .unwrap();
+
+        migrate(&conn).unwrap();
+
+        let version: i64 = conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        let (title, file_id): (String, Option<String>) = conn
+            .query_row("SELECT title, file_id FROM docs", [], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .unwrap();
+        let part_file: Option<String> = conn
+            .query_row("SELECT file_id FROM doc_parts", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(
+            (version, title.as_str(), file_id, part_file),
+            (CURRENT, "Case", None, None)
+        );
+    }
 }

@@ -11,7 +11,10 @@ use kristoff_app::commands::{chats, docs, projects, session, upload};
 use serde_json::{Value, json};
 use support::TestApp;
 
-const PDF: &[u8] = b"%PDF-1.7\n1 0 obj << >> endobj\n%%EOF\n";
+/// A real two-page PDF (the lopdf splitter reads it during processing).
+fn pdf() -> Vec<u8> {
+    kristoff_testkit::pdf::make_pdf(2, |_| 0)
+}
 
 fn raw(doc_id: &str, offset: usize, bytes: &[u8]) -> RawChunk {
     RawChunk {
@@ -25,9 +28,10 @@ fn wire<T: serde::Serialize>(value: &T) -> Value {
     serde_json::to_value(value).unwrap()
 }
 
-/// Uploads `PDF` in two chunks and confirms it; returns the doc id.
+/// Uploads a real PDF in two chunks, confirms and processes it; returns the doc id.
 fn upload_pdf(app: &TestApp) -> String {
-    let created = docs::create(&app.core, "People v. Cruz.pdf", PDF.len() as u64).unwrap();
+    let pdf = pdf();
+    let created = docs::create(&app.core, "People v. Cruz.pdf", pdf.len() as u64).unwrap();
     let id = created.doc.id.clone();
     assert_eq!(created.upload_url, format!("kristoff-upload://{id}"));
     assert_eq!(
@@ -35,19 +39,22 @@ fn upload_pdf(app: &TestApp) -> String {
         json!({"Content-Type": "application/pdf"})
     );
     assert_eq!(
-        upload::chunk(&app.core, &raw(&id, 0, &PDF[..10]))
+        upload::chunk(&app.core, &raw(&id, 0, &pdf[..10]))
             .unwrap()
             .written,
         10
     );
     assert_eq!(
-        upload::chunk(&app.core, &raw(&id, 10, &PDF[10..]))
+        upload::chunk(&app.core, &raw(&id, 10, &pdf[10..]))
             .unwrap()
             .written,
-        PDF.len() as u64
+        pdf.len() as u64
     );
     let confirmed = docs::confirm(&app.core, &id).unwrap();
-    assert_eq!(wire(&confirmed)["doc"]["status"], "ready");
+    assert_eq!(wire(&confirmed)["doc"]["status"], "processing");
+    let ready = docs::process(&app.core, &id).unwrap();
+    assert_eq!(wire(&ready)["doc"]["status"], "ready");
+    assert_eq!(wire(&ready)["doc"]["pageCount"], 2);
     id
 }
 
@@ -59,10 +66,10 @@ fn uploads_confirms_lists_and_links_a_pdf() {
 
     let page = wire(&docs::list(&app.core, None).unwrap());
     assert_eq!(page["items"][0]["id"], id.as_str());
-    assert_eq!(page["items"][0]["pageCount"], Value::Null);
+    assert_eq!(page["items"][0]["pageCount"], 2);
     assert_eq!(page["nextCursor"], Value::Null);
     let pdf = std::fs::read(app.dir.path().join("docs").join(format!("{id}.pdf"))).unwrap();
-    assert_eq!(pdf, PDF);
+    assert_eq!(pdf, self::pdf());
     let link = wire(&docs::link(&app.core, &id, None).unwrap());
     assert_eq!(link["url"], format!("kristoff://doc/{id}"));
     assert_eq!(link["expiresAt"], "2026-11-12T01:05:00.000Z");

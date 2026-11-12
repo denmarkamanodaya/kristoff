@@ -21,7 +21,7 @@ use serde_json::Value;
 use std::path::PathBuf;
 
 /// Fixtures owned by other phases' tests.
-const FOREIGN_PREFIXES: [&str; 2] = ["anthropic-", "e5-"];
+const FOREIGN_PREFIXES: [&str; 3] = ["anthropic-", "desktop-anthropic-", "e5-"];
 
 fn dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../contracts/fixtures")

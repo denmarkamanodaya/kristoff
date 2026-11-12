@@ -1,20 +1,27 @@
 //! The composition root: builds every adapter once, binds them to the use cases' deps, and holds
-//! the gate. The only place that reads configuration (`kristoff_contracts::config`) and the baked
-//! secret.
+//! the gate and the running asks. The only place that reads configuration
+//! (`kristoff_contracts::config`, `model_config`) and the baked secrets.
 
+use crate::ai::AiPorts;
+use crate::asks::Asks;
 use crate::gate::Gate;
 use kristoff_adapters::disk_file_store::DiskFileStore;
-use kristoff_adapters::pass_through_processor::PassThroughDocProcessor;
 use kristoff_adapters::sqlite::SqliteStore;
 use kristoff_adapters::system::{RandomIdGenerator, SystemClock};
 use kristoff_contracts::config::{
     DAILY_QUESTION_CAP, MAX_ATTACHED_DOCS, MODEL_IDS, MODEL_LABELS, UNLOCK_TTL_SECONDS,
 };
+use kristoff_contracts::model_config::MAX_TOKENS;
+use kristoff_core::domain::parts::SplitLimits;
 use kristoff_core::error::AppResult;
+use kristoff_core::limits::MAX_HISTORY_TURNS;
+use kristoff_core::model::Doc;
 use kristoff_core::ports::{Clock, DocStore, FileStore, IdGenerator};
+use kristoff_core::usecases::ask::{AskConfig, AskDeps};
 use kristoff_core::usecases::auth::AuthDeps;
 use kristoff_core::usecases::chats::ChatDeps;
 use kristoff_core::usecases::docs::LibraryDeps;
+use kristoff_core::usecases::processing::{self, ProcessingDeps};
 use kristoff_core::usecases::projects::ProjectDeps;
 use kristoff_core::usecases::settings::ConfigSource;
 use kristoff_core::usecases::upload::UploadDeps;
@@ -24,41 +31,47 @@ use std::path::Path;
 pub struct Composition {
     store: SqliteStore,
     files: DiskFileStore,
-    processor: PassThroughDocProcessor,
+    ai: AiPorts,
     clock: Box<dyn Clock>,
     ids: Box<dyn IdGenerator>,
     totp_secret: String,
     /// The TOTP gate.
     pub gate: Gate,
+    /// The running asks and their cancel flags.
+    pub asks: Asks,
 }
 
 impl Composition {
-    /// Opens the app data under `data_dir` (`kristoff.db`, `docs/`) with the system clock.
+    /// Opens the app data under `data_dir` (`kristoff.db`, `docs/`) with the system clock and
+    /// the Anthropic adapters on `anthropic_key`.
     ///
     /// # Errors
-    /// `INTERNAL` when the database or the docs folder cannot be opened.
-    pub fn open(data_dir: &Path, totp_secret: &str) -> AppResult<Self> {
-        Self::with_clock(data_dir, totp_secret, Box::new(SystemClock))
+    /// `INTERNAL` when the database, the docs folder or the Claude client cannot be opened.
+    pub fn open(data_dir: &Path, totp_secret: &str, anthropic_key: &str) -> AppResult<Self> {
+        let ai = AiPorts::anthropic(anthropic_key)?;
+        Self::with_ports(data_dir, totp_secret, Box::new(SystemClock), ai)
     }
 
-    /// The same with an injected clock (tests).
+    /// The same with an injected clock and AI ports (tests).
     ///
     /// # Errors
     /// `INTERNAL` when the database or the docs folder cannot be opened.
-    pub fn with_clock(
+    pub fn with_ports(
         data_dir: &Path,
         totp_secret: &str,
         clock: Box<dyn Clock>,
+        ai: AiPorts,
     ) -> AppResult<Self> {
         let files = DiskFileStore::open(&data_dir.join("docs"))?;
         Ok(Self {
             store: SqliteStore::open(&data_dir.join("kristoff.db"))?,
             files,
-            processor: PassThroughDocProcessor,
+            ai,
             clock,
             ids: Box::new(RandomIdGenerator::new(SystemClock)),
             totp_secret: totp_secret.to_owned(),
             gate: Gate::locked(),
+            asks: Asks::default(),
         })
     }
 
@@ -100,6 +113,7 @@ impl Composition {
             files: &self.files,
             clock: self.clock.as_ref(),
             ids: self.ids.as_ref(),
+            remote: self.ai.remote.as_ref(),
         }
     }
 
@@ -109,7 +123,59 @@ impl Composition {
         UploadDeps {
             docs: &self.store,
             files: &self.files,
-            processor: &self.processor,
+        }
+    }
+
+    /// The processing deps with the Claude per-document limits.
+    #[must_use]
+    pub fn processing(&self) -> ProcessingDeps<'_> {
+        ProcessingDeps {
+            docs: &self.store,
+            files: &self.files,
+            splitter: self.ai.splitter.as_ref(),
+            remote: self.ai.remote.as_ref(),
+            limits: SplitLimits::CLAUDE,
+        }
+    }
+
+    /// Processes one confirmed doc (split, upload, ready or failed). Runs on a blocking thread.
+    ///
+    /// # Errors
+    /// The failure that stopped it; the doc is then `failed`.
+    pub fn process_doc(&self, doc_id: &str) -> AppResult<Doc> {
+        processing::process_doc(&self.processing(), doc_id)
+    }
+
+    /// Records a warning (never prompts, answers, titles or keys).
+    pub fn warn(&self, event: &str, reason: &str) {
+        self.ai.log.warn(event, reason);
+    }
+
+    /// The docs to process again at start (left in `processing`, or ready from a Phase-1 build).
+    ///
+    /// # Errors
+    /// Store failures.
+    pub fn docs_to_resume(&self) -> AppResult<Vec<String>> {
+        processing::docs_to_resume(&self.store)
+    }
+
+    /// The ask deps.
+    #[must_use]
+    pub fn ask(&self) -> AskDeps<'_> {
+        AskDeps {
+            chats: &self.store,
+            docs: &self.store,
+            model: self.ai.model.as_ref(),
+            follow_ups: self.ai.follow_ups.as_ref(),
+            meter: &self.store,
+            ids: self.ids.as_ref(),
+            clock: self.clock.as_ref(),
+            config: AskConfig {
+                model_ids: &MODEL_IDS,
+                max_tokens: MAX_TOKENS,
+                max_history_turns: MAX_HISTORY_TURNS,
+                daily_question_cap: DAILY_QUESTION_CAP,
+            },
         }
     }
 

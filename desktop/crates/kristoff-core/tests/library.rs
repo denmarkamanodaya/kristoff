@@ -209,7 +209,7 @@ fn serves_the_bytes_of_a_ready_doc_and_part_only() {
     w.store.create_doc(&split).unwrap();
     w.files.write_partial(D, 0, b"%PDF-whole").unwrap();
     w.files.commit_partial(D).unwrap();
-    w.files.put_part(D, 1, b"%PDF-part1");
+    w.files.write_part(D, 1, b"%PDF-part1").unwrap();
     w.store.create_doc(&doc(OTHER, DocStatus::Pending)).unwrap();
 
     assert_eq!(

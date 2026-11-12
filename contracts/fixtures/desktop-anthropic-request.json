@@ -1,0 +1,57 @@
+{
+  "description": "Desktop wire fixture for the answer call (docs/desktop/phases/phase-2-ask-flow.md §2; D-11). 'request' is the input of the ask flow (stored history, the question and the attached docs with their Files API ids); 'body' is the exact Messages API body kristoff-anthropic sends, minus 'system', which the test inserts from kristoff-contracts model_config SYSTEM_PROMPT. File-source counterpart of anthropic-request.json (which the web backend keeps using). File ids are redacted placeholders.",
+  "request": {
+    "model": "claude-sonnet-5-5",
+    "maxTokens": 4096,
+    "maxHistoryTurns": 20,
+    "history": [
+      { "role": "user", "text": "Digest People v. Cruz." },
+      { "role": "assistant", "text": "Facts: ... [1]" }
+    ],
+    "question": "What was the ratio decidendi?",
+    "docs": [
+      {
+        "docId": "aaaaaaaaaaaaaaaa",
+        "libraryTitle": "People v. Cruz",
+        "title": "People v. Cruz",
+        "fileId": "file_011REDACTEDWHOLE00000",
+        "pageOffset": 0
+      },
+      {
+        "docId": "bbbbbbbbbbbbbbbb",
+        "libraryTitle": "Civil Code",
+        "title": "Civil Code (pp. 101–200)",
+        "fileId": "file_011REDACTEDPART200000",
+        "pageOffset": 100
+      }
+    ]
+  },
+  "body": {
+    "model": "claude-sonnet-5-5",
+    "max_tokens": 4096,
+    "stream": true,
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "document",
+            "source": { "type": "file", "file_id": "file_011REDACTEDWHOLE00000" },
+            "title": "People v. Cruz",
+            "citations": { "enabled": true }
+          },
+          {
+            "type": "document",
+            "source": { "type": "file", "file_id": "file_011REDACTEDPART200000" },
+            "title": "Civil Code (pp. 101–200)",
+            "citations": { "enabled": true },
+            "cache_control": { "type": "ephemeral" }
+          },
+          { "type": "text", "text": "Digest People v. Cruz." }
+        ]
+      },
+      { "role": "assistant", "content": "Facts: ... [1]" },
+      { "role": "user", "content": "What was the ratio decidendi?" }
+    ]
+  }
+}

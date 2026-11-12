@@ -12,20 +12,25 @@ use kristoff_app::scheme::{reply, response, scheme_path};
 use support::TestApp;
 use tauri::http::{StatusCode, Uri, header};
 
-const PDF: &[u8] = b"%PDF-1.7\n%%EOF\n";
+/// A real one-page PDF (the lopdf splitter reads it during processing).
+fn pdf() -> Vec<u8> {
+    kristoff_testkit::pdf::make_pdf(1, |_| 0)
+}
 
 fn ready_doc(app: &TestApp) -> String {
-    let id = docs::create(&app.core, "Case.pdf", PDF.len() as u64)
+    let pdf = pdf();
+    let id = docs::create(&app.core, "Case.pdf", pdf.len() as u64)
         .unwrap()
         .doc
         .id;
     let raw = RawChunk {
         doc_id: Some(id.clone()),
         offset: Some("0".into()),
-        body: Some(PDF.to_vec()),
+        body: Some(pdf),
     };
     upload::chunk(&app.core, &raw).unwrap();
     docs::confirm(&app.core, &id).unwrap();
+    docs::process(&app.core, &id).unwrap();
     id
 }
 
@@ -39,7 +44,7 @@ fn serves_a_ready_doc_as_a_pdf() {
 
     assert_eq!(answer.status(), StatusCode::OK);
     assert_eq!(answer.headers()[header::CONTENT_TYPE], "application/pdf");
-    assert_eq!(answer.body().as_slice(), PDF);
+    assert_eq!(answer.body().as_slice(), pdf().as_slice());
 }
 
 #[test]

@@ -3,14 +3,15 @@
 //! `list-chats`, `get-chat`, `update-chat`, `delete-chat`, `resolve-attached-docs`,
 //! `load-attachments` and `each-owner-chat`.
 
-use crate::domain::attachment::{attachment_target, parse_attachment_id};
+use crate::domain::attachment::attachment_target;
 use crate::domain::names::trimmed_name;
 use crate::error::{AppError, AppResult, ErrorCode};
 use crate::limits::{CHAT_MESSAGES_MAX, CHATS_PAGE_SIZE, MAX_CHAT_TITLE, NEW_CHAT_TITLE};
-use crate::model::{Chat, Doc, Message, Page};
+use crate::model::{Chat, Message, Page};
 use crate::ports::{
     ChatChanges, ChatPatch, ChatStore, Clock, DocStore, IdGenerator, ProjectChange, ProjectStore,
 };
+use crate::usecases::attachments::load_attachments;
 
 /// What the chat use cases need.
 pub struct ChatDeps<'a> {
@@ -75,17 +76,11 @@ pub fn resolve_attached_docs(deps: &ChatDeps<'_>, doc_ids: &[String]) -> AppResu
         let message = format!("attach at most {} docs", deps.max_attached_docs);
         return Err(AppError::new(ErrorCode::ValidationFailed, message));
     }
-    let refs: Vec<_> = unique.iter().map(|id| parse_attachment_id(id)).collect();
-    let named: Vec<String> = refs.iter().flatten().map(|r| r.doc_id.clone()).collect();
-    let found: Vec<Doc> = if named.is_empty() {
-        vec![]
-    } else {
-        deps.docs.get_docs(&named)?
-    };
-    let usable = refs.iter().all(|r| {
-        r.as_ref().is_some_and(|r| {
-            attachment_target(r, found.iter().find(|d| d.id == r.doc_id)).is_some()
-        })
+    let loaded = load_attachments(deps.docs, &unique)?;
+    let usable = loaded.iter().all(|l| {
+        l.reference
+            .as_ref()
+            .is_some_and(|r| attachment_target(r, l.doc.as_ref()).is_some())
     });
     if usable {
         Ok(unique)

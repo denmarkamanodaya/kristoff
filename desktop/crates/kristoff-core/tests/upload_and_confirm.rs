@@ -5,12 +5,10 @@
 
 use kristoff_core::error::ErrorCode;
 use kristoff_core::model::{Doc, DocStatus};
-use kristoff_core::ports::{DocStore, ProcessedDoc};
+use kristoff_core::ports::DocStore;
 use kristoff_core::usecases::docs::{DocUploadInput, create_doc};
 use kristoff_core::usecases::upload::{Chunk, confirm_doc, upload_chunk};
-use kristoff_testkit::builders::part;
 use kristoff_testkit::contract::assert_code;
-use kristoff_testkit::fakes::FakeProcessor;
 use kristoff_testkit::world::World;
 
 const PDF: &[u8] = b"%PDF-1.7 tiny body";
@@ -84,41 +82,26 @@ fn refuses_an_empty_chunk_and_an_unknown_doc() {
 }
 
 #[test]
-fn confirms_a_complete_pdf_as_ready_and_commits_its_bytes() {
+fn confirms_a_complete_pdf_as_processing_and_commits_its_bytes() {
     let w = World::new();
     let doc = pending(&w, PDF.len());
     upload_chunk(&w.upload(), &doc.id, chunk(0, PDF)).unwrap();
 
-    let ready = confirm_doc(&w.upload(), &doc.id).unwrap();
+    let confirmed = confirm_doc(&w.upload(), &doc.id).unwrap();
 
     assert_eq!(
-        (ready.status, ready.page_count, ready.parts.len()),
-        (DocStatus::Ready, None, 0)
+        (
+            confirmed.status,
+            confirmed.page_count,
+            confirmed.parts.len()
+        ),
+        (DocStatus::Processing, None, 0)
     );
+    assert_eq!(w.store.get_doc(&doc.id).unwrap().value, confirmed);
     assert_eq!(w.files.stored(&doc.id).as_deref(), Some(PDF));
-    assert_eq!(w.processor.seen(), std::slice::from_ref(&doc.id));
     assert_code(
         upload_chunk(&w.upload(), &doc.id, chunk(0, PDF)),
         ErrorCode::UploadInvalid,
-    );
-}
-
-#[test]
-fn stores_what_the_processor_found() {
-    let mut w = World::new();
-    let processed = ProcessedDoc {
-        page_count: Some(150),
-        parts: vec![part(1), part(2)],
-    };
-    w.processor = FakeProcessor::returning(Ok(processed));
-    let doc = pending(&w, PDF.len());
-    upload_chunk(&w.upload(), &doc.id, chunk(0, PDF)).unwrap();
-
-    let ready = confirm_doc(&w.upload(), &doc.id).unwrap();
-
-    assert_eq!(
-        (ready.page_count, ready.parts),
-        (Some(150), vec![part(1), part(2)])
     );
 }
 
@@ -151,11 +134,11 @@ fn refuses_bytes_that_do_not_start_with_the_pdf_magic() {
     upload_chunk(&w.upload(), &doc.id, chunk(0, fake)).unwrap();
 
     assert_code(confirm_doc(&w.upload(), &doc.id), ErrorCode::UploadInvalid);
-    assert_eq!(w.processor.seen(), Vec::<String>::new());
+    assert_eq!(w.files.stored(&doc.id), None);
 }
 
 #[test]
-fn returns_a_confirmed_doc_unchanged_without_processing_it_again() {
+fn returns_a_confirmed_doc_unchanged() {
     let w = World::new();
     let doc = pending(&w, PDF.len());
     upload_chunk(&w.upload(), &doc.id, chunk(0, PDF)).unwrap();
@@ -164,20 +147,4 @@ fn returns_a_confirmed_doc_unchanged_without_processing_it_again() {
     let again = confirm_doc(&w.upload(), &doc.id).unwrap();
 
     assert_eq!(again, first);
-    assert_eq!(w.processor.seen().len(), 1);
-}
-
-#[test]
-fn passes_a_processor_failure_through_and_marks_the_doc_failed() {
-    let mut w = World::new();
-    let failure = kristoff_core::error::AppError::new(ErrorCode::UploadInvalid, "unreadable");
-    w.processor = FakeProcessor::returning(Err(failure));
-    let doc = pending(&w, PDF.len());
-    upload_chunk(&w.upload(), &doc.id, chunk(0, PDF)).unwrap();
-
-    assert_code(confirm_doc(&w.upload(), &doc.id), ErrorCode::UploadInvalid);
-    assert_eq!(
-        w.store.get_doc(&doc.id).unwrap().value.status,
-        DocStatus::Failed
-    );
 }

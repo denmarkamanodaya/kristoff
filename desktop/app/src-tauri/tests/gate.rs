@@ -7,7 +7,7 @@
 mod support;
 
 use kristoff_app::commands::upload::RawChunk;
-use kristoff_app::commands::{CommandResult, chats, docs, projects, session, upload, viewer};
+use kristoff_app::commands::{CommandResult, ask, chats, docs, projects, session, upload, viewer};
 use kristoff_contracts::error::ErrorDto;
 use serde_json::json;
 use support::TestApp;
@@ -48,8 +48,11 @@ fn every_gated_command(app: &TestApp) -> Vec<(&'static str, String)> {
             code_of(chats::update(a, ID, json!({"pinned": true}))),
         ),
         ("delete_chat", code_of(chats::delete(a, ID))),
-        ("ask", code_of(chats::ask_now(a, ID, "q", None))),
-        ("cancel_ask", code_of(chats::cancel(a, ID))),
+        (
+            "ask",
+            code_of(ask::ask_now(a, ID, ("q", None), &mut |_| true)),
+        ),
+        ("cancel_ask", code_of(ask::cancel(a, ID))),
         (
             "open_doc",
             code_of(viewer::doc_window(a, ID, None, Some(1))),
@@ -137,18 +140,5 @@ fn a_replayed_code_is_refused_and_a_malformed_one_is_a_validation_error() {
     assert_eq!(
         code_of(session::verify(&app.core, "12ab56")),
         "VALIDATION_FAILED"
-    );
-}
-
-#[test]
-fn ask_answers_ai_disabled_without_a_wait() {
-    let app = TestApp::unlocked();
-
-    let err = chats::ask_now(&app.core, ID, "Was he acquitted?", None).unwrap_err();
-
-    let wire = serde_json::to_value(&err).unwrap();
-    assert_eq!(
-        (wire["code"].as_str(), wire["retryAfter"].is_null()),
-        (Some("AI_DISABLED"), true)
     );
 }

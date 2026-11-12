@@ -7,10 +7,11 @@ use kristoff_contracts::envelopes::{
     DeletedResponse, DocResponse, DocUploadResponse, DocsPageResponse, LinkResponse,
 };
 use kristoff_contracts::requests;
-use kristoff_contracts::shapes::{DocDto, UploadHeadersDto};
+use kristoff_contracts::shapes::{DocDto, DocStatusDto, UploadHeadersDto};
 use kristoff_core::limits::PDF_CONTENT_TYPE;
 use kristoff_core::usecases::{docs, upload};
 use kristoff_core::util::time::iso_instant;
+use std::sync::Arc;
 use tauri::State;
 
 /// One page of the library.
@@ -44,7 +45,8 @@ pub fn create(app: &Composition, file_name: &str, size: u64) -> CommandResult<Do
     })
 }
 
-/// Confirms an uploaded doc.
+/// Confirms an uploaded doc; it comes back `processing` and the shell then runs
+/// [`process`] for it in the background.
 ///
 /// # Errors
 /// `UNAUTHENTICATED`, `VALIDATION_FAILED`, `DOC_NOT_FOUND`, `UPLOAD_INVALID`.
@@ -124,7 +126,35 @@ pub async fn create_doc(
 /// Those of the plain function it runs, as an `ErrorDto`.
 #[tauri::command]
 pub async fn confirm_doc(app: State<'_, Shared>, doc_id: String) -> CommandResult<DocResponse> {
-    blocking(&app, move |c| confirm(c, &doc_id)).await
+    let id = doc_id.clone();
+    let confirmed = blocking(&app, move |c| confirm(c, &doc_id)).await?;
+    if confirmed.doc.status == DocStatusDto::Processing {
+        spawn_processing(Arc::clone(app.inner()), vec![id]);
+    }
+    Ok(confirmed)
+}
+
+/// Processes one doc: split, upload, then `ready` or `failed` (the web polls `list_docs`).
+///
+/// # Errors
+/// The failure that stopped it (the doc is then `failed`).
+pub fn process(app: &Composition, doc_id: &str) -> CommandResult<DocResponse> {
+    let doc = app.process_doc(doc_id)?;
+    Ok(DocResponse {
+        doc: DocDto::from(&doc),
+    })
+}
+
+/// Runs [`process`] for each doc on one blocking thread, in order. A failure is already recorded
+/// on the doc (`failed`); it is also logged with its code.
+pub fn spawn_processing(app: Shared, doc_ids: Vec<String>) {
+    tauri::async_runtime::spawn_blocking(move || {
+        for id in doc_ids {
+            if let Err(e) = process(&app, &id) {
+                app.warn("doc.processing_failed", &e.code);
+            }
+        }
+    });
 }
 
 /// `rename_doc {docId, title}`.

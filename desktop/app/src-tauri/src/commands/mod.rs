@@ -6,6 +6,7 @@
 // by-value parameters are the macro's contract, not a choice.
 #![allow(clippy::needless_pass_by_value)]
 
+pub mod ask;
 pub mod chats;
 pub mod docs;
 pub mod projects;

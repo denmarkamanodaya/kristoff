@@ -114,6 +114,14 @@ impl FileStore for DiskFileStore {
         Ok(head)
     }
 
+    fn write_part(&self, doc_id: &str, n: u32, bytes: &[u8]) -> AppResult<()> {
+        let path = self.part_path(doc_id, n)?;
+        if let Some(dir) = path.parent() {
+            fs::create_dir_all(dir).map_err(|e| io_failure(&e))?;
+        }
+        fs::write(path, bytes).map_err(|e| io_failure(&e))
+    }
+
     fn commit_partial(&self, doc_id: &str) -> AppResult<()> {
         fs::rename(self.partial_path(doc_id)?, self.pdf_path(doc_id)?).map_err(|e| io_failure(&e))
     }
