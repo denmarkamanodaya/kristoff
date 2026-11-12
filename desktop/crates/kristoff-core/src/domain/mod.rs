@@ -1,4 +1,4 @@
-//! Pure business rules: TOTP, lockout, ids, attachments, cursors, names, model turns, citations
+//! Pure business rules: ids, attachments, cursors, names, model turns, citations
 //! the part-splitting rules and the law index rules.
 
 pub mod attachment;
@@ -13,4 +13,3 @@ pub mod model_request;
 pub mod model_turns;
 pub mod names;
 pub mod parts;
-pub mod totp;

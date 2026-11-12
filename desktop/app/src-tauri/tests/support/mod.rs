@@ -1,15 +1,12 @@
-//! Shared setup for the command tests: a composition on a temp dir with a settable clock and the
-//! RFC 6238 test secret.
+//! Shared setup for the command tests: a composition on a temp dir with a settable clock.
 
 // Test helpers outside #[test] fns: a failed setup must fail the test loudly.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #![allow(dead_code)]
 
 use kristoff_app::ai::AiPorts;
-use kristoff_app::commands::session;
 use kristoff_app::composition::Composition;
 use kristoff_core::domain::model_request::FollowUps;
-use kristoff_core::domain::totp::{hotp, step_at};
 use kristoff_core::error::AppResult;
 use kristoff_core::ports::RemoteFiles;
 use kristoff_pdf::LopdfSplitter;
@@ -31,9 +28,6 @@ impl RemoteFiles for RemoteRef {
     }
 }
 
-/// RFC 6238 secret "12345678901234567890" in base32.
-pub const TOTP: &str = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
-
 /// A composition on a temp dir with a settable clock.
 pub struct TestApp {
     /// The composition under test.
@@ -49,12 +43,12 @@ pub struct TestApp {
 }
 
 impl TestApp {
-    /// A locked app whose model answers with the default script.
-    pub fn locked() -> Self {
+    /// An app whose model answers with the default script.
+    pub fn new() -> Self {
         Self::answering(default_script(), FollowUps::default())
     }
 
-    /// A locked app whose model plays `script` and suggests `follow_ups`; real lopdf splitter.
+    /// An app whose model plays `script` and suggests `follow_ups`; real lopdf splitter.
     pub fn answering(script: Script, follow_ups: FollowUps) -> Self {
         Self::answering_turns(vec![script], follow_ups)
     }
@@ -72,8 +66,7 @@ impl TestApp {
             splitter: Box::new(LopdfSplitter),
             log: log.clone(),
         };
-        let core =
-            Composition::with_ports(dir.path(), TOTP, Box::new(Arc::clone(&clock)), ai).unwrap();
+        let core = Composition::with_ports(dir.path(), Box::new(Arc::clone(&clock)), ai).unwrap();
         Self {
             core,
             clock,
@@ -81,22 +74,5 @@ impl TestApp {
             remote,
             log,
         }
-    }
-
-    /// An app unlocked with a live code.
-    pub fn unlocked() -> Self {
-        Self::locked().unlock()
-    }
-
-    /// The same app, unlocked with a live code.
-    pub fn unlock(self) -> Self {
-        session::verify(&self.core, &self.code()).unwrap();
-        self
-    }
-
-    /// The live TOTP code now.
-    pub fn code(&self) -> String {
-        let step = step_at(kristoff_core::ports::Clock::now_ms(&self.clock));
-        hotp(b"12345678901234567890", u64::try_from(step).unwrap(), 6)
     }
 }

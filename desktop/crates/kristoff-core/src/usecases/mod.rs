@@ -3,7 +3,6 @@
 
 pub mod ask;
 pub mod attachments;
-pub mod auth;
 pub mod chats;
 pub mod docs;
 pub mod processing;

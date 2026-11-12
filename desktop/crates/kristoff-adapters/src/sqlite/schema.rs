@@ -45,6 +45,8 @@ CREATE TABLE usage_total (
   input INTEGER NOT NULL DEFAULT 0, output INTEGER NOT NULL DEFAULT 0,
   cache_read INTEGER NOT NULL DEFAULT 0, cache_write INTEGER NOT NULL DEFAULT 0
 ) STRICT;
+-- auth_state: the TOTP state of the gate removed by decision D-17. Kept so existing files keep
+-- their data (schema steps only add); nothing reads or writes it.
 CREATE TABLE auth_state (
   id INTEGER PRIMARY KEY CHECK (id = 1), last_step INTEGER NOT NULL,
   fail_count INTEGER NOT NULL, locked_until INTEGER NOT NULL, version INTEGER NOT NULL

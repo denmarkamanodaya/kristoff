@@ -1,5 +1,5 @@
 // Kristoff web UI entry. Applies the theme first, then wires the gate and boots the app after an
-// unlock. Every network call goes through services/api.js; the session lives in memory
+// unlock; the desktop build has no gate (api.requiresUnlock is false, D-17) and boots at once. Every network call goes through services/api.js; the session lives in memory
 // (services/session.js); UI modules live in ui/. Contract: docs/contract.md.
 import * as api from './services/api.js';
 import * as auth from './services/auth.js';
@@ -12,7 +12,7 @@ import { moreDocs, moreThreads, openThread, refreshDocs, refreshProjects, refres
 import { newThread, renderAll, show } from './ui/views.js';
 import { guard, handleError } from './ui/errors.js';
 import { renderModelPicker, setDraft } from './ui/composer.js';
-import { setOnUnlock, showGate } from './ui/gate.js';
+import { openApp, setOnUnlock, showGate } from './ui/gate.js';
 import { closeDrawer, toggleDrawer } from './ui/drawer.js';
 
 // ---------- theme (applied first, so the page never paints in the wrong theme) ----------
@@ -39,7 +39,7 @@ $('#moreDocs').onclick = guard(moreDocs);
 $('#drawerBtn').onclick = toggleDrawer;
 $('.suggestions').onclick = (e) => { const b = e.target.closest('button'); if (b) setDraft(b.dataset.q); };
 document.addEventListener('keydown', (e) => {
-  if (!auth.isUnlocked()) return;
+  if (api.requiresUnlock && !auth.isUnlocked()) return;
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); newThread(); }
 });
 
@@ -68,5 +68,10 @@ async function resync() {
   }
 }
 
-setOnUnlock(() => (state.booted ? resync() : boot()));
-showGate();
+if (api.requiresUnlock) {
+  setOnUnlock(() => (state.booted ? resync() : boot()));
+  showGate();
+} else {
+  openApp();
+  boot();
+}

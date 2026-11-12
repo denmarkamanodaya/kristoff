@@ -1,4 +1,4 @@
-//! The PDF viewer and outside links: `open_doc` windows, the `kristoff://` scheme (gate, path
+//! The PDF viewer and outside links: `open_doc` windows, the `kristoff://` scheme (path
 //! rules, bytes) and the `open_external` host allowlist. Also the request id on failures.
 
 // Test helpers outside #[test] fns: a failed setup must fail the test loudly.
@@ -36,7 +36,7 @@ fn ready_doc(app: &TestApp) -> String {
 
 #[test]
 fn serves_a_ready_doc_as_a_pdf() {
-    let app = TestApp::unlocked();
+    let app = TestApp::new();
     let id = ready_doc(&app);
     let uri: Uri = format!("kristoff://doc/{id}").parse().unwrap();
 
@@ -48,22 +48,8 @@ fn serves_a_ready_doc_as_a_pdf() {
 }
 
 #[test]
-fn the_scheme_is_forbidden_while_locked() {
-    let app = TestApp::unlocked();
-    let id = ready_doc(&app);
-    app.clock.advance(12 * 3600 * 1000);
-
-    let answer = reply(&app.core, &format!("doc/{id}"));
-
-    assert_eq!(
-        (answer.status, answer.body.len()),
-        (StatusCode::FORBIDDEN, 0)
-    );
-}
-
-#[test]
 fn the_scheme_answers_404_for_bad_paths_unknown_docs_and_missing_parts() {
-    let app = TestApp::unlocked();
+    let app = TestApp::new();
     let id = ready_doc(&app);
     let pending = docs::create(&app.core, "p.pdf", 10).unwrap().doc.id;
     let paths = [
@@ -85,7 +71,7 @@ fn the_scheme_answers_404_for_bad_paths_unknown_docs_and_missing_parts() {
 
 #[test]
 fn open_doc_targets_a_labelled_window_at_the_page() {
-    let app = TestApp::unlocked();
+    let app = TestApp::new();
     let id = ready_doc(&app);
 
     let window = viewer::doc_window(&app.core, &id, None, Some(3)).unwrap();
@@ -101,14 +87,13 @@ fn open_doc_targets_a_labelled_window_at_the_page() {
 
 #[test]
 fn open_external_allows_only_listed_https_hosts() {
-    let app = TestApp::unlocked();
     for ok in [
         "https://lawphil.net/statutes/repacts/ra2004/ra_9262_2004.html",
         "https://www.officialgazette.gov.ph/2004/03/08/republic-act-no-9262/",
         "https://elibrary.judiciary.gov.ph/thebookshelf/showdocs/1/1",
         "https://issuances-library.senate.gov.ph/",
     ] {
-        assert_eq!(viewer::external_url(&app.core, ok).unwrap(), ok);
+        assert_eq!(viewer::external_url(ok).unwrap(), ok);
     }
     let long = format!("https://lawphil.net/{}", "a".repeat(2100));
     for bad in [
@@ -118,7 +103,7 @@ fn open_external_allows_only_listed_https_hosts() {
         long.as_str(),
     ] {
         assert_eq!(
-            viewer::external_url(&app.core, bad).unwrap_err().code,
+            viewer::external_url(bad).unwrap_err().code,
             "VALIDATION_FAILED"
         );
     }
@@ -126,11 +111,11 @@ fn open_external_allows_only_listed_https_hosts() {
 
 #[test]
 fn a_failed_command_carries_a_local_request_id() {
-    let app = TestApp::locked();
+    let app = TestApp::new();
 
-    let err = tag_failure(&app.core, docs::list(&app.core, None)).unwrap_err();
+    let err = tag_failure(&app.core, docs::confirm(&app.core, "ffffffffffffffff")).unwrap_err();
 
     let wire = serde_json::to_value(&err).unwrap();
-    assert_eq!(wire["code"], "UNAUTHENTICATED");
+    assert_eq!(wire["code"], "DOC_NOT_FOUND");
     assert_eq!(wire["requestId"].as_str().map(str::len), Some(26));
 }

@@ -26,6 +26,12 @@ export function showGate(msg = '') {
   setTimeout(() => otp.focus(), 0);
 }
 
+/** Hides the gate and shows the app (after an unlock, or at once on desktop, D-17). */
+export function openApp() {
+  gate.hidden = true;
+  $('#app').hidden = false;
+}
+
 function lockGate(seconds) {
   setGateEnabled(false);
   clearTimeout(lockTimer);
@@ -41,8 +47,7 @@ async function submitCode() {
   gateMsg.textContent = '';
   try {
     await auth.verify(code);
-    gate.hidden = true;
-    $('#app').hidden = false;
+    openApp();
     await onUnlock();
   } catch (err) {
     otp.value = '';

@@ -302,14 +302,15 @@ it replaces.
 
 - Arguments are camelCase. Absent optionals are `null`, never omitted.
 - A failed command rejects with `ErrorDto { code, message, retryAfter: int | null, requestId?: string }`, using the
-  codes in "Error envelope and codes". The web maps it to `ApiError` (`retryAfter` in seconds) and, for
-  `UNAUTHENTICATED`, clears the session. A non-object rejection (a Tauri failure such as an unknown command) maps
-  to `INTERNAL`.
-- Every command except `verify_otp` and `open_external` requires an unlocked gate (`UNAUTHENTICATED` otherwise).
+  codes in "Error envelope and codes". The web maps it to `ApiError` (`retryAfter` in seconds). A non-object
+  rejection (a Tauri failure such as an unknown command) maps to `INTERNAL`.
+- The desktop app has no authentication (decision D-17): no gate, no `verify_otp`, and no command returns
+  `UNAUTHENTICATED` or `OTP_*`. Those codes stay in the shared code list for the web backend. `api-desktop.js`
+  exports `requiresUnlock = false` and a `verifyCode` stub that rejects without calling the shell, so its exports
+  still equal `api.js`'s.
 
-| Command | Request | Response | Errors (besides `UNAUTHENTICATED`, `INTERNAL`) | Replaces |
+| Command | Request | Response | Errors (besides `INTERNAL`) | Replaces |
 |---|---|---|---|---|
-| `verify_otp` | `{ code }` | `{ token, expiresAt }` | `VALIDATION_FAILED`, `OTP_INVALID`, `OTP_REPLAYED`, `OTP_LOCKED` | `POST /v1/auth/verify` |
 | `get_config` | `{}` | `{ model, models, maxAttachedDocs, dailyQuestionCap }` | — | `GET /v1/config` |
 | `list_docs` | `{ cursor: string \| null }` | `{ items: Doc[], nextCursor }` | `VALIDATION_FAILED` | `GET /v1/docs` |
 | `create_doc` | `{ fileName, size }` | `{ doc, uploadUrl: "kristoff-upload://<docId>", uploadHeaders }` | `VALIDATION_FAILED` | `POST /v1/docs` |

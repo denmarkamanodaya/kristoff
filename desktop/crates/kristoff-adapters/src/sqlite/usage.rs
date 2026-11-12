@@ -1,11 +1,10 @@
-//! `UsageMeter` and `AuthStateStore` on SQLite. The daily cap is one conditional upsert
-//! (`... WHERE questions < cap`) that runs before the work; replay is one conditional update
-//! (`... WHERE last_step < step`).
+//! `UsageMeter` on SQLite. The daily cap is one conditional upsert (`... WHERE questions < cap`)
+//! that runs before the work.
 
 use super::{SqliteStore, get_u64, sql_int, store_failure};
 use kristoff_core::error::{AppError, AppResult, ErrorCode};
-use kristoff_core::model::{TotpState, Usage, UsageReport, Versioned};
-use kristoff_core::ports::{AuthStateStore, UsageMeter};
+use kristoff_core::model::{Usage, UsageReport};
+use kristoff_core::ports::UsageMeter;
 use rusqlite::{Connection, OptionalExtension, params};
 
 fn read_counters(conn: &Connection, sql: &str, key: &dyn rusqlite::ToSql) -> AppResult<Usage> {
@@ -80,69 +79,6 @@ impl UsageMeter for SqliteStore {
                 &1,
             )?;
             Ok(UsageReport { today, total })
-        })
-    }
-}
-
-impl AuthStateStore for SqliteStore {
-    fn get_auth_state(&self) -> AppResult<Versioned<TotpState>> {
-        self.read(|conn| {
-            let sql =
-                "SELECT last_step, fail_count, locked_until, version FROM auth_state WHERE id = 1";
-            let found = conn.query_row(sql, [], |r| {
-                let value = TotpState {
-                    last_step: r.get(0)?,
-                    fail_count: r.get(1)?,
-                    locked_until_ms: r.get(2)?,
-                };
-                Ok(Versioned {
-                    value,
-                    version: r.get(3)?,
-                })
-            });
-            let found = found.optional().map_err(|e| store_failure(&e))?;
-            Ok(found.unwrap_or(Versioned {
-                value: TotpState::default(),
-                version: 0,
-            }))
-        })
-    }
-
-    fn accept_step(&self, step: i64) -> AppResult<()> {
-        self.write(|tx| {
-            let sql = "INSERT INTO auth_state (id, last_step, fail_count, locked_until, version) \
-                       VALUES (1, ?1, 0, 0, 1) ON CONFLICT (id) DO UPDATE SET last_step = ?1, \
-                       fail_count = 0, locked_until = 0, version = version + 1 \
-                       WHERE last_step < ?1";
-            let changed = tx.execute(sql, [step]).map_err(|e| store_failure(&e))?;
-            if changed == 0 {
-                return Err(AppError::new(ErrorCode::OtpReplayed, "code already used"));
-            }
-            Ok(())
-        })
-    }
-
-    fn record_failure(&self, next: &TotpState, version: i64) -> AppResult<()> {
-        self.write(|tx| {
-            let values = params![
-                next.last_step,
-                next.fail_count,
-                next.locked_until_ms,
-                version
-            ];
-            let sql = if version == 0 {
-                "INSERT OR IGNORE INTO auth_state (id, last_step, fail_count, locked_until, \
-                 version) SELECT 1, ?1, ?2, ?3, 1 WHERE ?4 = 0"
-            } else {
-                "UPDATE auth_state SET last_step = ?1, fail_count = ?2, locked_until = ?3, \
-                 version = version + 1 WHERE id = 1 AND version = ?4"
-            };
-            let changed = tx.execute(sql, values).map_err(|e| store_failure(&e))?;
-            if changed == 0 {
-                let message = "the TOTP state changed since it was read";
-                return Err(AppError::new(ErrorCode::VersionConflict, message));
-            }
-            Ok(())
         })
     }
 }

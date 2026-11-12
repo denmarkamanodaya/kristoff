@@ -1,5 +1,4 @@
-//! IPC commands: the driving adapters. Each module pairs plain functions (gate check, argument
-//! checks, one use case, shaping the result; testable without Tauri) with the `#[tauri::command]`s
+//! IPC commands: the driving adapters. Each module pairs plain functions (argument checks, one use case, shaping the result; testable without Tauri) with the `#[tauri::command]`s
 //! that run them on a blocking thread. Command names: `kristoff_contracts::ipc::COMMANDS`.
 
 // Tauri deserialises each command argument into an owned value and hands `State` by value, so
@@ -44,9 +43,4 @@ pub(crate) async fn blocking<T: Send + 'static>(
 /// `result`'s error, with its `requestId` set.
 pub fn tag_failure<T>(app: &Composition, result: CommandResult<T>) -> CommandResult<T> {
     result.map_err(|e| e.with_request_id(app.request_id()))
-}
-
-/// Fails closed with `UNAUTHENTICATED` unless the gate is open now.
-pub(crate) fn unlocked(app: &Composition) -> CommandResult<()> {
-    app.gate.check(app.now_ms()).map_err(ErrorDto::from)
 }

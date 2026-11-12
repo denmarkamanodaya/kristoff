@@ -3,9 +3,8 @@
 // this file over dist-desktop/services/api.js, so ui/ modules import it unchanged.
 // Plan: docs/desktop/phases/phase-1-core-storage.md §6 (D-8, D-9, D-10); phase-2 §4 (askStream).
 // Contract: docs/contract.md, "Desktop IPC". scripts/check.mjs keeps the export names equal to api.js
-// and allows Tauri IPC only in this file.
-import { expire, getToken } from './session.js';
-
+// and allows Tauri IPC only in this file. The desktop app has no sign-in (decision D-17): no token
+// check, `requiresUnlock` is false, and `verifyCode` is a stub kept only for export parity.
 const UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024; // D-8: 8 MiB raw-body chunks
 const UPLOAD_SCHEME = 'kristoff-upload://';
 // Tauri does not order Channel messages against the command's own reply, so a `done` sent just
@@ -41,7 +40,7 @@ function tauri() {
 
 /**
  * Maps a rejected invoke (`{ code, message, retryAfter, requestId? }`, or a plain string for a
- * Tauri-level failure such as an unknown command) to an ApiError. UNAUTHENTICATED clears the session.
+ * Tauri-level failure such as an unknown command) to an ApiError.
  */
 function toApiError(err) {
   if (err instanceof ApiError) return err;
@@ -52,25 +51,17 @@ function toApiError(err) {
         retryAfter: Number.isFinite(err.retryAfter) ? err.retryAfter : null,
       })
     : new ApiError('INTERNAL', typeof err === 'string' && err ? err : 'The desktop app failed.');
-  if (e.code === 'UNAUTHENTICATED') expire();
   return e;
-}
-
-/** Throws UNAUTHENTICATED without calling the shell when no session is held (as api.js does). */
-function requireToken() {
-  if (!getToken()) throw new ApiError('UNAUTHENTICATED', 'Locked. Enter your code.', { status: 401 });
 }
 
 /**
  * Calls one Rust command.
  * @param cmd - Command name from the Desktop IPC table.
  * @param args - camelCase arguments; absent optionals are null.
- * @param opts - `{ auth = true }`.
  * @returns The command's resolved value.
  * @throws ApiError mapped from the command's error.
  */
-async function call(cmd, args, { auth = true } = {}) {
-  if (auth) requireToken();
+async function call(cmd, args) {
   try {
     return await tauri().invoke(cmd, args);
   } catch (err) {
@@ -78,8 +69,18 @@ async function call(cmd, args, { auth = true } = {}) {
   }
 }
 
-/** `verify_otp {code}` → `{ token, expiresAt }`. */
-export const verifyCode = (code) => call('verify_otp', { code }, { auth: false });
+/** False: the desktop app opens straight to Home, with no sign-in (D-17). */
+export const requiresUnlock = false;
+
+/**
+ * Export-parity stub (D-17): there is no `verify_otp` command, and app.js never calls this on
+ * desktop because `requiresUnlock` is false.
+ * @returns Never resolves.
+ * @throws ApiError `INTERNAL` always, without calling the shell.
+ */
+export const verifyCode = async () => {
+  throw new ApiError('INTERNAL', 'The desktop app has no sign-in.');
+};
 
 /** `get_config` → `{ model, models: [{ id, label }], maxAttachedDocs, dailyQuestionCap }`. */
 export const getConfig = () => call('get_config', {});
@@ -167,7 +168,6 @@ export async function uploadFile(uploadUrl, uploadHeaders, file, onProgress) {
     throw new ApiError('UPLOAD_FAILED', 'The upload target is not valid.');
   }
   const docId = uploadUrl.slice(UPLOAD_SCHEME.length);
-  requireToken();
   for (let offset = 0; offset < file.size; offset += UPLOAD_CHUNK_BYTES) {
     const chunk = await file.slice(offset, offset + UPLOAD_CHUNK_BYTES).arrayBuffer();
     const headers = { 'x-doc-id': docId, 'x-offset': String(offset) };
@@ -205,7 +205,6 @@ const abortReason = (signal) => signal.reason ?? new DOMException('The operation
  *   the abort reason (an `AbortError`) when `signal` aborts, after `cancel_ask` is sent.
  */
 export async function askStream(chatId, text, { model, onText, onCitation, onFollowUps, onSearch, signal } = {}) {
-  requireToken();
   const { invoke, Channel } = tauri();
   if (signal?.aborted) throw abortReason(signal);
   return new Promise((resolve, reject) => {

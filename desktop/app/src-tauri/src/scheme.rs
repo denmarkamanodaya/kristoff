@@ -1,5 +1,5 @@
 //! The `kristoff://` scheme (decision D-12): serves a ready doc's or part's PDF bytes to the viewer
-//! window. 403 while the app is locked, 404 for any other path or a doc that is missing, not
+//! window. 404 for any other path or a doc that is missing, not
 //! ready or lacks the part. The `#page=N` fragment never reaches here; the PDF viewer reads it.
 
 use crate::commands::Shared;
@@ -38,9 +38,6 @@ pub fn scheme_path(uri: &Uri) -> String {
 /// Answers one scheme request for `path` (see [`scheme_path`]).
 #[must_use]
 pub fn reply(app: &Composition, path: &str) -> Reply {
-    if app.gate.check(app.now_ms()).is_err() {
-        return empty(StatusCode::FORBIDDEN);
-    }
     let Some(target) = parse_doc_path(path) else {
         return empty(StatusCode::NOT_FOUND);
     };

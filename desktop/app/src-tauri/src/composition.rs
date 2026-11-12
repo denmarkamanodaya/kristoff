@@ -1,16 +1,13 @@
 //! The composition root: builds every adapter once, binds them to the use cases' deps, and holds
-//! the gate and the running asks. The only place that reads configuration
+//! the running asks. The only place that reads configuration
 //! (`kristoff_contracts::config`, `model_config`) and the baked secrets.
 
 use crate::ai::AiPorts;
 use crate::asks::Asks;
-use crate::gate::Gate;
 use kristoff_adapters::disk_file_store::DiskFileStore;
 use kristoff_adapters::sqlite::SqliteStore;
 use kristoff_adapters::system::{RandomIdGenerator, SystemClock};
-use kristoff_contracts::config::{
-    DAILY_QUESTION_CAP, MAX_ATTACHED_DOCS, MODEL_IDS, MODEL_LABELS, UNLOCK_TTL_SECONDS,
-};
+use kristoff_contracts::config::{DAILY_QUESTION_CAP, MAX_ATTACHED_DOCS, MODEL_IDS, MODEL_LABELS};
 use kristoff_contracts::model_config::MAX_TOKENS;
 use kristoff_core::domain::parts::SplitLimits;
 use kristoff_core::error::AppResult;
@@ -18,7 +15,6 @@ use kristoff_core::limits::MAX_HISTORY_TURNS;
 use kristoff_core::model::Doc;
 use kristoff_core::ports::{Clock, DocStore, FileStore, IdGenerator, LawSearch};
 use kristoff_core::usecases::ask::{AskConfig, AskDeps};
-use kristoff_core::usecases::auth::AuthDeps;
 use kristoff_core::usecases::chats::ChatDeps;
 use kristoff_core::usecases::docs::LibraryDeps;
 use kristoff_core::usecases::processing::{self, ProcessingDeps};
@@ -35,9 +31,6 @@ pub struct Composition {
     ai: AiPorts,
     clock: Box<dyn Clock>,
     ids: Box<dyn IdGenerator>,
-    totp_secret: String,
-    /// The TOTP gate.
-    pub gate: Gate,
     /// The running asks and their cancel flags.
     pub asks: Asks,
     /// The PH law index, set once it is opened and warmed on a background thread at start.
@@ -50,21 +43,16 @@ impl Composition {
     ///
     /// # Errors
     /// `INTERNAL` when the database, the docs folder or the Claude client cannot be opened.
-    pub fn open(data_dir: &Path, totp_secret: &str, anthropic_key: &str) -> AppResult<Self> {
+    pub fn open(data_dir: &Path, anthropic_key: &str) -> AppResult<Self> {
         let ai = AiPorts::anthropic(anthropic_key)?;
-        Self::with_ports(data_dir, totp_secret, Box::new(SystemClock), ai)
+        Self::with_ports(data_dir, Box::new(SystemClock), ai)
     }
 
     /// The same with an injected clock and AI ports (tests).
     ///
     /// # Errors
     /// `INTERNAL` when the database or the docs folder cannot be opened.
-    pub fn with_ports(
-        data_dir: &Path,
-        totp_secret: &str,
-        clock: Box<dyn Clock>,
-        ai: AiPorts,
-    ) -> AppResult<Self> {
+    pub fn with_ports(data_dir: &Path, clock: Box<dyn Clock>, ai: AiPorts) -> AppResult<Self> {
         let files = DiskFileStore::open(&data_dir.join("docs"))?;
         Ok(Self {
             store: SqliteStore::open(&data_dir.join("kristoff.db"))?,
@@ -72,8 +60,6 @@ impl Composition {
             ai,
             clock,
             ids: Box::new(RandomIdGenerator::new(SystemClock)),
-            totp_secret: totp_secret.to_owned(),
-            gate: Gate::locked(),
             asks: Asks::default(),
             law: OnceLock::new(),
         })
@@ -111,17 +97,6 @@ impl Composition {
     #[must_use]
     pub fn viewer(&self) -> (&dyn DocStore, &dyn FileStore) {
         (&self.store, &self.files)
-    }
-
-    /// The verify-otp deps.
-    #[must_use]
-    pub fn auth(&self) -> AuthDeps<'_> {
-        AuthDeps {
-            auth: &self.store,
-            clock: self.clock.as_ref(),
-            totp_secret: &self.totp_secret,
-            unlock_ttl_seconds: UNLOCK_TTL_SECONDS,
-        }
     }
 
     /// The library deps.

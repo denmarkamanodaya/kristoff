@@ -18,12 +18,6 @@ pub const MAX_ATTACHED_DOCS: usize = 5;
 /// Questions per UTC day.
 pub const DAILY_QUESTION_CAP: u32 = 100;
 
-/// How long a TOTP unlock lasts, in seconds (12 h, the web session lifetime).
-pub const UNLOCK_TTL_SECONDS: i64 = 43_200;
-
-/// The cosmetic token `verify_otp` returns (the unlock lives in Rust memory, not in a token).
-pub const LOCAL_TOKEN: &str = "local";
-
 /// Hosts `open_external` may open in the default browser (https only, exact host match).
 pub const EXTERNAL_HOSTS: [&str; 6] = [
     "lawphil.net",

@@ -1,10 +1,10 @@
-//! Tauri build script: bakes the two build-time secrets into the binary (decision D-4) and
+//! Tauri build script: bakes the Claude API key into the binary (decision D-4) and
 //! generates one `allow-<command>` permission per name in `kristoff_contracts::ipc::COMMANDS`.
 //!
-//! Secrets come from the env (`KRISTOFF_ANTHROPIC_KEY`, `KRISTOFF_TOTP_SECRET`). Debug builds and
-//! tests may fall back to the untracked `desktop/.env.local`; release builds never do, and refuse
-//! the fake `sk-ant-test...` key. The build fails when either is missing or empty. The values are
-//! never printed.
+//! The key comes from the env (`KRISTOFF_ANTHROPIC_KEY`). Debug builds and tests may fall back to
+//! the untracked `desktop/.env.local`; release builds never do, and refuse the fake
+//! `sk-ant-test...` key. The build fails when it is missing or empty. The value is never printed.
+//! There is no TOTP secret any more: the app has no authentication (decision D-17).
 
 // Cargo reads build-script directives (`cargo:rustc-env=...`) from stdout: printing is the
 // interface here, not debugging output.
@@ -12,7 +12,7 @@
 
 use std::path::Path;
 
-const SECRETS: [&str; 2] = ["KRISTOFF_ANTHROPIC_KEY", "KRISTOFF_TOTP_SECRET"];
+const SECRETS: [&str; 1] = ["KRISTOFF_ANTHROPIC_KEY"];
 
 /// `KEY=value` from the dev env file, if the file has it.
 fn from_env_file(file: &Path, key: &str) -> Option<String> {

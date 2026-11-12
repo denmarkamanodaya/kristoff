@@ -1,6 +1,6 @@
 //! Project commands: `list_projects`, `create_project`, `rename_project`, `delete_project`.
 
-use super::{CommandResult, Shared, blocking, unlocked};
+use super::{CommandResult, Shared, blocking};
 use crate::composition::Composition;
 use kristoff_contracts::envelopes::{DeletedResponse, ProjectResponse, ProjectsResponse};
 use kristoff_contracts::requests;
@@ -11,9 +11,8 @@ use tauri::State;
 /// Every project in name order.
 ///
 /// # Errors
-/// `UNAUTHENTICATED`.
+/// `INTERNAL` on a storage failure.
 pub fn list(app: &Composition) -> CommandResult<ProjectsResponse> {
-    unlocked(app)?;
     let all = projects::list_projects(&app.projects())?;
     Ok(ProjectsResponse {
         items: all.iter().map(ProjectDto::from).collect(),
@@ -23,9 +22,8 @@ pub fn list(app: &Composition) -> CommandResult<ProjectsResponse> {
 /// Creates a project (cap 50).
 ///
 /// # Errors
-/// `UNAUTHENTICATED`, `VALIDATION_FAILED`, `PROJECT_LIMIT_REACHED`.
+/// `VALIDATION_FAILED`, `PROJECT_LIMIT_REACHED`.
 pub fn create(app: &Composition, name: &str) -> CommandResult<ProjectResponse> {
-    unlocked(app)?;
     let project = projects::create_project(&app.projects(), requests::project_name(name)?)?;
     Ok(ProjectResponse {
         project: ProjectDto::from(&project),
@@ -35,9 +33,8 @@ pub fn create(app: &Composition, name: &str) -> CommandResult<ProjectResponse> {
 /// Renames a project.
 ///
 /// # Errors
-/// `UNAUTHENTICATED`, `VALIDATION_FAILED`, `PROJECT_NOT_FOUND`.
+/// `VALIDATION_FAILED`, `PROJECT_NOT_FOUND`.
 pub fn rename(app: &Composition, project_id: &str, name: &str) -> CommandResult<ProjectResponse> {
-    unlocked(app)?;
     let (id, name) = (requests::id(project_id)?, requests::project_name(name)?);
     let project = projects::rename_project(&app.projects(), id, name)?;
     Ok(ProjectResponse {
@@ -48,9 +45,8 @@ pub fn rename(app: &Composition, project_id: &str, name: &str) -> CommandResult<
 /// Deletes a project after ungrouping its chats.
 ///
 /// # Errors
-/// `UNAUTHENTICATED`, `VALIDATION_FAILED`, `PROJECT_NOT_FOUND`.
+/// `VALIDATION_FAILED`, `PROJECT_NOT_FOUND`.
 pub fn delete(app: &Composition, project_id: &str) -> CommandResult<DeletedResponse> {
-    unlocked(app)?;
     projects::delete_project(&app.projects(), requests::id(project_id)?)?;
     Ok(DeletedResponse { deleted: true })
 }

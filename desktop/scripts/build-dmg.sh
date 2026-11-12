@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Builds the release DMG for Kristoff Desktop (docs/desktop/phases/phase-5-eval-package.md §2):
-# checks the two baked secrets (never printed), verifies the law index and the e5 model against
-# their lock files, checks THIRD_PARTY_NOTICES, builds the desktop web bundle, builds the arm64
+# checks the baked Claude API key (never printed; no TOTP secret since decision D-17), verifies
+# the law index and the e5 model against their lock files, checks THIRD_PARTY_NOTICES, builds the desktop web bundle, builds the arm64
 # app and DMG with the bundled resources, verifies the ad-hoc signature, and writes
 # desktop/dist/Kristoff-<version>-arm64.dmg plus its .sha256.
 #
-# Usage: KRISTOFF_ANTHROPIC_KEY=... KRISTOFF_TOTP_SECRET=... bash desktop/scripts/build-dmg.sh [--dry-run]
+# Usage: KRISTOFF_ANTHROPIC_KEY=... bash desktop/scripts/build-dmg.sh [--dry-run]
 #   --dry-run  runs every check and the web build, then stops before the release build (nothing
 #              is compiled, so nothing is baked).
 set -euo pipefail
@@ -21,27 +21,21 @@ for arg in "$@"; do
 done
 
 TARGET="aarch64-apple-darwin"
-RFC_TEST_SECRET="GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"
 DATA="data"
 
 step() { echo "==> $*"; }
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
 check_secrets() {
-  step "secrets (values are never printed)"
-  local key="${KRISTOFF_ANTHROPIC_KEY:-}" totp="${KRISTOFF_TOTP_SECRET:-}"
+  step "Claude API key (the value is never printed)"
+  local key="${KRISTOFF_ANTHROPIC_KEY:-}"
   [ -n "$key" ] || fail "KRISTOFF_ANTHROPIC_KEY is not set"
-  [ -n "$totp" ] || fail "KRISTOFF_TOTP_SECRET is not set"
   case "$key" in
     sk-ant-test*) fail "KRISTOFF_ANTHROPIC_KEY is the fake dev key" ;;
     sk-ant-*) ;;
     *) fail "KRISTOFF_ANTHROPIC_KEY does not look like a Claude API key (sk-ant-...)" ;;
   esac
-  local norm
-  norm="$(printf '%s' "$totp" | tr -d ' =' | tr '[:lower:]' '[:upper:]')"
-  [ "$norm" != "$RFC_TEST_SECRET" ] || fail "KRISTOFF_TOTP_SECRET is the RFC 6238 test secret"
-  printf '%s' "$norm" | grep -Eq '^[A-Z2-7]{16,}$' || fail "KRISTOFF_TOTP_SECRET is not base32 (16+ characters)"
-  echo "ok: both set, neither is a dev value"
+  echo "ok: set, and not the dev key"
 }
 
 lock_value() { sed -n "s/^# $2: //p" "$DATA/$1"; }

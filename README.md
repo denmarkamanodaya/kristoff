@@ -7,17 +7,17 @@ Everything runs on your machine. Documents and chats are stored in `./data`. The
 ## Desktop app
 
 Kristoff Desktop is the standalone Mac app (Rust + Tauri 2, Apple Silicon, ad-hoc signed) that
-replaces the web app. It runs the same UI from `web/` with local storage, the TOTP gate and a
+replaces the web app. It runs the same UI from `web/` with local storage, no sign-in (decision D-17) and a
 bundled statute index (Republic Acts and the 1987 Constitution). The plan and phases are in
 [`docs/desktop/`](docs/desktop/plan.md).
 
 - **Install (for the user):** [`docs/desktop/install-for-brother.md`](docs/desktop/install-for-brother.md).
 - **Gates:** `bash desktop/scripts/ci-local.sh` (fmt, clippy, file size, tests, cargo-deny, web
   check, DRY gate).
-- **Dev run:** `cd desktop/app/src-tauri && cargo tauri dev` (dev secrets come from the untracked
+- **Dev run:** `cd desktop/app/src-tauri && cargo tauri dev` (the dev API key comes from the untracked
   `desktop/.env.local`; the law index from `desktop/data/`).
 - **Release DMG:** set `KRISTOFF_ANTHROPIC_KEY` (a dedicated Console key with a monthly spend
-  limit) and `KRISTOFF_TOTP_SECRET`, then run `bash desktop/scripts/build-dmg.sh`. It writes
+  limit), then run `bash desktop/scripts/build-dmg.sh`. It writes
   `desktop/dist/Kristoff-<version>-arm64.dmg` and its `.sha256`. Use `--dry-run` to run every
   check without building.
 - **Licences:** `desktop/THIRD_PARTY_NOTICES` (regenerate with

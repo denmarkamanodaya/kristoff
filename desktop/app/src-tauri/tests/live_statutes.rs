@@ -10,11 +10,10 @@
 mod support;
 
 use kristoff_app::commands::upload::RawChunk;
-use kristoff_app::commands::{ask, chats, docs, session, upload};
+use kristoff_app::commands::{ask, chats, docs, upload};
 use kristoff_app::composition::Composition;
 use kristoff_app::law::{LawPaths, open_law_index};
 use serde_json::{Value, json};
-use support::TOTP;
 
 const QUESTION: &str = "Under RA 9262, is battered woman syndrome a defense? Cite the section.";
 
@@ -27,20 +26,9 @@ fn page_text(p: u32) -> String {
 }
 
 fn open_app(dir: &std::path::Path) -> Composition {
-    use kristoff_core::domain::totp::{hotp, step_at};
-    let core = Composition::open(dir, TOTP, kristoff_app::ANTHROPIC_KEY).unwrap();
+    let core = Composition::open(dir, kristoff_app::ANTHROPIC_KEY).unwrap();
     let paths = LawPaths::resolve(dir, |k| std::env::var_os(k));
     core.install_law(open_law_index(&paths).unwrap()).unwrap();
-    let now = kristoff_core::ports::Clock::now_ms(&kristoff_adapters::system::SystemClock);
-    session::verify(
-        &core,
-        &hotp(
-            b"12345678901234567890",
-            u64::try_from(step_at(now)).unwrap(),
-            6,
-        ),
-    )
-    .unwrap();
     core
 }
 

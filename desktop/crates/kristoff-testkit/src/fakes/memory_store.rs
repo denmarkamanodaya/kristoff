@@ -1,9 +1,9 @@
-//! `MemoryStore`: one in-memory fake of the doc, chat, project, usage and auth-state ports, the
+//! `MemoryStore`: one in-memory fake of the doc, chat, project, and usage ports, the
 //! same shape as the SQLite adapter (one struct, several ports).
 
 use kristoff_core::domain::cursor::{CursorPosition, decode_cursor, page_of};
 use kristoff_core::error::{AppError, AppResult, ErrorCode};
-use kristoff_core::model::{Chat, Doc, Message, Page, Project, TotpState, Usage, Versioned};
+use kristoff_core::model::{Chat, Doc, Message, Page, Project, Usage, Versioned};
 use std::collections::BTreeMap;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
@@ -16,7 +16,6 @@ pub(super) struct State {
     pub projects: BTreeMap<String, Versioned<Project>>,
     pub days: BTreeMap<String, (u32, Usage)>,
     pub total: Usage,
-    pub auth: Option<Versioned<TotpState>>,
 }
 
 /// The in-memory store.

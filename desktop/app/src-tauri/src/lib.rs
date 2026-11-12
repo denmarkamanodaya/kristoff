@@ -1,11 +1,10 @@
-//! Kristoff desktop shell: the composition root, the TOTP gate and the IPC commands (driving
-//! adapters). Plan: docs/desktop/phases/phase-1-core-storage.md §1 and §5.
+//! Kristoff desktop shell: the composition root and the IPC commands (driving adapters). No
+//! authentication (decision D-17). Plan: docs/desktop/phases/phase-1-core-storage.md §1 and §5.
 
 pub mod ai;
 pub mod asks;
 pub mod commands;
 pub mod composition;
-pub mod gate;
 pub mod law;
 pub mod scheme;
 
@@ -16,16 +15,13 @@ use tauri::{Manager, WindowEvent};
 /// The label of the main window (tauri.conf.json); closing it cancels every running ask.
 const MAIN_WINDOW: &str = "main";
 
-/// The base32 TOTP secret baked in at build time (`build.rs`; decision D-4).
-pub const TOTP_SECRET: &str = env!("KRISTOFF_TOTP_SECRET");
-
 /// The Claude API key baked in at build time; used from Phase 2 (the ask flow).
 pub const ANTHROPIC_KEY: &str = env!("KRISTOFF_ANTHROPIC_KEY");
 
 /// Opens the app data, manages the composition and resumes docs left mid-processing.
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let data_dir = app.path().app_data_dir()?;
-    let composition = Arc::new(Composition::open(&data_dir, TOTP_SECRET, ANTHROPIC_KEY)?);
+    let composition = Arc::new(Composition::open(&data_dir, ANTHROPIC_KEY)?);
     let resume = composition.docs_to_resume()?;
     app.manage(Arc::clone(&composition));
     let law_paths = law::LawPaths::resolve(&app.path().resource_dir()?, |k| std::env::var_os(k));
@@ -67,7 +63,6 @@ pub fn run() -> Result<(), tauri::Error> {
         .on_window_event(on_window_event)
         .register_asynchronous_uri_scheme_protocol("kristoff", scheme::handle)
         .invoke_handler(tauri::generate_handler![
-            commands::session::verify_otp,
             commands::session::get_config,
             commands::session::get_usage,
             commands::docs::list_docs,

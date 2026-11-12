@@ -11,10 +11,9 @@
 mod support;
 
 use kristoff_app::commands::upload::RawChunk;
-use kristoff_app::commands::{ask, chats, docs, session, upload};
+use kristoff_app::commands::{ask, chats, docs, upload};
 use kristoff_app::composition::Composition;
 use serde_json::{Value, json};
-use support::TOTP;
 
 const HOLDING_PAGE: u32 = 137;
 const HOLDING: &str = "The Court holds that the accused acted in self-defense because the battering cycle was proven.";
@@ -59,14 +58,6 @@ fn ask_live(core: &Composition, chat_id: &str) -> Vec<Value> {
     events
 }
 
-/// Unlocks `core` with a live code for the RFC 6238 test secret.
-fn unlock(core: &Composition) {
-    use kristoff_core::domain::totp::{hotp, step_at};
-    let now = kristoff_core::ports::Clock::now_ms(&kristoff_adapters::system::SystemClock);
-    let step = u64::try_from(step_at(now)).unwrap();
-    session::verify(core, &hotp(b"12345678901234567890", step, 6)).unwrap();
-}
-
 /// What the run produced, as the JSON report.
 fn report(pdf_bytes: usize, ready: &Value, events: &[Value], deleted: bool) -> Value {
     let find = |name: &str| {
@@ -95,8 +86,7 @@ fn report(pdf_bytes: usize, ready: &Value, events: &[Value], deleted: bool) -> V
 #[ignore = "calls the real Claude API (costs money); run by hand"]
 fn a_large_pdf_splits_uploads_and_answers_with_a_mapped_page_citation() {
     let dir = tempfile::tempdir().unwrap();
-    let core = Composition::open(dir.path(), TOTP, kristoff_app::ANTHROPIC_KEY).unwrap();
-    unlock(&core);
+    let core = Composition::open(dir.path(), kristoff_app::ANTHROPIC_KEY).unwrap();
     let pdf = kristoff_testkit::pdf::make_pdf_with_text(150, |_| 230_000, page_text);
 
     let id = upload_all(&core, &pdf);

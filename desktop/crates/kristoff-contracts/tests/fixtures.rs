@@ -9,7 +9,7 @@ use kristoff_contracts::config::{DAILY_QUESTION_CAP, MAX_ATTACHED_DOCS, MODEL_ID
 use kristoff_contracts::envelopes::{
     ChatResponse, ChatWithMessagesResponse, ChatsPageResponse, ConfigResponse, DeletedResponse,
     DocResponse, DocUploadResponse, DocsPageResponse, FeaturesDto, LinkResponse, ProjectResponse,
-    ProjectsResponse, SessionResponse, UploadChunkResponse, UsageResponse,
+    ProjectsResponse, UploadChunkResponse, UsageResponse,
 };
 use kristoff_contracts::error::ErrorDto;
 use kristoff_contracts::shapes::{CitationDto, ModelOptionDto};
@@ -52,10 +52,6 @@ type Shape = (&'static str, fn(&str));
 const SHAPES: &[Shape] = &[
     ("citation-doc.json", round_trip::<CitationDto>),
     ("citation-law.json", round_trip::<CitationDto>),
-    (
-        "desktop-session-response.json",
-        round_trip::<SessionResponse>,
-    ),
     ("desktop-config-response.json", round_trip::<ConfigResponse>),
     (
         "desktop-docs-page-response.json",
@@ -94,7 +90,7 @@ const SHAPES: &[Shape] = &[
         round_trip::<UploadChunkResponse>,
     ),
     ("desktop-error-otp-locked.json", round_trip::<ErrorDto>),
-    ("desktop-error-unauthenticated.json", round_trip::<ErrorDto>),
+    ("desktop-error-doc-not-found.json", round_trip::<ErrorDto>),
 ];
 
 #[test]

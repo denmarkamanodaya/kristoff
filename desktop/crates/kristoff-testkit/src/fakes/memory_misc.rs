@@ -1,9 +1,9 @@
-//! `ProjectStore`, `UsageMeter` and `AuthStateStore` on `MemoryStore`.
+//! `ProjectStore` and `UsageMeter` on `MemoryStore`.
 
 use super::memory_store::{MemoryStore, conflict, duplicate};
 use kristoff_core::error::{AppError, AppResult, ErrorCode};
-use kristoff_core::model::{Project, TotpState, Usage, UsageReport, Versioned};
-use kristoff_core::ports::{AuthStateStore, ProjectRename, ProjectStore, UsageMeter};
+use kristoff_core::model::{Project, Usage, UsageReport, Versioned};
+use kristoff_core::ports::{ProjectRename, ProjectStore, UsageMeter};
 
 fn not_found() -> AppError {
     AppError::new(ErrorCode::ProjectNotFound, "no such project")
@@ -102,49 +102,5 @@ impl UsageMeter for MemoryStore {
             today,
             total: state.total,
         })
-    }
-}
-
-impl AuthStateStore for MemoryStore {
-    fn get_auth_state(&self) -> AppResult<Versioned<TotpState>> {
-        let initial = Versioned {
-            value: TotpState::default(),
-            version: 0,
-        };
-        Ok(self.state().auth.unwrap_or(initial))
-    }
-
-    fn accept_step(&self, step: i64) -> AppResult<()> {
-        let mut state = self.state();
-        let current = state.auth.unwrap_or(Versioned {
-            value: TotpState::default(),
-            version: 0,
-        });
-        if current.value.last_step >= step {
-            return Err(AppError::new(ErrorCode::OtpReplayed, "code already used"));
-        }
-        let value = TotpState {
-            last_step: step,
-            fail_count: 0,
-            locked_until_ms: 0,
-        };
-        state.auth = Some(Versioned {
-            value,
-            version: current.version + 1,
-        });
-        Ok(())
-    }
-
-    fn record_failure(&self, next: &TotpState, version: i64) -> AppResult<()> {
-        let mut state = self.state();
-        let current = state.auth.map_or(0, |a| a.version);
-        if current != version {
-            return Err(conflict());
-        }
-        state.auth = Some(Versioned {
-            value: *next,
-            version: version + 1,
-        });
-        Ok(())
     }
 }

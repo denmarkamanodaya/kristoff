@@ -1,7 +1,7 @@
 //! Library commands: `list_docs`, `create_doc`, `confirm_doc`, `rename_doc`, `get_doc_link` and
 //! `delete_doc`. Uploads: `upload.rs`.
 
-use super::{CommandResult, Shared, blocking, unlocked};
+use super::{CommandResult, Shared, blocking};
 use crate::composition::Composition;
 use kristoff_contracts::envelopes::{
     DeletedResponse, DocResponse, DocUploadResponse, DocsPageResponse, LinkResponse,
@@ -17,9 +17,8 @@ use tauri::State;
 /// One page of the library.
 ///
 /// # Errors
-/// `UNAUTHENTICATED`; `VALIDATION_FAILED` for a bad cursor.
+/// `VALIDATION_FAILED` for a bad cursor.
 pub fn list(app: &Composition, cursor: Option<&str>) -> CommandResult<DocsPageResponse> {
-    unlocked(app)?;
     let page = docs::list_docs(&app.library(), requests::cursor(cursor)?)?;
     let items = page.items.iter().map(DocDto::from).collect();
     Ok(DocsPageResponse {
@@ -31,9 +30,8 @@ pub fn list(app: &Composition, cursor: Option<&str>) -> CommandResult<DocsPageRe
 /// Records a pending doc and returns where its bytes go.
 ///
 /// # Errors
-/// `UNAUTHENTICATED`; `VALIDATION_FAILED` for a bad name or size.
+/// `VALIDATION_FAILED` for a bad name or size.
 pub fn create(app: &Composition, file_name: &str, size: u64) -> CommandResult<DocUploadResponse> {
-    unlocked(app)?;
     let input = requests::create_doc(file_name, size)?;
     let created = docs::create_doc(&app.library(), &input)?;
     Ok(DocUploadResponse {
@@ -49,9 +47,8 @@ pub fn create(app: &Composition, file_name: &str, size: u64) -> CommandResult<Do
 /// [`process`] for it in the background.
 ///
 /// # Errors
-/// `UNAUTHENTICATED`, `VALIDATION_FAILED`, `DOC_NOT_FOUND`, `UPLOAD_INVALID`.
+/// `VALIDATION_FAILED`, `DOC_NOT_FOUND`, `UPLOAD_INVALID`.
 pub fn confirm(app: &Composition, doc_id: &str) -> CommandResult<DocResponse> {
-    unlocked(app)?;
     let doc = upload::confirm_doc(&app.upload(), requests::id(doc_id)?)?;
     Ok(DocResponse {
         doc: DocDto::from(&doc),
@@ -61,9 +58,8 @@ pub fn confirm(app: &Composition, doc_id: &str) -> CommandResult<DocResponse> {
 /// Renames a doc.
 ///
 /// # Errors
-/// `UNAUTHENTICATED`, `VALIDATION_FAILED`, `DOC_NOT_FOUND`.
+/// `VALIDATION_FAILED`, `DOC_NOT_FOUND`.
 pub fn rename(app: &Composition, doc_id: &str, title: &str) -> CommandResult<DocResponse> {
-    unlocked(app)?;
     let (doc_id, title) = (requests::id(doc_id)?, requests::doc_title(title)?);
     let doc = docs::rename_doc(&app.library(), doc_id, title)?;
     Ok(DocResponse {
@@ -74,9 +70,8 @@ pub fn rename(app: &Composition, doc_id: &str, title: &str) -> CommandResult<Doc
 /// The `kristoff://doc/...` link of a ready doc or part.
 ///
 /// # Errors
-/// `UNAUTHENTICATED`, `VALIDATION_FAILED`, `DOC_NOT_FOUND`.
+/// `VALIDATION_FAILED`, `DOC_NOT_FOUND`.
 pub fn link(app: &Composition, doc_id: &str, part: Option<u32>) -> CommandResult<LinkResponse> {
-    unlocked(app)?;
     let (doc_id, part) = (requests::id(doc_id)?, requests::link_part(part)?);
     let link = docs::get_doc_link(&app.library(), doc_id, part)?;
     Ok(LinkResponse {
@@ -88,9 +83,8 @@ pub fn link(app: &Composition, doc_id: &str, part: Option<u32>) -> CommandResult
 /// Deletes a doc everywhere: chats, disk, then the record.
 ///
 /// # Errors
-/// `UNAUTHENTICATED`, `VALIDATION_FAILED`, `DOC_NOT_FOUND`.
+/// `VALIDATION_FAILED`, `DOC_NOT_FOUND`.
 pub fn delete(app: &Composition, doc_id: &str) -> CommandResult<DeletedResponse> {
-    unlocked(app)?;
     docs::delete_doc(&app.library(), requests::id(doc_id)?)?;
     Ok(DeletedResponse { deleted: true })
 }

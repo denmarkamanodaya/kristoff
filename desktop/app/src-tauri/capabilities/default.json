@@ -7,7 +7,6 @@
   ],
   "permissions": [
     "core:default",
-    "allow-verify-otp",
     "allow-get-config",
     "allow-list-docs",
     "allow-create-doc",

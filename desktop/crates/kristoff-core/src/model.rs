@@ -257,14 +257,3 @@ pub struct UsageReport {
     /// All-time counters.
     pub total: Usage,
 }
-
-/// The owner's TOTP replay and lockout state.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct TotpState {
-    /// Last accepted 30 s step; 0 = none yet.
-    pub last_step: i64,
-    /// Consecutive failed codes since the last success or lock.
-    pub fail_count: u32,
-    /// Epoch ms until which every code is refused; 0 = not locked.
-    pub locked_until_ms: i64,
-}

@@ -1,7 +1,7 @@
 //! Chat commands: `list_chats`, `create_chat`, `get_chat`, `update_chat` and `delete_chat`.
 //! Asking: `ask.rs`.
 
-use super::{CommandResult, Shared, blocking, unlocked};
+use super::{CommandResult, Shared, blocking};
 use crate::composition::Composition;
 use kristoff_contracts::envelopes::{
     ChatResponse, ChatWithMessagesResponse, ChatsPageResponse, DeletedResponse,
@@ -14,9 +14,8 @@ use tauri::State;
 /// One page of chats.
 ///
 /// # Errors
-/// `UNAUTHENTICATED`; `VALIDATION_FAILED` for a bad cursor.
+/// `VALIDATION_FAILED` for a bad cursor.
 pub fn list(app: &Composition, cursor: Option<&str>) -> CommandResult<ChatsPageResponse> {
-    unlocked(app)?;
     let page = chats::list_chats(&app.chats(), requests::cursor(cursor)?)?;
     let items = page.items.iter().map(ChatSummaryDto::from).collect();
     Ok(ChatsPageResponse {
@@ -28,9 +27,8 @@ pub fn list(app: &Composition, cursor: Option<&str>) -> CommandResult<ChatsPageR
 /// Creates a chat with optional attachments.
 ///
 /// # Errors
-/// `UNAUTHENTICATED`, `VALIDATION_FAILED`, `DOC_NOT_FOUND`.
+/// `VALIDATION_FAILED`, `DOC_NOT_FOUND`.
 pub fn create(app: &Composition, doc_ids: Option<&[String]>) -> CommandResult<ChatResponse> {
-    unlocked(app)?;
     let doc_ids = requests::doc_ids(doc_ids.unwrap_or_default())?;
     let chat = chats::create_chat(&app.chats(), doc_ids)?;
     Ok(ChatResponse {
@@ -41,9 +39,8 @@ pub fn create(app: &Composition, doc_ids: Option<&[String]>) -> CommandResult<Ch
 /// A chat and its newest messages.
 ///
 /// # Errors
-/// `UNAUTHENTICATED`, `VALIDATION_FAILED`, `CHAT_NOT_FOUND`.
+/// `VALIDATION_FAILED`, `CHAT_NOT_FOUND`.
 pub fn get(app: &Composition, chat_id: &str) -> CommandResult<ChatWithMessagesResponse> {
-    unlocked(app)?;
     let found = chats::get_chat(&app.chats(), requests::id(chat_id)?)?;
     let messages = found.messages.iter().map(MessageDto::from).collect();
     Ok(ChatWithMessagesResponse {
@@ -55,13 +52,12 @@ pub fn get(app: &Composition, chat_id: &str) -> CommandResult<ChatWithMessagesRe
 /// Applies a patch `{title?, docIds?, pinned?, projectId?}`.
 ///
 /// # Errors
-/// `UNAUTHENTICATED`, `VALIDATION_FAILED`, `CHAT_NOT_FOUND`, `DOC_NOT_FOUND`, `PROJECT_NOT_FOUND`.
+/// `VALIDATION_FAILED`, `CHAT_NOT_FOUND`, `DOC_NOT_FOUND`, `PROJECT_NOT_FOUND`.
 pub fn update(
     app: &Composition,
     chat_id: &str,
     patch: serde_json::Value,
 ) -> CommandResult<ChatResponse> {
-    unlocked(app)?;
     let chat_id = requests::id(chat_id)?;
     let changes = ChatPatchRequest::parse(patch)?;
     let chat = chats::update_chat(&app.chats(), chat_id, &changes)?;
@@ -73,9 +69,8 @@ pub fn update(
 /// Deletes a chat and its messages.
 ///
 /// # Errors
-/// `UNAUTHENTICATED`, `VALIDATION_FAILED`, `CHAT_NOT_FOUND`.
+/// `VALIDATION_FAILED`, `CHAT_NOT_FOUND`.
 pub fn delete(app: &Composition, chat_id: &str) -> CommandResult<DeletedResponse> {
-    unlocked(app)?;
     chats::delete_chat(&app.chats(), requests::id(chat_id)?)?;
     Ok(DeletedResponse { deleted: true })
 }

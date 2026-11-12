@@ -21,7 +21,8 @@ Kristoff is not from the App Store, so macOS blocks the first open. You only nee
 3. Open **System Settings → Privacy & Security**. Scroll down to the Security section.
 4. Next to the message that Kristoff was blocked, click **Open Anyway**. Confirm with your password
    or Touch ID, then click **Open Anyway** again if asked.
-5. Kristoff opens. From now on it opens normally.
+5. Kristoff opens straight to its Home screen. From now on it opens normally. There is no code
+   or password to enter.
 
 If **Open Anyway** does not appear, you can do the same in Terminal instead. Paste this line and
 press Return:
@@ -32,15 +33,7 @@ xattr -dr com.apple.quarantine /Applications/Kristoff.app
 
 Then double-click Kristoff again.
 
-## 3. Unlock it with your authenticator code
-
-- Every time Kristoff starts, it asks for a 6-digit code. Use the same authenticator app entry you
-  already use for Kristoff.
-- One unlock lasts up to 12 hours, or until you quit the app.
-- After 5 wrong codes in a row, Kristoff locks for 15 minutes and shows a countdown. Wait, then
-  enter a fresh code.
-
-## 4. Your documents and chats
+## 3. Your documents and chats
 
 - Everything you upload and every chat is stored only on this Mac, in:
   `~/Library/Application Support/app.kristoff.desktop/`
@@ -49,7 +42,7 @@ Then double-click Kristoff again.
   restore, quit Kristoff and copy the folder back to the same place.
 - Deleting Kristoff from Applications does not delete that folder.
 
-## 5. Things to know
+## 4. Things to know
 
 - **"File deleted"** on a source card means the answer cited a PDF that you have since deleted
   from your Library. The quoted passage stays in the chat, but the PDF can no longer be opened.
@@ -65,11 +58,11 @@ Then double-click Kristoff again.
 Run these on a second macOS user account, in order. Each must pass.
 
 1. Install the DMG on the second account (sections 1 and 2 above, including Open Anyway).
-2. Unlock with a live authenticator code.
+2. Kristoff opens straight to Home, with no code screen.
 3. Upload a PDF; the progress bar finishes and the file shows as ready in the Library.
 4. Ask a mixed question that needs both the uploaded PDF and a statute.
 5. Open both kinds of citation: a PDF citation opens the file at the cited page, and a statute
    citation opens its official page in the browser.
 6. Dictate a question with the microphone button.
 7. Delete the file; it disappears from the Library and from the chat's attachments.
-8. Quit and reopen Kristoff; the gate asks for a code again.
+8. Quit and reopen Kristoff; it opens straight to Home and your chats and files are still there.

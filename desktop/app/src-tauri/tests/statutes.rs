@@ -21,7 +21,7 @@ fn wire<T: serde::Serialize>(value: &T) -> Value {
 
 #[test]
 fn config_offers_statutes_with_the_law_count_only_once_the_index_is_installed() {
-    let app = TestApp::unlocked();
+    let app = TestApp::new();
 
     let before = wire(&session::config(&app.core).unwrap());
     app.core
@@ -38,7 +38,7 @@ fn config_offers_statutes_with_the_law_count_only_once_the_index_is_installed() 
 
 #[test]
 fn a_chat_starts_with_statutes_on_and_update_chat_switches_them_off() {
-    let app = TestApp::unlocked();
+    let app = TestApp::new();
     let created = wire(&chats::create(&app.core, None).unwrap());
     let id = created["chat"]["id"].as_str().unwrap().to_owned();
 
@@ -80,7 +80,7 @@ fn searching_app() -> TestApp {
         events: vec![ModelEvent::Text("Sec. 5.".into())],
         end: Ok(AnswerEnd::finished(ANSWER_USAGE, "end_turn")),
     };
-    let app = TestApp::answering_turns(vec![first, second], FollowUps::default()).unlock();
+    let app = TestApp::answering_turns(vec![first, second], FollowUps::default());
     app.core
         .install_law(Box::new(MemoryLawSearch::sample()))
         .unwrap();

@@ -60,7 +60,7 @@ fn upload_pdf(app: &TestApp) -> String {
 
 #[test]
 fn uploads_confirms_lists_and_links_a_pdf() {
-    let app = TestApp::unlocked();
+    let app = TestApp::new();
 
     let id = upload_pdf(&app);
 
@@ -77,7 +77,7 @@ fn uploads_confirms_lists_and_links_a_pdf() {
 
 #[test]
 fn refuses_bad_upload_headers_and_a_json_body() {
-    let app = TestApp::unlocked();
+    let app = TestApp::new();
     let created = docs::create(&app.core, "a.pdf", 10).unwrap();
     let id = created.doc.id;
     let no_offset = RawChunk {
@@ -102,7 +102,7 @@ fn refuses_bad_upload_headers_and_a_json_body() {
 
 #[test]
 fn deleting_a_doc_removes_it_from_disk_and_from_every_chat() {
-    let app = TestApp::unlocked();
+    let app = TestApp::new();
     let id = upload_pdf(&app);
     let chat = chats::create(&app.core, Some(std::slice::from_ref(&id)))
         .unwrap()
@@ -127,7 +127,7 @@ fn deleting_a_doc_removes_it_from_disk_and_from_every_chat() {
 
 #[test]
 fn moves_a_chat_into_a_project_pins_it_and_ungroups_it_when_the_project_goes() {
-    let app = TestApp::unlocked();
+    let app = TestApp::new();
     let project = projects::create(&app.core, " Criminal Law ")
         .unwrap()
         .project;
@@ -159,7 +159,7 @@ fn moves_a_chat_into_a_project_pins_it_and_ungroups_it_when_the_project_goes() {
 
 #[test]
 fn reports_config_and_zero_usage_in_the_wire_shape() {
-    let app = TestApp::unlocked();
+    let app = TestApp::new();
 
     let config = wire(&session::config(&app.core).unwrap());
     let usage = wire(&session::usage(&app.core).unwrap());

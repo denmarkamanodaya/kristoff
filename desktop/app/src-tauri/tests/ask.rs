@@ -68,7 +68,6 @@ fn answering(events: Vec<ModelEvent>, stop: &str, follow_ups: Vec<String>) -> Te
             usage: None,
         },
     )
-    .unlock()
 }
 
 /// An app with one ready doc whose model answers "Held [1]" citing page 2 and suggests "Why?";
@@ -131,7 +130,7 @@ fn done_carries_the_stored_message_and_the_usage() {
 
 #[test]
 fn a_pre_stream_failure_rejects_the_command_with_no_events() {
-    let app = TestApp::unlocked();
+    let app = TestApp::new();
 
     let (events, result) = ask_events(&app, "0123456789abcdef", "q");
 
@@ -146,7 +145,7 @@ fn a_failure_after_the_stream_opened_is_an_error_event_last() {
         events: vec![ModelEvent::Text("Part".into())],
         end: Err(failure),
     };
-    let app = TestApp::answering(script, FollowUps::default()).unlock();
+    let app = TestApp::answering(script, FollowUps::default());
     let chat = new_chat(&app, &[]);
 
     let (events, result) = ask_events(&app, &chat, "q");

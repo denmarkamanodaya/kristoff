@@ -3,7 +3,7 @@
 //! or `error` is sent before the command returns. A cancelled ask sends nothing more; its partial
 //! answer is stored with `stopReason: "error"`.
 
-use super::{CommandResult, Shared, blocking, unlocked};
+use super::{CommandResult, Shared, blocking};
 use crate::asks::AskCancel;
 use crate::composition::Composition;
 use kristoff_contracts::ask_event::AskEvent;
@@ -64,7 +64,7 @@ impl AnswerSink for ChannelSink<'_> {
 /// Answers one question, sending its events through `emit`.
 ///
 /// # Errors
-/// Before the stream opens: `UNAUTHENTICATED`, `VALIDATION_FAILED`, `CHAT_NOT_FOUND`,
+/// Before the stream opens: `VALIDATION_FAILED`, `CHAT_NOT_FOUND`,
 /// `DAILY_CAP_REACHED`, `DOC_NOT_FOUND`. After it, failures are `error` events, not errors.
 pub fn ask_now(
     app: &Composition,
@@ -72,7 +72,6 @@ pub fn ask_now(
     question: (&str, Option<&str>),
     emit: &mut dyn FnMut(AskEvent) -> bool,
 ) -> CommandResult<()> {
-    unlocked(app)?;
     let chat_id = requests::id(chat_id)?;
     let (text, model) = requests::ask(question.0, question.1)?;
     let cancel: Arc<AskCancel> = app.asks.begin(chat_id);
@@ -112,9 +111,8 @@ pub fn ask_now(
 /// Cancels the running answer of a chat, if any.
 ///
 /// # Errors
-/// `UNAUTHENTICATED`, `VALIDATION_FAILED`.
+/// `VALIDATION_FAILED`.
 pub fn cancel(app: &Composition, chat_id: &str) -> CommandResult<()> {
-    unlocked(app)?;
     app.asks.cancel(requests::id(chat_id)?);
     Ok(())
 }

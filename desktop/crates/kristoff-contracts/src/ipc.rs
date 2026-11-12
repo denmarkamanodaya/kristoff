@@ -3,7 +3,6 @@
 
 /// Every command the web may invoke, in contract order.
 pub const COMMANDS: &[&str] = &[
-    "verify_otp",
     "get_config",
     "list_docs",
     "create_doc",

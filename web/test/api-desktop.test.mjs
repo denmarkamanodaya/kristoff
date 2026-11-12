@@ -2,7 +2,7 @@
 // the exact command name and argument object from docs/contract.md "Desktop IPC", uploads must
 // chunk at 8 MiB with the right offsets, and Channel events must map to the api.js callbacks.
 // Run: `npm test` (node --test, no dependencies).
-import { test, beforeEach, after } from 'node:test';
+import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { exportNames } from '../scripts/check.mjs';
@@ -33,15 +33,11 @@ globalThis.window = {
 const api = await import('../services/api-desktop.js');
 const session = await import('../services/session.js');
 
-const unlock = () => session.setSession({ token: 't', expiresAt: new Date(Date.now() + 3_600_000).toISOString() });
-
 beforeEach(() => {
   calls.length = 0;
   reply = () => ({});
   lastChannel = null;
-  unlock();
 });
-after(() => session.expire()); // clears the expiry timer so the process exits
 
 test('exports exactly the names services/api.js exports', () => {
   const read = (f) => exportNames(readFileSync(new URL(`../services/${f}`, import.meta.url), 'utf8'));
@@ -51,7 +47,6 @@ test('exports exactly the names services/api.js exports', () => {
 
 test('every request function sends its command name and camelCase args, null for absent optionals', async () => {
   const cases = [
-    [() => api.verifyCode('123456'), 'verify_otp', { code: '123456' }],
     [() => api.getConfig(), 'get_config', {}],
     [() => api.listDocs(), 'list_docs', { cursor: null }],
     [() => api.listDocs('c1'), 'list_docs', { cursor: 'c1' }],
@@ -84,8 +79,8 @@ test('every request function sends its command name and camelCase args, null for
 });
 
 test('resolves with the command value unchanged', async () => {
-  reply = () => ({ token: 'abc', expiresAt: '2026-11-12T00:00:00.000Z' });
-  assert.deepEqual(await api.verifyCode('123456'), { token: 'abc', expiresAt: '2026-11-12T00:00:00.000Z' });
+  reply = () => ({ items: [], nextCursor: null });
+  assert.deepEqual(await api.listDocs(), { items: [], nextCursor: null });
 });
 
 test('getConfig passes features (statutes, lawCount) through unchanged', async () => {
@@ -95,10 +90,10 @@ test('getConfig passes features (statutes, lawCount) through unchanged', async (
 });
 
 test('maps a rejected ErrorDto to ApiError with code, message and retryAfter', async () => {
-  reply = () => Promise.reject({ code: 'OTP_LOCKED', message: 'Wait', retryAfter: 30 });
-  const err = await api.verifyCode('123456').catch((e) => e);
+  reply = () => Promise.reject({ code: 'DAILY_CAP_REACHED', message: 'Wait', retryAfter: 30 });
+  const err = await api.getUsage().catch((e) => e);
   assert.ok(err instanceof api.ApiError);
-  assert.equal(err.code, 'OTP_LOCKED');
+  assert.equal(err.code, 'DAILY_CAP_REACHED');
   assert.equal(err.message, 'Wait');
   assert.equal(err.retryAfter, 30);
   assert.equal(err.requestId, null);
@@ -111,20 +106,17 @@ test('maps a string rejection (Tauri-level failure) to INTERNAL', async () => {
   assert.equal(err.message, 'command list_docs not found');
 });
 
-test('UNAUTHENTICATED from the shell clears the session', async () => {
-  reply = () => Promise.reject({ code: 'UNAUTHENTICATED', message: 'Locked', retryAfter: null });
-  const err = await api.getUsage().catch((e) => e);
-  assert.equal(err.code, 'UNAUTHENTICATED');
-  assert.equal(session.getToken(), null);
+test('there is no sign-in: requiresUnlock is false and calls need no session (D-17)', async () => {
+  session.expire();
+  await api.getUsage();
+  assert.deepEqual(calls, [{ cmd: 'get_usage', args: {} }]);
+  assert.equal(api.requiresUnlock, false);
 });
 
-test('a locked session fails UNAUTHENTICATED without calling the shell, except verify_otp', async () => {
-  session.expire();
-  const err = await api.getUsage().catch((e) => e);
-  assert.equal(err.code, 'UNAUTHENTICATED');
+test('the verifyCode parity stub rejects without calling the shell', async () => {
+  const err = await api.verifyCode('123456').catch((e) => e);
+  assert.equal(err.code, 'INTERNAL');
   assert.equal(calls.length, 0);
-  await api.verifyCode('123456');
-  assert.equal(calls[0].cmd, 'verify_otp');
 });
 
 test('uploadFile sends a 20 MiB file as 8 MiB raw chunks with doc id and offset headers', async () => {

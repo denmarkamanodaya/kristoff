@@ -6,9 +6,9 @@
 use kristoff_core::domain::model_request::FollowUps;
 use kristoff_core::model::Usage;
 use kristoff_testkit::contract::{
-    FollowUpReply, answer_model_contract, auth_state_store_contract, chat_store_contract,
-    doc_store_contract, file_store_contract, follow_up_suggester_contract, law_search_contract,
-    pdf_splitter_contract, project_store_contract, remote_files_contract, usage_meter_contract,
+    FollowUpReply, answer_model_contract, chat_store_contract, doc_store_contract,
+    file_store_contract, follow_up_suggester_contract, law_search_contract, pdf_splitter_contract,
+    project_store_contract, remote_files_contract, usage_meter_contract,
 };
 use kristoff_testkit::fakes::{
     FakeSplitter, FixedFollowUps, MemoryFiles, MemoryLawSearch, MemoryRemoteFiles, MemoryStore,
@@ -33,11 +33,6 @@ fn memory_store_keeps_the_project_store_contract() {
 #[test]
 fn memory_store_keeps_the_usage_meter_contract() {
     usage_meter_contract(MemoryStore::new);
-}
-
-#[test]
-fn memory_store_keeps_the_auth_state_store_contract() {
-    auth_state_store_contract(MemoryStore::new);
 }
 
 #[test]

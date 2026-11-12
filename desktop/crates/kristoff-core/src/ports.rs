@@ -12,7 +12,7 @@ pub use processing::{Logger, PdfSplitter, RemoteFiles};
 
 use crate::error::AppResult;
 use crate::model::{
-    Chat, Doc, DocPart, DocStatus, Message, Page, Project, TotpState, Usage, UsageReport, Versioned,
+    Chat, Doc, DocPart, DocStatus, Message, Page, Project, Usage, UsageReport, Versioned,
 };
 
 /// Reads the current time.
@@ -283,26 +283,6 @@ pub trait UsageMeter: Send + Sync {
     /// # Errors
     /// `INTERNAL` on a storage failure.
     fn read_usage(&self, day: &str) -> AppResult<UsageReport>;
-}
-
-/// Stores the TOTP replay and lockout state with conditional writes.
-pub trait AuthStateStore: Send + Sync {
-    /// The stored state; version 0 and the default state when nothing is stored.
-    ///
-    /// # Errors
-    /// `INTERNAL` on a storage failure.
-    fn get_auth_state(&self) -> AppResult<Versioned<TotpState>>;
-    /// Accepts `step`: sets `last_step`, clears failures and lock, only if the stored
-    /// `last_step` is lower.
-    ///
-    /// # Errors
-    /// `OTP_REPLAYED` when it is not (that code or a later one was already used).
-    fn accept_step(&self, step: i64) -> AppResult<()>;
-    /// Writes the state after a failure if the version is unchanged.
-    ///
-    /// # Errors
-    /// `VERSION_CONFLICT` when the version moved.
-    fn record_failure(&self, next: &TotpState, version: i64) -> AppResult<()>;
 }
 
 /// Stores PDF bytes: an upload in progress (`.partial`), the confirmed PDF and its parts.

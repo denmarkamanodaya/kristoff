@@ -8,8 +8,8 @@ use kristoff_adapters::sqlite::SqliteStore;
 use kristoff_core::ports::ProjectStore;
 use kristoff_testkit::builders::project;
 use kristoff_testkit::contract::{
-    auth_state_store_contract, chat_store_contract, doc_store_contract, file_store_contract,
-    project_store_contract, usage_meter_contract,
+    chat_store_contract, doc_store_contract, file_store_contract, project_store_contract,
+    usage_meter_contract,
 };
 
 fn memory() -> SqliteStore {
@@ -43,11 +43,6 @@ fn sqlite_keeps_the_project_store_contract() {
 #[test]
 fn sqlite_keeps_the_usage_meter_contract() {
     usage_meter_contract(memory);
-}
-
-#[test]
-fn sqlite_keeps_the_auth_state_store_contract() {
-    auth_state_store_contract(memory);
 }
 
 #[test]

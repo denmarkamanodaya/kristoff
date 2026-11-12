@@ -1,7 +1,7 @@
 //! `upload_chunk`: a raw-body invoke (decision D-8). The body is the chunk's bytes; headers
-//! `x-doc-id` and `x-offset` say where they go. Everything is checked after the gate.
+//! `x-doc-id` and `x-offset` say where they go.
 
-use super::{CommandResult, Shared, blocking, unlocked};
+use super::{CommandResult, Shared, blocking};
 use crate::composition::Composition;
 use kristoff_contracts::envelopes::UploadChunkResponse;
 use kristoff_contracts::ipc::{HEADER_DOC_ID, HEADER_OFFSET};
@@ -32,10 +32,9 @@ fn missing(what: &str) -> AppError {
 /// Writes one chunk.
 ///
 /// # Errors
-/// `UNAUTHENTICATED`; `VALIDATION_FAILED` for a missing or bad header or a JSON body;
+/// `VALIDATION_FAILED` for a missing or bad header or a JSON body;
 /// `DOC_NOT_FOUND`; `UPLOAD_INVALID` from the chunk rules.
 pub fn chunk(app: &Composition, raw: &RawChunk) -> CommandResult<UploadChunkResponse> {
-    unlocked(app)?;
     let doc_id = requests::id(
         raw.doc_id
             .as_deref()

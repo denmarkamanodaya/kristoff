@@ -106,6 +106,9 @@ const id = (s) => encodeURIComponent(s);
 const withCursor = (path, cursor) => (cursor ? `${path}?cursor=${encodeURIComponent(cursor)}` : path);
 
 /** `POST /v1/auth/verify` → `{ token, expiresAt }`. */
+/** True: the web app opens behind the TOTP gate (the desktop twin says false, D-17). */
+export const requiresUnlock = true;
+
 export const verifyCode = (code) => request('POST', '/v1/auth/verify', { body: { code }, auth: false });
 
 /** `GET /v1/config` → `{ model, models: [{ id, label }], maxAttachedDocs, dailyQuestionCap }`. */

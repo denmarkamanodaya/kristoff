@@ -6,16 +6,6 @@ use crate::shapes::{
 };
 use serde::{Deserialize, Serialize};
 
-/// `verify_otp`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct SessionResponse {
-    /// Cosmetic token (`"local"`).
-    pub token: String,
-    /// When the unlock ends (ISO instant).
-    pub expires_at: String,
-}
-
 /// `get_config`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

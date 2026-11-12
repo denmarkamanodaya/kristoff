@@ -39,8 +39,7 @@ fn desktop_dir() -> PathBuf {
 }
 
 fn open_app(dir: &Path, log: &Recorded) -> Composition {
-    use kristoff_core::domain::totp::{hotp, step_at};
-    let core = Composition::open(dir, support::TOTP, kristoff_app::ANTHROPIC_KEY).unwrap();
+    let core = Composition::open(dir, kristoff_app::ANTHROPIC_KEY).unwrap();
     let data = desktop_dir().join("data");
     let env_or = |key: &str, default: PathBuf| std::env::var_os(key).map_or(default, PathBuf::from);
     let paths = LawPaths {
@@ -52,16 +51,6 @@ fn open_app(dir: &Path, log: &Recorded) -> Composition {
         inner,
         log: log.clone(),
     }))
-    .unwrap();
-    let now = kristoff_core::ports::Clock::now_ms(&kristoff_adapters::system::SystemClock);
-    session::verify(
-        &core,
-        &hotp(
-            b"12345678901234567890",
-            u64::try_from(step_at(now)).unwrap(),
-            6,
-        ),
-    )
     .unwrap();
     core
 }
