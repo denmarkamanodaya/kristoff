@@ -40,10 +40,9 @@ rust_file_sizes() {
   return "$bad"
 }
 
-# jscpd: this repo has no copy of its own; use the one on PATH or in a sibling dk-coding repo.
+# jscpd: pinned as a web devDependency (owner approved 2026-11-12); run `npm ci` in web/ first.
 find_jscpd() {
-  command -v jscpd 2>/dev/null && return 0
-  local candidate="$HOME/Projects/dexfs/app/node_modules/.bin/jscpd"
+  local candidate="../web/node_modules/.bin/jscpd"
   [ -x "$candidate" ] && echo "$candidate"
 }
 
@@ -52,11 +51,7 @@ gate "cargo clippy" cargo clippy --workspace --all-targets -- -D warnings -W cli
 gate "rust file size" rust_file_sizes
 gate "cargo test" cargo test --workspace
 gate "cargo deny" cargo deny check licenses advisories
-if node -e "process.exit(require('../web/package.json').scripts?.check ? 0 : 1)" 2>/dev/null; then
-  gate "web check" npm --prefix ../web run -s check
-else
-  skip "web check" "web/package.json has no check script"
-fi
+gate "web check" npm --prefix ../web run -s check
 JSCPD="$(find_jscpd || true)"
 if [ -z "$JSCPD" ] || [ ! -f "$DRY_GATE" ]; then
   echo "FAIL dry-gate (rust)"
