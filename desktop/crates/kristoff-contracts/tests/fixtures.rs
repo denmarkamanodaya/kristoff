@@ -20,8 +20,8 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::path::PathBuf;
 
-/// Fixtures owned by other phases' tests.
-const FOREIGN_PREFIXES: [&str; 3] = ["anthropic-", "desktop-anthropic-", "e5-"];
+/// Fixtures owned by other phases' tests (`law-`: kristoff-law's smoke test, Phase 3).
+const FOREIGN_PREFIXES: [&str; 4] = ["anthropic-", "desktop-anthropic-", "e5-", "law-"];
 
 fn dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../contracts/fixtures")

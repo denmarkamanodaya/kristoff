@@ -1,0 +1,193 @@
+{
+ "description": "Phase 3 smoke look-ups. Pass = expected identifier + label among the top 5. taglish: pass = any accepted pair in the top 8. Built against dataset endomorphosis/ipfs_philippines_laws@66ffcff9f6fa1288ca5247d7b20141dc841beb45; labels are as stored in phlaws.db.",
+ "smoke": [
+  {
+   "query": "Article III Sec. 2 Constitution",
+   "identifier": "1987 Constitution",
+   "label": "ARTICLE III SECTION 2"
+  },
+  {
+   "query": "RA 10173 data privacy",
+   "identifier": "Republic Act No. 10173",
+   "label": "SECTION 1"
+  },
+  {
+   "query": "RA 9262 Sec. 5",
+   "identifier": "Republic Act No. 9262",
+   "label": "SEC. 5"
+  },
+  {
+   "query": "R.A. No. 9262 Section 6 penalties",
+   "identifier": "Republic Act No. 9262",
+   "label": "SEC. 6"
+  },
+  {
+   "query": "Constitution Art. III Section 1 due process",
+   "identifier": "1987 Constitution",
+   "label": "ARTICLE III SECTION 1"
+  },
+  {
+   "query": "separation of Church and State Constitution Article II Section 6",
+   "identifier": "1987 Constitution",
+   "label": "ARTICLE II SECTION 6"
+  },
+  {
+   "query": "Republic Act 10173 Sec. 3 definition of terms",
+   "identifier": "Republic Act No. 10173",
+   "label": "SEC. 3"
+  },
+  {
+   "query": "Data Privacy Act criteria for lawful processing of personal information",
+   "identifier": "Republic Act No. 10173",
+   "label": "SEC. 12"
+  },
+  {
+   "query": "RA 4136 restriction as to speed",
+   "identifier": "Republic Act No. 4136",
+   "label": "ARTICLE I SEC. 35"
+  },
+  {
+   "query": "Civil Code Article 19 abuse of rights good faith",
+   "identifier": "Republic Act No. 386",
+   "label": "ART. 19"
+  },
+  {
+   "query": "quasi-delict fault or negligence Article 2176 Civil Code",
+   "identifier": "Republic Act No. 386",
+   "label": "ART. 2176"
+  },
+  {
+   "query": "RA 10175 cybercrime offenses",
+   "identifier": "Republic Act No. 10175",
+   "label": "SEC. 4"
+  },
+  {
+   "query": "RA 9165 Sec. 5 sale of dangerous drugs",
+   "identifier": "Republic Act No. 9165",
+   "label": "ARTICLE II SEC. 5"
+  },
+  {
+   "query": "possession of dangerous drugs penalty RA 9165",
+   "identifier": "Republic Act No. 9165",
+   "label": "ARTICLE II SEC. 11"
+  },
+  {
+   "query": "RA 7610 other acts of neglect abuse or exploitation of children",
+   "identifier": "Republic Act No. 7610",
+   "label": "ARTICLE VI SEC. 10"
+  },
+  {
+   "query": "minimum age of criminal responsibility juvenile justice",
+   "identifier": "Republic Act No. 9344",
+   "label": "SEC. 6"
+  },
+  {
+   "query": "RA 7877 work education or training-related sexual harassment defined",
+   "identifier": "Republic Act No. 7877",
+   "label": "SEC. 3"
+  },
+  {
+   "query": "Anti-Graft RA 3019 Section 3 corrupt practices of public officers",
+   "identifier": "Republic Act No. 3019",
+   "label": "SEC. 3"
+  },
+  {
+   "query": "gender-based sexual harassment in streets and public spaces RA 11313",
+   "identifier": "Republic Act No. 11313",
+   "label": "ARTICLE I SEC. 4"
+  },
+  {
+   "query": "anti-bullying policies in schools RA 10627",
+   "identifier": "Republic Act No. 10627",
+   "label": "SEC. 3"
+  }
+ ],
+ "taglish": [
+  {
+   "query": "pwede bang tanggalin sa trabaho nang walang notice",
+   "note": "Labor Code is not in the dataset (Republic Acts + 1987 Constitution only); RA 6715 amends Art. 279 security of tenure",
+   "accept": [
+    {
+     "identifier": "Republic Act No. 6715",
+     "label": "Article 279"
+    }
+   ]
+  },
+  {
+   "query": "ano ang parusa sa pananakit ng asawang babae",
+   "note": "VAWC acts and penalties",
+   "accept": [
+    {
+     "identifier": "Republic Act No. 9262",
+     "label": "SEC. 5"
+    },
+    {
+     "identifier": "Republic Act No. 9262",
+     "label": "SEC. 6"
+    }
+   ]
+  },
+  {
+   "query": "pwede bang i-share ng kumpanya ang personal info ko nang walang pahintulot",
+   "note": "Data Privacy Act lawful processing / consent. SEC. 32 (Unauthorized Disclosure) and SEC. 25 (Unauthorized Processing) added 2026-11-12 after reading their text",
+   "accept": [
+    {
+     "identifier": "Republic Act No. 10173",
+     "label": "SEC. 12"
+    },
+    {
+     "identifier": "Republic Act No. 10173",
+     "label": "SEC. 13"
+    },
+    {
+     "identifier": "Republic Act No. 10173",
+     "label": "SEC. 3"
+    },
+    {
+     "identifier": "Republic Act No. 10173",
+     "label": "SEC. 16"
+    },
+    {
+     "identifier": "Republic Act No. 10173",
+     "label": "SEC. 32"
+    },
+    {
+     "identifier": "Republic Act No. 10173",
+     "label": "SEC. 25"
+    }
+   ]
+  },
+  {
+   "query": "binubully ang anak ko sa school ano ang dapat gawin ng paaralan",
+   "note": "Anti-Bullying Act school policies",
+   "accept": [
+    {
+     "identifier": "Republic Act No. 10627",
+     "label": "SEC. 3"
+    },
+    {
+     "identifier": "Republic Act No. 10627",
+     "label": "SEC. 2"
+    },
+    {
+     "identifier": "Republic Act No. 10627",
+     "label": "SEC. 4"
+    }
+   ]
+  },
+  {
+   "query": "nahuli akong nag-overspeeding sa highway ano ang penalty",
+   "note": "Land Transportation and Traffic Code speed rules. SEC. 56 (Penalty for violation) added 2026-11-12 after reading its text",
+   "accept": [
+    {
+     "identifier": "Republic Act No. 4136",
+     "label": "ARTICLE I SEC. 35"
+    },
+    {
+     "identifier": "Republic Act No. 4136",
+     "label": "ARTICLE I SEC. 56"
+    }
+   ]
+  }
+ ]
+}

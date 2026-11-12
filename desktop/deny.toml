@@ -19,6 +19,12 @@ ignore = true
 
 [advisories]
 yanked = "deny"
+# Suppression (Phase 3, 2026-11-12): `paste` is a compile-time macro crate flagged UNMAINTAINED,
+# not vulnerable. It arrives only through the owner-approved candle (gemm) and tokenizers, and no
+# release of either drops it. Remove this entry when they do.
+ignore = [
+  { id = "RUSTSEC-2024-0436", reason = "unmaintained proc-macro via candle/gemm and tokenizers; no safe upgrade" },
+]
 
 [graph]
 targets = ["aarch64-apple-darwin"]

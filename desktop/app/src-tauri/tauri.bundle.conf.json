@@ -1,0 +1,10 @@
+{
+  "bundle": {
+    "resources": {
+      "../../data/phlaws.db": "phlaws.db",
+      "../../data/model/config.json": "models/e5-small/config.json",
+      "../../data/model/tokenizer.json": "models/e5-small/tokenizer.json",
+      "../../data/model/model.safetensors": "models/e5-small/model.safetensors"
+    }
+  }
+}

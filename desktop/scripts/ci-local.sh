@@ -50,6 +50,13 @@ gate "cargo fmt" cargo fmt --all --check
 gate "cargo clippy" cargo clippy --workspace --all-targets -- -D warnings -W clippy::pedantic
 gate "rust file size" rust_file_sizes
 gate "cargo test" cargo test --workspace
+# The real law index keeps the LawSearch contract; needs the locally built db and model
+# (desktop/scripts/fetch-*.sh + kristoff-ingest), so it runs only when they exist.
+if [ -f data/phlaws.db ] && [ -f data/model/model.safetensors ]; then
+  gate "law index contract (real db)" cargo test -p kristoff-law --test law_contract -- --ignored
+else
+  skip "law index contract (real db)" "desktop/data/phlaws.db or the model is not built"
+fi
 gate "cargo deny" cargo deny check licenses advisories
 gate "web check" npm --prefix ../web run -s check
 JSCPD="$(find_jscpd || true)"

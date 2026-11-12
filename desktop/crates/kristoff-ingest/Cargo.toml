@@ -1,0 +1,23 @@
+[package]
+name = "kristoff-ingest"
+description = "Builds phlaws.db from the PH laws dataset. Developer tool; never shipped in the app."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+kristoff-core.workspace = true
+kristoff-embed.workspace = true
+kristoff-law.workspace = true
+parquet.workspace = true
+rusqlite.workspace = true
+anyhow.workspace = true
+tokenizers.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+proptest.workspace = true

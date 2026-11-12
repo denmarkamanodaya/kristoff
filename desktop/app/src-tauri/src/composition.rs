@@ -16,7 +16,7 @@ use kristoff_core::domain::parts::SplitLimits;
 use kristoff_core::error::AppResult;
 use kristoff_core::limits::MAX_HISTORY_TURNS;
 use kristoff_core::model::Doc;
-use kristoff_core::ports::{Clock, DocStore, FileStore, IdGenerator};
+use kristoff_core::ports::{Clock, DocStore, FileStore, IdGenerator, LawSearch};
 use kristoff_core::usecases::ask::{AskConfig, AskDeps};
 use kristoff_core::usecases::auth::AuthDeps;
 use kristoff_core::usecases::chats::ChatDeps;
@@ -26,6 +26,7 @@ use kristoff_core::usecases::projects::ProjectDeps;
 use kristoff_core::usecases::settings::ConfigSource;
 use kristoff_core::usecases::upload::UploadDeps;
 use std::path::Path;
+use std::sync::OnceLock;
 
 /// Everything the commands need, built once at start.
 pub struct Composition {
@@ -39,6 +40,8 @@ pub struct Composition {
     pub gate: Gate,
     /// The running asks and their cancel flags.
     pub asks: Asks,
+    /// The PH law index, set once it is opened and warmed on a background thread at start.
+    law: OnceLock<Box<dyn LawSearch>>,
 }
 
 impl Composition {
@@ -72,7 +75,24 @@ impl Composition {
             totp_secret: totp_secret.to_owned(),
             gate: Gate::locked(),
             asks: Asks::default(),
+            law: OnceLock::new(),
         })
+    }
+
+    /// Warms `law` and makes it the law index; a second install is ignored.
+    ///
+    /// # Errors
+    /// The warm-up failure; the index is then not installed.
+    pub fn install_law(&self, law: Box<dyn LawSearch>) -> AppResult<()> {
+        law.warm()?;
+        let _ = self.law.set(law);
+        Ok(())
+    }
+
+    /// The law index, once installed; `None` while it warms up or when the build has no law data.
+    #[must_use]
+    pub fn law_search(&self) -> Option<&dyn LawSearch> {
+        self.law.get().map(AsRef::as_ref)
     }
 
     /// Epoch ms now.

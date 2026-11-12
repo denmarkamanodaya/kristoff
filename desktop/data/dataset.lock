@@ -1,0 +1,4 @@
+# dataset: endomorphosis/ipfs_philippines_laws
+# revision: 66ffcff9f6fa1288ca5247d7b20141dc841beb45
+8717484e0e634b94239dea2012ffe546a5ab3f9f847796cf480bd9fc948db7bd  laws.parquet
+ab4b3ad31ff667c01e40a34b0a99501f5a404ed1fd192a3f05eab1e54463d5ea  articles.parquet

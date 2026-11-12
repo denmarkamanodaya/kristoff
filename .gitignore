@@ -13,3 +13,9 @@ backend/terraform/bootstrap/*/terraform.tfstate.backup
 desktop/target/
 desktop/app/src-tauri/gen/
 desktop/.env.local
+# Law index data (desktop/data/): the dataset, model files and phlaws.db are built locally by
+# desktop/scripts/fetch-*.sh and kristoff-ingest; only the two lock files are committed.
+!desktop/data/
+desktop/data/*
+!desktop/data/dataset.lock
+!desktop/data/model.lock

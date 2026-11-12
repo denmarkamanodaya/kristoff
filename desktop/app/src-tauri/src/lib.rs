@@ -6,6 +6,7 @@ pub mod asks;
 pub mod commands;
 pub mod composition;
 pub mod gate;
+pub mod law;
 pub mod scheme;
 
 use composition::Composition;
@@ -27,8 +28,21 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let composition = Arc::new(Composition::open(&data_dir, TOTP_SECRET, ANTHROPIC_KEY)?);
     let resume = composition.docs_to_resume()?;
     app.manage(Arc::clone(&composition));
+    let law_paths = law::LawPaths::resolve(&app.path().resource_dir()?, |k| std::env::var_os(k));
+    spawn_law_warmup(Arc::clone(&composition), law_paths);
     commands::docs::spawn_processing(composition, resume);
     Ok(())
+}
+
+/// Opens and warms the law index off the UI thread; a failure is logged and the app runs on
+/// without law search.
+fn spawn_law_warmup(composition: Arc<Composition>, paths: law::LawPaths) {
+    tauri::async_runtime::spawn_blocking(move || {
+        let installed = law::open_law_index(&paths).and_then(|l| composition.install_law(l));
+        if let Err(e) = installed {
+            composition.warn("law.unavailable", e.code.as_str());
+        }
+    });
 }
 
 /// Closing the main window cancels every running ask (their partial answers are stored).

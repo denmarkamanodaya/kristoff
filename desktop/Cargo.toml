@@ -7,6 +7,9 @@ members = [
     "crates/kristoff-testkit",
     "crates/kristoff-anthropic",
     "crates/kristoff-pdf",
+    "crates/kristoff-embed",
+    "crates/kristoff-law",
+    "crates/kristoff-ingest",
     "app/src-tauri",
 ]
 
@@ -27,6 +30,8 @@ kristoff-adapters = { path = "crates/kristoff-adapters" }
 kristoff-testkit = { path = "crates/kristoff-testkit" }
 kristoff-anthropic = { path = "crates/kristoff-anthropic" }
 kristoff-pdf = { path = "crates/kristoff-pdf" }
+kristoff-embed = { path = "crates/kristoff-embed" }
+kristoff-law = { path = "crates/kristoff-law" }
 tauri = { version = "=2.12.3", features = [] }
 tauri-build = { version = "=2.7.2", features = [] }
 rusqlite = { version = "=0.41.1", features = ["bundled"] }
@@ -41,6 +46,16 @@ proptest = "=1.12.0"
 reqwest = { version = "=0.13.5", default-features = false, features = ["rustls", "multipart"] }
 tokio = { version = "=1.53.3", features = ["rt-multi-thread", "net", "time", "sync", "macros", "io-util"] }
 lopdf = { version = "=0.47.0", default-features = false }
+# Phase 3 (owner-approved 2026-11-12; checked on crates.io that day, all >= 7 days old):
+# candle-* 0.11.1 (2026-10-31; metal for the Apple GPU), tokenizers 0.23.2 (2026-09-03; default
+# features off, onig only), parquet 60.1.0 (2026-10-28; default features off, zstd only, used by
+# the kristoff-ingest dev tool), anyhow 1.0.104 (2026-07-18; kristoff-ingest bin only).
+candle-core = { version = "=0.11.1", features = ["metal"] }
+candle-nn = { version = "=0.11.1", features = ["metal"] }
+candle-transformers = { version = "=0.11.1", features = ["metal"] }
+tokenizers = { version = "=0.23.2", default-features = false, features = ["onig"] }
+parquet = { version = "=60.1.0", default-features = false, features = ["zstd"] }
+anyhow = "=1.0.104"
 
 [workspace.lints.rust]
 missing_docs = "warn"
