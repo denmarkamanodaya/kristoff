@@ -69,6 +69,18 @@ async function call(cmd, args) {
   }
 }
 
+/**
+ * Subscribes to the shell's `law-ready` event (the law index has warmed). Without the event API
+ * (an older shell) it subscribes to nothing; the launch screen then relies on polling.
+ * @param fn - Called with no arguments.
+ * @returns An unsubscribe function.
+ */
+export const onLawReady = async (fn) => {
+  const events = globalThis.window?.__TAURI__?.event;
+  if (!events) return () => {};
+  return events.listen('law-ready', () => fn());
+};
+
 /** False: the desktop app opens straight to Home, with no sign-in (D-17). */
 export const requiresUnlock = false;
 

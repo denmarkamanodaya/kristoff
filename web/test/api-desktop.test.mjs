@@ -257,3 +257,17 @@ test('askStream with an already aborted signal never calls ask', async () => {
   assert.equal(err.name, 'AbortError');
   assert.equal(calls.length, 0);
 });
+
+test('onLawReady listens for the shell event law-ready and returns its unlisten', async () => {
+  const heard = [];
+  const unlisten = () => {};
+  window.__TAURI__.event = { listen: async (name, cb) => { heard.push(name); cb({}); return unlisten; } };
+  let fired = 0;
+
+  const got = await api.onLawReady(() => { fired += 1; });
+
+  assert.deepEqual(heard, ['law-ready']);
+  assert.equal(fired, 1);
+  assert.equal(got, unlisten);
+  delete window.__TAURI__.event;
+});

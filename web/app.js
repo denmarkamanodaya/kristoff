@@ -5,12 +5,13 @@ import * as api from './services/api.js';
 import * as auth from './services/auth.js';
 import * as prefs from './services/prefs.js';
 import { hydrateIcons } from './services/icons.js';
-import { $, $$ } from './ui/dom.js';
+import { $, $$, notify } from './ui/dom.js';
 import { state } from './ui/state.js';
 import { setRerender } from './ui/inline.js';
 import { moreDocs, moreThreads, openThread, refreshDocs, refreshProjects, refreshThreads, renderUsage } from './ui/data.js';
 import { newThread, renderAll, show } from './ui/views.js';
 import { guard, handleError } from './ui/errors.js';
+import { hideLoading, showLoading, waitForLaw } from './ui/loading.js';
 import { renderModelPicker, setDraft } from './ui/composer.js';
 import { openApp, setOnUnlock, showGate } from './ui/gate.js';
 import { closeDrawer, toggleDrawer } from './ui/drawer.js';
@@ -72,6 +73,15 @@ if (api.requiresUnlock) {
   setOnUnlock(() => (state.booted ? resync() : boot()));
   showGate();
 } else {
+  launchDesktop();
+}
+
+/** Desktop: the launch screen until the law index has warmed (or 60 s), then Home. */
+async function launchDesktop() {
+  showLoading();
+  const { timedOut } = await waitForLaw(api, { onCount: showLoading });
+  hideLoading();
   openApp();
-  boot();
+  await boot();
+  if (timedOut) notify('Statute search is still loading. Your first statute question may be slow.');
 }

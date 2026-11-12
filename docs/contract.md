@@ -280,7 +280,7 @@ badge. `doc` citations never carry a label (the web shows a doc quote unchanged 
 
 ```
 Chat        + { statutes: boolean }          (absent → true)
-Config      + { features: { statutes: boolean, lawCount?: int ≥ 0 } }   (absent → no statute search; the web build has none)
+Config      + { features: { statutes: boolean, lawCount?: int ≥ 0, lawReady: boolean } }   (absent → no statute search; the web build has none)
 ```
 - `statutes` turns statute search (the law tools) on or off for that chat's future questions. Readers treat a chat
   without the field as `true`.
@@ -289,6 +289,9 @@ Config      + { features: { statutes: boolean, lawCount?: int ≥ 0 } }   (absen
   it off on the home screen. The HTTP `PATCH /v1/chats/{id}` does not accept `statutes`; the web sends it only when
   `config.features.statutes` is true.
 - `get_config` returns `features: { statutes: true, lawCount }` on desktop. The web shows the Statutes toggle only then.
+- `lawReady` is true once the law index has warmed (vectors and model loaded), and true at once when there is no
+  index, so a client never waits forever. The shell also emits the Tauri event `law-ready` (no payload) at that
+  moment. The desktop web shows a launch screen until then (event, or `get_config` every 500 ms, at most 60 s).
 - `lawCount` is the number of laws in the bundled statute index, read from the `phlaws.db` meta table (the one
   source). The web renders "Searches {lawCount, locale-formatted} Republic Acts and the 1987 Constitution on this
   Mac" next to the toggle, and hides that note (keeping the toggle) when `lawCount` is absent.

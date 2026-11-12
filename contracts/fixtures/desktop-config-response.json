@@ -18,6 +18,7 @@
   "dailyQuestionCap": 100,
   "features": {
     "statutes": true,
-    "lawCount": 10870
+    "lawCount": 10870,
+    "lawReady": true
   }
 }

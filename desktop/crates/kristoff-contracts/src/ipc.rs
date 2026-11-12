@@ -27,6 +27,9 @@ pub const COMMANDS: &[&str] = &[
     "open_external",
 ];
 
+/// Event the shell emits once the law index has warmed (or failed to); no payload.
+pub const LAW_READY_EVENT: &str = "law-ready";
+
 /// `upload_chunk` header naming the doc.
 pub const HEADER_DOC_ID: &str = "x-doc-id";
 /// `upload_chunk` header carrying the byte offset (decimal).

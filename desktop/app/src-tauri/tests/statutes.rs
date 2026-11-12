@@ -27,10 +27,13 @@ fn config_offers_statutes_with_the_law_count_only_once_the_index_is_installed() 
     app.core.install_law(Box::new(MemoryLawSearch::sample()));
     let after = wire(&session::config(&app.core).unwrap());
 
-    assert_eq!(before["features"], json!({ "statutes": false }));
+    assert_eq!(
+        before["features"],
+        json!({ "statutes": false, "lawReady": true })
+    );
     assert_eq!(
         after["features"],
-        json!({ "statutes": true, "lawCount": 2 })
+        json!({ "statutes": true, "lawCount": 2, "lawReady": false })
     );
 }
 

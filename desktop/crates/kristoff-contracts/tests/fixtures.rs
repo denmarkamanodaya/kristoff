@@ -158,6 +158,7 @@ fn the_app_config_converts_to_the_config_fixture() {
         features: FeaturesDto {
             statutes: true,
             law_count: Some(10_870),
+            law_ready: true,
         },
     };
 

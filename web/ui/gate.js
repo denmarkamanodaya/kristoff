@@ -1,5 +1,6 @@
 // TOTP gate: a full-screen 6-digit prompt. Nothing else renders or loads until a code is
-// verified; the session token stays in memory (services/session.js).
+// verified; the session token stays in memory (services/session.js). The desktop build has no
+// #gate element (decision D-17, stripped by scripts/build.mjs), so nothing here wires up there.
 import * as auth from '../services/auth.js';
 import { $, messageFor } from './dom.js';
 
@@ -28,7 +29,7 @@ export function showGate(msg = '') {
 
 /** Hides the gate and shows the app (after an unlock, or at once on desktop, D-17). */
 export function openApp() {
-  gate.hidden = true;
+  if (gate) gate.hidden = true;
   $('#app').hidden = false;
 }
 
@@ -63,10 +64,12 @@ async function submitCode() {
 /** Sets what runs after a successful unlock (first boot or a resync). */
 export function setOnUnlock(fn) { onUnlock = fn; }
 
-otp.addEventListener('input', () => {
-  const digits = otp.value.replace(/\D/g, '').slice(0, 6);
-  if (digits !== otp.value) otp.value = digits;
-  if (digits.length === 6) submitCode();
-});
-$('#gateForm').onsubmit = (e) => { e.preventDefault(); submitCode(); };
-auth.onExpired(() => showGate('Your session ended. Enter a new code.'));
+if (gate) {
+  otp.addEventListener('input', () => {
+    const digits = otp.value.replace(/\D/g, '').slice(0, 6);
+    if (digits !== otp.value) otp.value = digits;
+    if (digits.length === 6) submitCode();
+  });
+  $('#gateForm').onsubmit = (e) => { e.preventDefault(); submitCode(); };
+  auth.onExpired(() => showGate('Your session ended. Enter a new code.'));
+}

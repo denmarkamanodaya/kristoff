@@ -106,6 +106,16 @@ const id = (s) => encodeURIComponent(s);
 const withCursor = (path, cursor) => (cursor ? `${path}?cursor=${encodeURIComponent(cursor)}` : path);
 
 /** `POST /v1/auth/verify` → `{ token, expiresAt }`. */
+/**
+ * The web build has no law index, so the law is never loading: nothing to subscribe to.
+ * @param fn - Ignored.
+ * @returns A no-op unsubscribe function.
+ */
+export const onLawReady = async (fn) => {
+  void fn;
+  return () => {};
+};
+
 /** True: the web app opens behind the TOTP gate (the desktop twin says false, D-17). */
 export const requiresUnlock = true;
 

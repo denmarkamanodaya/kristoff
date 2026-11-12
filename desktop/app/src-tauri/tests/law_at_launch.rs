@@ -10,6 +10,7 @@ mod support;
 use kristoff_app::commands::session;
 use kristoff_app::law::{LawPaths, open_and_install, open_law_index};
 use kristoff_core::domain::law::LawFilters;
+use kristoff_testkit::fakes::MemoryLawSearch;
 use serde_json::json;
 use std::path::{Path, PathBuf};
 use support::TestApp;
@@ -44,7 +45,10 @@ fn config_right_after_setup_reports_statutes_when_law_data_exists() {
 
     open_and_install(&app.core, &paths).unwrap();
 
-    assert_eq!(features(&app), json!({"statutes": true, "lawCount": 3}));
+    assert_eq!(
+        features(&app),
+        json!({"statutes": true, "lawCount": 3, "lawReady": false})
+    );
 }
 
 #[test]
@@ -55,7 +59,30 @@ fn config_reports_no_statutes_when_the_law_data_is_missing() {
     let opened = open_and_install(&app.core, &LawPaths::resolve(empty.path(), |_| None));
 
     assert!(opened.is_err());
-    assert_eq!(features(&app)["statutes"], false);
+    assert_eq!(features(&app), json!({"statutes": false, "lawReady": true}));
+}
+
+#[test]
+fn law_ready_flips_once_the_warm_up_has_run() {
+    let app = TestApp::new();
+    app.core.install_law(Box::new(MemoryLawSearch::sample()));
+    assert_eq!(features(&app)["lawReady"], false);
+
+    app.core.warm_law().unwrap();
+
+    assert_eq!(features(&app)["lawReady"], true);
+}
+
+#[test]
+fn law_ready_is_set_even_when_the_warm_up_fails() {
+    let app = TestApp::new();
+    let data = tempfile::tempdir().unwrap();
+    open_and_install(&app.core, &tiny_law_data(data.path())).unwrap();
+
+    let warmed = app.core.warm_law();
+
+    assert!(warmed.is_err(), "the dummy weights cannot load");
+    assert_eq!(features(&app)["lawReady"], true);
 }
 
 fn real_data() -> LawPaths {

@@ -21,6 +21,16 @@
   </form>
 </div>
 
+<!-- Desktop launch screen (ui/loading.js): shown until the law index has warmed. Hidden in the
+     web build; scripts/build.mjs shows it from the first paint in the desktop build. -->
+<div id="loading" class="loading" role="status" aria-live="polite" hidden>
+  <div class="loading-card">
+    <div class="mark">K</div>
+    <div class="loading-spinner" aria-hidden="true"></div>
+    <p id="loadingText" class="loading-text">Loading Philippine laws…</p>
+  </div>
+</div>
+
 <!-- App -->
 <div id="app" class="app" hidden>
   <div class="topbar">

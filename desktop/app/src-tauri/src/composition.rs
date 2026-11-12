@@ -23,6 +23,7 @@ use kristoff_core::usecases::settings::ConfigSource;
 use kristoff_core::usecases::upload::UploadDeps;
 use std::path::Path;
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Everything the commands need, built once at start.
 pub struct Composition {
@@ -33,8 +34,10 @@ pub struct Composition {
     ids: Box<dyn IdGenerator>,
     /// The running asks and their cancel flags.
     pub asks: Asks,
-    /// The PH law index, set once it is opened and warmed on a background thread at start.
+    /// The PH law index, installed at start and warmed on a background thread.
     law: OnceLock<Box<dyn LawSearch>>,
+    /// The background warm-up of `law` has finished (successfully or not).
+    law_warmed: AtomicBool,
 }
 
 impl Composition {
@@ -62,6 +65,7 @@ impl Composition {
             ids: Box::new(RandomIdGenerator::new(SystemClock)),
             asks: Asks::default(),
             law: OnceLock::new(),
+            law_warmed: AtomicBool::new(false),
         })
     }
 
@@ -69,6 +73,23 @@ impl Composition {
     /// it); a second install is ignored.
     pub fn install_law(&self, law: Box<dyn LawSearch>) {
         let _ = self.law.set(law);
+    }
+
+    /// Warms the installed law index (a no-op without one), then records that nothing is left to
+    /// load, even when the warm-up failed, so the launch screen never waits forever.
+    ///
+    /// # Errors
+    /// The warm-up failure (searches will then fail too).
+    pub fn warm_law(&self) -> AppResult<()> {
+        let warmed = self.law_search().map_or(Ok(()), LawSearch::warm);
+        self.law_warmed.store(true, Ordering::SeqCst);
+        warmed
+    }
+
+    /// Whether the background warm-up of the law index has finished.
+    #[must_use]
+    pub fn law_warmed(&self) -> bool {
+        self.law_warmed.load(Ordering::SeqCst)
     }
 
     /// The law index, once installed; `None` when the build has no law data.

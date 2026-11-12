@@ -73,15 +73,19 @@ pub struct Features {
     pub statutes: bool,
     /// Laws in the index, when it is available and says.
     pub law_count: Option<u64>,
+    /// Nothing is left to load: the index has warmed, or there is no index to wait for.
+    pub law_ready: bool,
 }
 
-/// The features given the law index (`None` while it warms up or when the build has none).
+/// The features given the law index (`None` when the build has none) and whether its warm-up has
+/// finished. With no index, `law_ready` is true at once, so a client never waits forever.
 #[must_use]
-pub fn features(law: Option<&dyn LawSearch>) -> Features {
+pub fn features(law: Option<&dyn LawSearch>, warmed: bool) -> Features {
     Features {
         statutes: law.is_some(),
         // Recovery: the count is display-only; an index that cannot read it still searches.
         law_count: law.and_then(|l| l.law_count().ok().flatten()),
+        law_ready: law.is_none() || warmed,
     }
 }
 

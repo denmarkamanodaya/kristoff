@@ -9,9 +9,9 @@ pub mod law;
 pub mod scheme;
 
 use composition::Composition;
-use kristoff_core::ports::LawSearch;
+use kristoff_contracts::ipc::LAW_READY_EVENT;
 use std::sync::Arc;
-use tauri::{Manager, WindowEvent};
+use tauri::{Emitter, Manager, WindowEvent};
 
 /// The label of the main window (tauri.conf.json); closing it cancels every running ask.
 const MAIN_WINDOW: &str = "main";
@@ -26,7 +26,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let resume = composition.docs_to_resume()?;
     app.manage(Arc::clone(&composition));
     let law_paths = law::LawPaths::resolve(&app.path().resource_dir()?, |k| std::env::var_os(k));
-    open_law(&composition, &law_paths);
+    open_law(&composition, &law_paths, app.handle().clone());
     commands::docs::spawn_processing(composition, resume);
     Ok(())
 }
@@ -34,14 +34,18 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 /// Opens the law index on the launch path (an immutable SQLite open, so `get_config` reports
 /// statutes from the first call) and warms its vectors and model off the UI thread. A missing
 /// index or a failed warm-up is logged; the app then runs without law search, or its searches fail.
-fn open_law(composition: &Arc<Composition>, paths: &law::LawPaths) {
+/// When the warm-up ends (or there is nothing to warm) it emits `law-ready`.
+fn open_law(composition: &Arc<Composition>, paths: &law::LawPaths, handle: tauri::AppHandle) {
     if let Err(e) = law::open_and_install(composition, paths) {
-        return composition.warn("law.unavailable", e.code.as_str());
+        composition.warn("law.unavailable", e.code.as_str());
     }
     let warming = Arc::clone(composition);
     tauri::async_runtime::spawn_blocking(move || {
-        if let Some(Err(e)) = warming.law_search().map(LawSearch::warm) {
+        if let Err(e) = warming.warm_law() {
             warming.warn("law.warm_failed", e.code.as_str());
+        }
+        if handle.emit(LAW_READY_EVENT, ()).is_err() {
+            warming.warn("law.ready_event", "EMIT_FAILED");
         }
     });
 }
