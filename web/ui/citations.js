@@ -7,6 +7,7 @@ import { esc, notify, pageLabel, shortTitle } from './dom.js';
 import { state } from './state.js';
 import { handleError } from './errors.js';
 import { refreshTurns } from './thread.js';
+import { STATUS_HINTS, lawStatus } from './law-status.js';
 
 /** True when the cited doc is known to be deleted (deleted here, link said so, or not in a full library). */
 export function isDeleted(docId) {
@@ -21,18 +22,6 @@ const isLaw = (c) => c.kind === 'law';
 const isCase = (c) => c.kind === 'case';
 /** The external source link of a law or case citation, only when it is an `https:` URL (else plain text). */
 const lawUrl = (c) => ((isLaw(c) || isCase(c)) && /^https:\/\//i.test(c.sourceUrl ?? '') ? c.sourceUrl : null);
-/** Hover text for status labels that need one (contract "Law status line"). */
-const STATUS_HINTS = { 'As enacted': 'Original text as first enacted; later amendments may change it.' };
-// Contract "Law status line": a law quote may start with one `[Status]` label (letters, spaces,
-// hyphens, at most 40 chars) when the provision is not in force as written, e.g. `[Repealed] …`.
-const STATUS_LINE = /^\s*\[([A-Za-z][A-Za-z -]{0,39})\]\s*/;
-
-/** Splits a law quote into its status label (or null) and the quote text without it. */
-export function lawStatus(c) {
-  const quote = String(c.quote ?? '');
-  const m = isLaw(c) ? STATUS_LINE.exec(quote) : null;
-  return m ? { status: m[1].trim(), quote: quote.slice(m[0].length) } : { status: null, quote };
-}
 /** The quote as shown: law quotes lose their status line, doc quotes are unchanged. */
 const shownQuote = (c) => lawStatus(c).quote.trim();
 
