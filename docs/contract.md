@@ -249,3 +249,67 @@ Key `OWNER#<uid>` / `PROJECT#<id>`. Lambdas `projects-list|create|rename|delete`
   `"<title> (pp. a–b)"`; citation pages are mapped back to original page numbers (`startPage + page − 1`).
 - `GET /v1/docs/{id}/link?part=n` (optional) links a part; the web opens the original-page link via the part that
   holds that page.
+
+## Desktop (2026-11-12, Kristoff Desktop Phase 1 §6)
+
+Plan: `docs/desktop/plan.md`, `docs/desktop/phases/` (decisions D-8, D-9, D-10).
+
+### Citation: `kind` and `sourceUrl` (additive)
+
+```
+Citation    + { kind: "doc"|"law", sourceUrl: string | null }
+```
+- `kind: "doc"` cites an attached PDF (every field as before). `kind: "law"` cites a statute section
+  (Phase 4): `docId`, `page` and `endPage` are `null`, `docTitle` is the section title (e.g. "RA 9262 · Sec. 5"),
+  `quote` is the cited text, and `sourceUrl` is an `https:` link to the official source.
+- Writers always send both fields (`kind: "doc"`, `sourceUrl: null` for doc citations). Readers treat a citation
+  stored before this change, with neither field, as `kind: "doc"`, `sourceUrl: null`.
+- The web opens `sourceUrl` with `window.open`; the desktop app opens it through `open_external`, which accepts only
+  `https:` URLs on allowlisted hosts. The web renders a law citation whose `sourceUrl` is not `https:` as plain text.
+
+### Desktop IPC
+
+The desktop app has no HTTP API: `web/services/api-desktop.js` (served as `services/api.js` in `web/dist-desktop/`)
+calls Tauri commands with `window.__TAURI__.core.invoke`. Until the AWS stack is retired, the HTTP routes above
+remain the source for every request and response shape; each command returns exactly the 200 body of the route
+it replaces.
+
+- Arguments are camelCase. Absent optionals are `null`, never omitted.
+- A failed command rejects with `ErrorDto { code, message, retryAfter: int | null, requestId?: string }`, using the
+  codes in "Error envelope and codes". The web maps it to `ApiError` (`retryAfter` in seconds) and, for
+  `UNAUTHENTICATED`, clears the session. A non-object rejection (a Tauri failure such as an unknown command) maps
+  to `INTERNAL`.
+- Every command except `verify_otp` and `open_external` requires an unlocked gate (`UNAUTHENTICATED` otherwise).
+
+| Command | Request | Response | Errors (besides `UNAUTHENTICATED`, `INTERNAL`) | Replaces |
+|---|---|---|---|---|
+| `verify_otp` | `{ code }` | `{ token, expiresAt }` | `VALIDATION_FAILED`, `OTP_INVALID`, `OTP_REPLAYED`, `OTP_LOCKED` | `POST /v1/auth/verify` |
+| `get_config` | `{}` | `{ model, models, maxAttachedDocs, dailyQuestionCap }` | — | `GET /v1/config` |
+| `list_docs` | `{ cursor: string \| null }` | `{ items: Doc[], nextCursor }` | `VALIDATION_FAILED` | `GET /v1/docs` |
+| `create_doc` | `{ fileName, size }` | `{ doc, uploadUrl: "kristoff-upload://<docId>", uploadHeaders }` | `VALIDATION_FAILED` | `POST /v1/docs` |
+| `upload_chunk` | raw body: one `ArrayBuffer` (≤ 8 MiB); headers `x-doc-id: <docId>`, `x-offset: <byte offset, decimal>` | `{ written }` | `VALIDATION_FAILED`, `DOC_NOT_FOUND`, `UPLOAD_INVALID` | the S3 PUT |
+| `confirm_doc` | `{ docId }` | `{ doc }` | `DOC_NOT_FOUND`, `UPLOAD_INVALID` | `POST /v1/docs/{id}/confirm` |
+| `rename_doc` | `{ docId, title }` | `{ doc }` | `VALIDATION_FAILED`, `DOC_NOT_FOUND` | `PATCH /v1/docs/{id}` |
+| `get_doc_link` | `{ docId, part: int \| null }` | `{ url: "kristoff://doc/<id>[/part-<n>]", expiresAt }` | `DOC_NOT_FOUND` | `GET /v1/docs/{id}/link` |
+| `open_doc` | `{ docId, part: int \| null, page: int \| null }` (`page` is 1-based inside that file or part) | `null`; the shell opens its PDF viewer window at that page (D-12: WKWebView refuses `window.open`) | `DOC_NOT_FOUND` | (web: `window.open` + `get_doc_link`) |
+| `delete_doc` | `{ docId }` | `{ deleted: true }` | `DOC_NOT_FOUND` | `DELETE /v1/docs/{id}` |
+| `list_projects` | `{}` | `{ items: Project[] }` | — | `GET /v1/projects` |
+| `create_project` | `{ name }` | `{ project }` | `VALIDATION_FAILED` | `POST /v1/projects` |
+| `rename_project` | `{ projectId, name }` | `{ project }` | `VALIDATION_FAILED`, `PROJECT_NOT_FOUND` | `PATCH /v1/projects/{id}` |
+| `delete_project` | `{ projectId }` | `{ deleted: true }` | `PROJECT_NOT_FOUND` | `DELETE /v1/projects/{id}` |
+| `list_chats` | `{ cursor: string \| null }` | `{ items: ChatSummary[], nextCursor }` | `VALIDATION_FAILED` | `GET /v1/chats` |
+| `create_chat` | `{ docIds }` | `{ chat }` | `VALIDATION_FAILED`, `DOC_NOT_FOUND` | `POST /v1/chats` |
+| `get_chat` | `{ chatId }` | `{ chat, messages }` | `CHAT_NOT_FOUND` | `GET /v1/chats/{id}` |
+| `update_chat` | `{ chatId, patch: { title?, docIds?, pinned?, projectId? } }` | `{ chat }` | `VALIDATION_FAILED`, `CHAT_NOT_FOUND`, `DOC_NOT_FOUND`, `PROJECT_NOT_FOUND` | `PATCH /v1/chats/{id}` |
+| `delete_chat` | `{ chatId }` | `{ deleted: true }` | `CHAT_NOT_FOUND` | `DELETE /v1/chats/{id}` |
+| `get_usage` | `{}` | `{ today: Usage, total: Usage }` | — | `GET /v1/usage` |
+| `ask` | `{ chatId, text, model: string \| null, onEvent: Channel<AskEvent> }` | `null`, after the last event is sent | pre-stream: `VALIDATION_FAILED`, `CHAT_NOT_FOUND`, `DOC_NOT_FOUND`, `DAILY_CAP_REACHED`, `AI_DISABLED` | `POST {STREAM_URL}/v1/chats/{id}/ask` |
+| `cancel_ask` | `{ chatId }` | `null` | — | (client abort) |
+| `open_external` | `{ url }` | `null` | `VALIDATION_FAILED` (not `https:` or host not allowlisted) | (`window.open`) |
+
+`AskEvent` is `{ event, data }`, where `event` and `data` are exactly the SSE event name and its JSON data from
+"Stream": `text { text }`, `citation Citation`, `followups { followUps }`, `done { message, usage }`,
+`error { error: { code, message, requestId } }`. `done` or `error` is the last event. `model: null` means the
+default model. Channel messages are not ordered against the command's reply, so the web waits 2 s after `ask`
+resolves for a final event before it reports `UPSTREAM_UNAVAILABLE`. On `cancel_ask` the shell stops the stream and
+stores the partial answer with `stopReason: "error"`; it sends no further events.

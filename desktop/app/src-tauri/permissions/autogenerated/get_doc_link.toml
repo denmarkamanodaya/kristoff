@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-get-doc-link"
+description = "Enables the get_doc_link command without any pre-configured scope."
+commands.allow = ["get_doc_link"]
+
+[[permission]]
+identifier = "deny-get-doc-link"
+description = "Denies the get_doc_link command without any pre-configured scope."
+commands.deny = ["get_doc_link"]

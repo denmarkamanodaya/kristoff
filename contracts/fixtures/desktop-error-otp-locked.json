@@ -1,0 +1,6 @@
+{
+  "code": "OTP_LOCKED",
+  "message": "too many wrong codes; wait",
+  "retryAfter": 900,
+  "requestId": "01KA3M8Q4R0000000000000009"
+}

@@ -1,0 +1,14 @@
+{
+  "today": {
+    "input": 1200,
+    "output": 340,
+    "cacheRead": 800,
+    "cacheWrite": 0
+  },
+  "total": {
+    "input": 56000,
+    "output": 12000,
+    "cacheRead": 30000,
+    "cacheWrite": 4000
+  }
+}

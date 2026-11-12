@@ -161,6 +161,40 @@ export const deleteChat = (chatId) => request('DELETE', `/v1/chats/${id(chatId)}
 export const getUsage = () => request('GET', '/v1/usage');
 
 /**
+ * Opens an external source link (a law citation's `sourceUrl`) in a new tab. No network call;
+ * it lives here because api.js is the one module the desktop build swaps (api-desktop.js).
+ * @param url - An `https:` URL.
+ * @returns Promise that resolves once the tab is requested.
+ */
+export const openExternal = async (url) => {
+  window.open(url, '_blank', 'noopener');
+};
+
+/**
+ * Opens a document page in a new tab (D-12). The tab opens synchronously, before the first await,
+ * so call this directly from the click handler and popup blockers allow it; the tab then gets the
+ * short-lived presigned URL once `getDocLink` returns.
+ * @param docId - Doc id.
+ * @param part - Part number for split docs, or null for the whole file.
+ * @param page - Page inside that file (1-based), or null for the first page.
+ * @returns Promise that resolves once the tab is pointed at the document.
+ * @throws ApiError `POPUP_BLOCKED` (client-only) when the browser refused the tab, or the
+ *   `getDocLink` error (e.g. `DOC_NOT_FOUND`) after closing the tab.
+ */
+export async function openDoc(docId, part = null, page = null) {
+  const w = window.open('', '_blank');
+  if (w) { w.opener = null; w.document.title = 'Opening…'; w.document.body.textContent = 'Opening document…'; }
+  try {
+    const { url } = await getDocLink(docId, part);
+    if (!w) throw new ApiError('POPUP_BLOCKED', 'The browser blocked the new tab.');
+    w.location.href = page ? `${url}#page=${page}` : url;
+  } catch (err) {
+    w?.close();
+    throw err;
+  }
+}
+
+/**
  * PUTs a file to the presigned `uploadUrl` from `createDoc`. Uses XMLHttpRequest because fetch
  * has no upload progress events.
  * @param uploadUrl - Presigned S3 PUT URL.

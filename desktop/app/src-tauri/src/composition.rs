@@ -1,0 +1,156 @@
+//! The composition root: builds every adapter once, binds them to the use cases' deps, and holds
+//! the gate. The only place that reads configuration (`kristoff_contracts::config`) and the baked
+//! secret.
+
+use crate::gate::Gate;
+use kristoff_adapters::disk_file_store::DiskFileStore;
+use kristoff_adapters::pass_through_processor::PassThroughDocProcessor;
+use kristoff_adapters::sqlite::SqliteStore;
+use kristoff_adapters::system::{RandomIdGenerator, SystemClock};
+use kristoff_contracts::config::{
+    DAILY_QUESTION_CAP, MAX_ATTACHED_DOCS, MODEL_IDS, MODEL_LABELS, UNLOCK_TTL_SECONDS,
+};
+use kristoff_core::error::AppResult;
+use kristoff_core::ports::{Clock, DocStore, FileStore, IdGenerator};
+use kristoff_core::usecases::auth::AuthDeps;
+use kristoff_core::usecases::chats::ChatDeps;
+use kristoff_core::usecases::docs::LibraryDeps;
+use kristoff_core::usecases::projects::ProjectDeps;
+use kristoff_core::usecases::settings::ConfigSource;
+use kristoff_core::usecases::upload::UploadDeps;
+use std::path::Path;
+
+/// Everything the commands need, built once at start.
+pub struct Composition {
+    store: SqliteStore,
+    files: DiskFileStore,
+    processor: PassThroughDocProcessor,
+    clock: Box<dyn Clock>,
+    ids: Box<dyn IdGenerator>,
+    totp_secret: String,
+    /// The TOTP gate.
+    pub gate: Gate,
+}
+
+impl Composition {
+    /// Opens the app data under `data_dir` (`kristoff.db`, `docs/`) with the system clock.
+    ///
+    /// # Errors
+    /// `INTERNAL` when the database or the docs folder cannot be opened.
+    pub fn open(data_dir: &Path, totp_secret: &str) -> AppResult<Self> {
+        Self::with_clock(data_dir, totp_secret, Box::new(SystemClock))
+    }
+
+    /// The same with an injected clock (tests).
+    ///
+    /// # Errors
+    /// `INTERNAL` when the database or the docs folder cannot be opened.
+    pub fn with_clock(
+        data_dir: &Path,
+        totp_secret: &str,
+        clock: Box<dyn Clock>,
+    ) -> AppResult<Self> {
+        let files = DiskFileStore::open(&data_dir.join("docs"))?;
+        Ok(Self {
+            store: SqliteStore::open(&data_dir.join("kristoff.db"))?,
+            files,
+            processor: PassThroughDocProcessor,
+            clock,
+            ids: Box::new(RandomIdGenerator::new(SystemClock)),
+            totp_secret: totp_secret.to_owned(),
+            gate: Gate::locked(),
+        })
+    }
+
+    /// Epoch ms now.
+    #[must_use]
+    pub fn now_ms(&self) -> i64 {
+        self.clock.now_ms()
+    }
+
+    /// A fresh local id for a failed command.
+    #[must_use]
+    pub fn request_id(&self) -> String {
+        self.ids.new_ulid()
+    }
+
+    /// The doc and file stores the viewer reads.
+    #[must_use]
+    pub fn viewer(&self) -> (&dyn DocStore, &dyn FileStore) {
+        (&self.store, &self.files)
+    }
+
+    /// The verify-otp deps.
+    #[must_use]
+    pub fn auth(&self) -> AuthDeps<'_> {
+        AuthDeps {
+            auth: &self.store,
+            clock: self.clock.as_ref(),
+            totp_secret: &self.totp_secret,
+            unlock_ttl_seconds: UNLOCK_TTL_SECONDS,
+        }
+    }
+
+    /// The library deps.
+    #[must_use]
+    pub fn library(&self) -> LibraryDeps<'_> {
+        LibraryDeps {
+            docs: &self.store,
+            chats: &self.store,
+            files: &self.files,
+            clock: self.clock.as_ref(),
+            ids: self.ids.as_ref(),
+        }
+    }
+
+    /// The upload deps.
+    #[must_use]
+    pub fn upload(&self) -> UploadDeps<'_> {
+        UploadDeps {
+            docs: &self.store,
+            files: &self.files,
+            processor: &self.processor,
+        }
+    }
+
+    /// The chat deps.
+    #[must_use]
+    pub fn chats(&self) -> ChatDeps<'_> {
+        ChatDeps {
+            chats: &self.store,
+            docs: &self.store,
+            projects: &self.store,
+            clock: self.clock.as_ref(),
+            ids: self.ids.as_ref(),
+            max_attached_docs: MAX_ATTACHED_DOCS,
+        }
+    }
+
+    /// The project deps.
+    #[must_use]
+    pub fn projects(&self) -> ProjectDeps<'_> {
+        ProjectDeps {
+            projects: &self.store,
+            chats: &self.store,
+            clock: self.clock.as_ref(),
+            ids: self.ids.as_ref(),
+        }
+    }
+
+    /// The usage meter and clock.
+    #[must_use]
+    pub fn usage(&self) -> (&SqliteStore, &dyn Clock) {
+        (&self.store, self.clock.as_ref())
+    }
+
+    /// The client configuration source.
+    #[must_use]
+    pub fn config(&self) -> ConfigSource<'static> {
+        ConfigSource {
+            model_ids: &MODEL_IDS,
+            labels: &MODEL_LABELS,
+            max_attached_docs: MAX_ATTACHED_DOCS,
+            daily_question_cap: DAILY_QUESTION_CAP,
+        }
+    }
+}

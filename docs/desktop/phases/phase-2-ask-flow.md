@@ -23,7 +23,7 @@ and usage. This matches the web app's behaviour.
   - If S4 was "no": skip this adapter. `AnthropicModel` sends base64 sources read from disk, with
     the same `cache_control`.
 - **`AnthropicModel`**: `POST /v1/messages` with `stream: true`.
-  - Headers: `x-api-key` from the compile-time env, `anthropic-version`, and the Files beta header.
+  - Headers: `x-api-key` from the compile-time env and `anthropic-version: 2026-10-21`. No beta header: the Files API is GA (D-11).
     Verify each header value against the current docs while building.
   - Timeouts: connect 10 s, whole request 120 s (as `ANTHROPIC_TIMEOUT_MS`), one retry on
     408/429/5xx before the stream opens. Honour `retry-after`.

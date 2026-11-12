@@ -8,3 +8,8 @@ data/
 # The bootstrap root uses LOCAL state (owner-applied). Back it up outside git; see backend/terraform/README.md.
 backend/terraform/bootstrap/*/terraform.tfstate
 backend/terraform/bootstrap/*/terraform.tfstate.backup
+# Kristoff Desktop (desktop/): build output, Tauri-generated schemas, and the local dev secrets
+# (fake key + RFC 6238 test secret; release builds take the real values from the env).
+desktop/target/
+desktop/app/src-tauri/gen/
+desktop/.env.local

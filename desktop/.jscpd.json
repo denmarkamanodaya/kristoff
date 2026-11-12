@@ -1,0 +1,8 @@
+{
+  "minTokens": 35,
+  "minLines": 3,
+  "format": ["rust"],
+  "path": ["crates", "app/src-tauri/src"],
+  "ignore": ["**/tests/**", "**/target/**", "crates/kristoff-testkit/**"],
+  "exitCode": 1
+}

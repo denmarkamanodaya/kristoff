@@ -1,0 +1,45 @@
+{
+  "items": [
+    {
+      "id": "01a1cd44ca800003",
+      "title": "Torts reviewer",
+      "size": 1048576,
+      "status": "pending",
+      "createdAt": "2026-11-12T01:10:00.000Z",
+      "pageCount": null,
+      "parts": []
+    },
+    {
+      "id": "01a1cd44ca800002",
+      "title": "Civil Code annotated",
+      "size": 125829120,
+      "status": "ready",
+      "createdAt": "2026-11-12T01:05:00.000Z",
+      "pageCount": 150,
+      "parts": [
+        {
+          "n": 1,
+          "startPage": 1,
+          "endPage": 100,
+          "size": 83886080
+        },
+        {
+          "n": 2,
+          "startPage": 101,
+          "endPage": 150,
+          "size": 41943040
+        }
+      ]
+    },
+    {
+      "id": "01a1cd44ca800001",
+      "title": "People v. Cruz",
+      "size": 5242880,
+      "status": "ready",
+      "createdAt": "2026-11-12T01:00:00.000Z",
+      "pageCount": null,
+      "parts": []
+    }
+  ],
+  "nextCursor": "MHwwMWExY2Q0NGNhODAwMDAx"
+}

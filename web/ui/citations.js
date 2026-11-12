@@ -1,5 +1,5 @@
 // Citations: grouping into sources (one per doc + page), inline chips in the rendered answer,
-// source cards, and opening a cited PDF page (via the part that holds it for split docs).
+// source cards (doc and law), and opening a cited PDF page (via the part that holds it for split docs) or a law source.
 // Contract: docs/contract.md (Citation; "v2" large PDFs, file delete).
 import * as api from '../services/api.js';
 import { icon } from '../services/icons.js';
@@ -14,6 +14,11 @@ export function isDeleted(docId) {
   if (state.deletedDocs.has(docId)) return true;
   return state.docsLoaded && !state.docsCursor && !state.docs.some((d) => d.id === docId);
 }
+
+/** True for a statute citation (`kind:"law"`); a citation without `kind` is a doc citation. */
+const isLaw = (c) => c.kind === 'law';
+/** The law source link, only when it is an `https:` URL (anything else renders as plain text). */
+const lawUrl = (c) => (isLaw(c) && /^https:\/\//i.test(c.sourceUrl ?? '') ? c.sourceUrl : null);
 
 const keyOf = (c) => `${c.docId || c.docTitle}|${c.page ?? ''}`;
 
@@ -34,6 +39,7 @@ function chipHtml(cs) {
     return `<span class="cite-chip deleted" aria-disabled="true" title="${esc(first.docTitle)}">file deleted${more}</span>`;
   }
   const label = `${esc(shortTitle(first.docTitle))}${first.page ? ` · ${esc(pageLabel(first.page, first.endPage))}` : ''}`;
+  if (lawUrl(first)) return `<button type="button" class="cite-chip law" data-src-url="${esc(lawUrl(first))}" title="${tip}">${label}${more}</button>`;
   if (!first.docId) return `<span class="cite-chip plain" title="${tip}">${label}${more}</span>`;
   return `<button type="button" class="cite-chip" data-doc="${esc(first.docId)}" data-page="${esc(first.page ?? '')}" title="${tip}">${label}${more}</button>`;
 }
@@ -54,8 +60,18 @@ export function renderAnswerHtml(text, citations = []) {
   });
 }
 
+/** Markup of a law source card: title, status badge slot (filled in Phase 4), quote, source link. */
+function lawCardHtml(s) {
+  const head = `<span class="src-title">${icon('file-text')}<span>${esc(s.docTitle)}</span></span><span class="src-badge"></span>`;
+  const quote = `<span class="src-quote">“${esc(String(s.quote).trim())}”</span>`;
+  const url = lawUrl(s);
+  if (!url) return `<li class="src-card law"><div class="src-body">${head}${quote}</div></li>`;
+  return `<li class="src-card law"><button type="button" class="src-body" data-src-url="${esc(url)}">${head}${quote}<span class="src-link">Open source ${icon('external-link')}</span></button></li>`;
+}
+
 /** Markup of one source card (button that opens the page, or a disabled "file deleted" card). */
 export function sourceCardHtml(s) {
+  if (isLaw(s)) return lawCardHtml(s);
   const where = pageLabel(s.page, s.endPage);
   const deleted = s.docId && isDeleted(s.docId);
   const head = `<span class="src-title">${icon('file-text')}<span>${esc(s.docTitle)}</span></span>${where ? `<span class="src-page">${esc(where)}</span>` : ''}`;
@@ -77,22 +93,17 @@ function linkTarget(docId, page) {
 }
 
 /**
- * Opens a document in a new tab. The tab opens synchronously inside the click (popup
- * blockers allow that), then gets the short-lived presigned URL once the link call returns.
+ * Opens a cited page through `api.openDoc` (D-12): a new tab on the web, the shell's viewer on
+ * desktop. Must run synchronously inside the click so the web tab opens before any await.
  * @param docId - Doc id.
  * @param page - Original page number, or null for the first page.
  */
 export async function openDoc(docId, page) {
-  const w = window.open('', '_blank');
-  if (w) { w.opener = null; w.document.title = 'Opening…'; w.document.body.textContent = 'Opening document…'; }
+  const t = linkTarget(docId, page);
   try {
-    const t = linkTarget(docId, page);
-    const { url } = await api.getDocLink(docId, t.part);
-    const target = t.page ? `${url}#page=${t.page}` : url;
-    if (w) w.location.href = target;
-    else notify('Your browser blocked the new tab. Allow pop-ups for this site, then try again.');
+    await api.openDoc(docId, t.part, t.page); // called before any await, so the web popup is allowed
   } catch (err) {
-    w?.close();
+    if (err?.code === 'POPUP_BLOCKED') { notify('Your browser blocked the new tab. Allow pop-ups for this site, then try again.'); return; }
     if (err?.code !== 'DOC_NOT_FOUND') { handleError(err); return; }
     state.deletedDocs.add(docId);
     notify('That file was deleted. Its citations now show "file deleted".');
@@ -101,6 +112,12 @@ export async function openDoc(docId, page) {
 }
 
 document.addEventListener('click', (e) => {
+  const src = e.target.closest('[data-src-url]');
+  if (src) {
+    e.preventDefault();
+    api.openExternal(src.dataset.srcUrl).catch(handleError);
+    return;
+  }
   const link = e.target.closest('[data-doc]');
   if (!link) return;
   e.preventDefault();

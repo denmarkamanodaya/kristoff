@@ -7,7 +7,8 @@
   "scripts": {
     "vendor": "node scripts/vendor.mjs vendor",
     "build": "node scripts/build.mjs",
-    "check": "node scripts/check.mjs",
+    "check": "node scripts/check.mjs && node --test test/*.test.mjs",
+    "test": "node --test test/*.test.mjs",
     "mock": "node scripts/mock-api.mjs"
   },
   "dependencies": {

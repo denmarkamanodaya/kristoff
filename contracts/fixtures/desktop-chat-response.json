@@ -1,0 +1,14 @@
+{
+  "chat": {
+    "id": "01a1cd44ca800010",
+    "title": "Was Cruz acquitted?",
+    "docIds": [
+      "01a1cd44ca800001",
+      "01a1cd44ca800002:p2"
+    ],
+    "updatedAt": "2026-11-12T02:00:00.000Z",
+    "pinned": true,
+    "projectId": "01a1cd44ca800020",
+    "createdAt": "2026-11-12T01:30:00.000Z"
+  }
+}

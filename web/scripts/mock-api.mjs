@@ -252,7 +252,7 @@ async function askRoute(req, res, chat) {
   const ev = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   const blocks = attachedBlocks(chat);
   const b0 = blocks[0] ?? null; const b1 = blocks[1] ?? b0;
-  const cite = (n, b, p, quote) => ({ n, docId: b?.doc.id ?? null, docTitle: b?.doc.title ?? 'General knowledge', page: b ? b.offset + p : null, endPage: b ? b.offset + p : null, quote });
+  const cite = (n, b, p, quote) => ({ n, docId: b?.doc.id ?? null, docTitle: b?.doc.title ?? 'General knowledge', page: b ? b.offset + p : null, endPage: b ? b.offset + p : null, quote, kind: 'doc', sourceUrl: null });
   let answer = '';
   const citations = [];
   const say = async (t) => { await sleep(150); answer += t; ev('text', { text: t }); };

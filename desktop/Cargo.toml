@@ -1,0 +1,49 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/kristoff-core",
+    "crates/kristoff-contracts",
+    "crates/kristoff-adapters",
+    "crates/kristoff-testkit",
+    "app/src-tauri",
+]
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+license = "UNLICENSED"
+publish = false
+rust-version = "1.99"
+
+# Exact versions (stack/supply-chain.md). Every external crate below is the version DexFS already
+# approved and pinned; each was at least 7 days old when DexFS checked it on 2026-10-18 (tokio
+# 2026-10-19). Re-checked for Kristoff on 2026-11-12: all are older than 7 days.
+[workspace.dependencies]
+kristoff-core = { path = "crates/kristoff-core" }
+kristoff-contracts = { path = "crates/kristoff-contracts" }
+kristoff-adapters = { path = "crates/kristoff-adapters" }
+kristoff-testkit = { path = "crates/kristoff-testkit" }
+tauri = { version = "=2.12.3", features = [] }
+tauri-build = { version = "=2.7.2", features = [] }
+rusqlite = { version = "=0.41.1", features = ["bundled"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.152"
+ring = "=0.17.14"
+tempfile = "=3.27.0"
+proptest = "=1.12.0"
+
+[workspace.lints.rust]
+missing_docs = "warn"
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+dbg_macro = "deny"
+too_many_lines = "warn"

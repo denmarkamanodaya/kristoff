@@ -1,0 +1,18 @@
+[package]
+name = "kristoff-core"
+description = "Kristoff domain, use cases and ports: pure, no IO, no clock, no env."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+ring.workspace = true
+
+[dev-dependencies]
+kristoff-testkit.workspace = true
+proptest.workspace = true
+
+[lints]
+workspace = true

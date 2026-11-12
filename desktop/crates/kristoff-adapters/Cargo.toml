@@ -1,0 +1,22 @@
+[package]
+name = "kristoff-adapters"
+description = "Kristoff driven adapters: SQLite store, disk file store, system clock, random ids."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+kristoff-core.workspace = true
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+ring.workspace = true
+
+[dev-dependencies]
+kristoff-testkit.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true

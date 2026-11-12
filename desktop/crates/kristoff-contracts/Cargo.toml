@@ -1,0 +1,16 @@
+[package]
+name = "kristoff-contracts"
+description = "Kristoff wire shapes (docs/contract.md), the error envelope and the IPC command list."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+kristoff-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

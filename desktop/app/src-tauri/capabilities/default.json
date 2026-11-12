@@ -1,0 +1,34 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Main window: core events and exactly the app's IPC commands (kristoff_contracts::ipc::COMMANDS).",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "allow-verify-otp",
+    "allow-get-config",
+    "allow-list-docs",
+    "allow-create-doc",
+    "allow-upload-chunk",
+    "allow-confirm-doc",
+    "allow-rename-doc",
+    "allow-get-doc-link",
+    "allow-delete-doc",
+    "allow-list-projects",
+    "allow-create-project",
+    "allow-rename-project",
+    "allow-delete-project",
+    "allow-list-chats",
+    "allow-create-chat",
+    "allow-get-chat",
+    "allow-update-chat",
+    "allow-delete-chat",
+    "allow-get-usage",
+    "allow-ask",
+    "allow-cancel-ask",
+    "allow-open-doc",
+    "allow-open-external"
+  ]
+}

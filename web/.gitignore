@@ -3,3 +3,4 @@ dist/
 vendor/
 config.json
 .dist-dev/
+dist-desktop/

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-confirm-doc"
+description = "Enables the confirm_doc command without any pre-configured scope."
+commands.allow = ["confirm_doc"]
+
+[[permission]]
+identifier = "deny-confirm-doc"
+description = "Denies the confirm_doc command without any pre-configured scope."
+commands.deny = ["confirm_doc"]

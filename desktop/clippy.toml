@@ -1,0 +1,9 @@
+# Size limits: stack/code-style.md.
+too-many-lines-threshold = 40
+too-many-arguments-threshold = 4
+cognitive-complexity-threshold = 10
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-print-in-tests = true
+doc-valid-idents = ["SQLite", "TOTP", "ULID", "ULIDs", "IPC", "MiB", "TypeScript", "JavaScript", "WebView", "..."]

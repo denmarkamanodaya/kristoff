@@ -1,0 +1,24 @@
+# cargo-deny: licence allow-list and advisories (stack/supply-chain.md). Same list as DexFS.
+[licenses]
+allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause", "BSD-3-Clause",
+         "ISC", "Zlib", "Unicode-3.0", "CC0-1.0", "BSL-1.0"]
+confidence-threshold = 0.9
+
+# MPL-2.0 (file-level copyleft) arrives only through Tauri itself; used unmodified. Same narrow
+# exceptions as DexFS, not a blanket allow.
+exceptions = [
+  { allow = ["MPL-2.0"], crate = "cssparser" },
+  { allow = ["MPL-2.0"], crate = "cssparser-macros" },
+  { allow = ["MPL-2.0"], crate = "selectors" },
+  { allow = ["MPL-2.0"], crate = "dtoa-short" },
+  { allow = ["MPL-2.0"], crate = "option-ext" },
+]
+
+[licenses.private]
+ignore = true
+
+[advisories]
+yanked = "deny"
+
+[graph]
+targets = ["aarch64-apple-darwin"]
