@@ -267,6 +267,32 @@ Citation    + { kind: "doc"|"law", sourceUrl: string | null }
 - The web opens `sourceUrl` with `window.open`; the desktop app opens it through `open_external`, which accepts only
   `https:` URLs on allowlisted hosts. The web renders a law citation whose `sourceUrl` is not `https:` as plain text.
 
+### Law status line (Phase 4)
+
+A `kind: "law"` citation's `quote` may begin with exactly one status label when the cited provision is not in
+force as written: `[<Status>]` followed by a space or newline, then the quote text. `<Status>` is 1..40 characters of
+letters, spaces and hyphens, starting with a letter (regex `^\s*\[([A-Za-z][A-Za-z -]{0,39})\]\s*`). The server uses
+these values: `Repealed`, `Amended`, `Partially repealed`, `Declared unconstitutional`; clients show any label that
+matches the regex. A provision in force has no label. Clients strip the label from the shown quote and show it as a
+badge. `doc` citations never carry a label (the web shows a doc quote unchanged even when it starts with `[`).
+
+### Chat: `statutes` and Config: `features` (Phase 4, desktop)
+
+```
+Chat        + { statutes: boolean }          (absent → true)
+Config      + { features: { statutes: boolean, lawCount?: int ≥ 0 } }   (absent → no statute search; the web build has none)
+```
+- `statutes` turns statute search (the law tools) on or off for that chat's future questions. Readers treat a chat
+  without the field as `true`.
+- It is set only through `update_chat {chatId, patch: {statutes}}` (desktop). `create_chat` is unchanged: the web
+  creates the chat, then sends `update_chat` with `statutes: false` before the first `ask` when the user switched
+  it off on the home screen. The HTTP `PATCH /v1/chats/{id}` does not accept `statutes`; the web sends it only when
+  `config.features.statutes` is true.
+- `get_config` returns `features: { statutes: true, lawCount }` on desktop. The web shows the Statutes toggle only then.
+- `lawCount` is the number of laws in the bundled statute index, read from the `phlaws.db` meta table (the one
+  source). The web renders "Searches {lawCount, locale-formatted} Republic Acts and the 1987 Constitution on this
+  Mac" next to the toggle, and hides that note (keeping the toggle) when `lawCount` is absent.
+
 ### Desktop IPC
 
 The desktop app has no HTTP API: `web/services/api-desktop.js` (served as `services/api.js` in `web/dist-desktop/`)
@@ -309,7 +335,14 @@ it replaces.
 
 `AskEvent` is `{ event, data }`, where `event` and `data` are exactly the SSE event name and its JSON data from
 "Stream": `text { text }`, `citation Citation`, `followups { followUps }`, `done { message, usage }`,
-`error { error: { code, message, requestId } }`. `done` or `error` is the last event. `model: null` means the
+`error { error: { code, message, requestId } }`, and (Phase 4, additive) `search { query, count }`. `done` or
+`error` is the last event.
+
+`search { query: string ≤ 500, count: int ≥ 0 }` is sent once per statute search, before the text that uses it:
+`query` is the search string the model sent, `count` the number of articles returned. It is display-only and not
+persisted on the Message. Builds without statute search never send it; clients ignore unknown events. The web's
+`askStream` takes an optional `onSearch({ query, count })` callback on both transports (the HTTP stream may carry the
+same event; the AWS backend does not send it). `model: null` means the
 default model. Channel messages are not ordered against the command's reply, so the web waits 2 s after `ask`
 resolves for a final event before it reports `UPSTREAM_UNAVAILABLE`. On `cancel_ask` the shell stops the stream and
 stores the partial answer with `stopReason: "error"`; it sends no further events.

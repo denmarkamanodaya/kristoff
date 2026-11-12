@@ -6,6 +6,8 @@
 // Large PDFs: a file over 30 MB, or whose name contains "large", turns "processing" on confirm and
 // "ready" 3 s later as a 600-page doc with 6 parts; a name containing "fail" turns "failed" instead.
 // Test hooks: POST /_revoke drops every token; GET /_last-ask returns the last ask body.
+// MOCK_STATUTES=1: config gains `features: { statutes: true, lawCount }` (desktop-style), so the composer shows the
+// Statutes toggle and PATCH accepts `statutes`. Every answer emits one `search` event and one law citation.
 // Env: WEB_PORT (5300), API_PORT (5301), DIST_DIR (dist).
 // Usage: npm run build && npm run mock   -> open http://localhost:5300
 import { createServer } from 'node:http';
@@ -45,6 +47,7 @@ const models = [
   { id: 'claude-haiku-5-5', label: 'Haiku 5.5' },
 ];
 const config = { model: models[0].id, models, maxAttachedDocs: 5, dailyQuestionCap: 50 };
+if (process.env.MOCK_STATUTES === '1') config.features = { statutes: true, lawCount: 10870 }; // sample count
 
 // ---------- helpers ----------
 const cors = {
@@ -208,13 +211,15 @@ async function projectsRoute(req, res, id) {
 // ---------- chats ----------
 async function chatPatch(req, res, chat) {
   const body = await readJson(req);
-  const fields = ['title', 'docIds', 'pinned', 'projectId'].filter((k) => body[k] !== undefined);
+  const allowed = ['title', 'docIds', 'pinned', 'projectId', ...(config.features?.statutes ? ['statutes'] : [])];
+  const fields = allowed.filter((k) => body[k] !== undefined);
   if (!fields.length) return fail(res, 400, 'VALIDATION_FAILED', 'one field required');
   if (body.docIds !== undefined) {
     const bad = checkDocIds(body.docIds);
     if (bad) return fail(res, ...bad);
   }
   if (body.pinned !== undefined && typeof body.pinned !== 'boolean') return fail(res, 400, 'VALIDATION_FAILED', 'pinned');
+  if (fields.includes('statutes') && typeof body.statutes !== 'boolean') return fail(res, 400, 'VALIDATION_FAILED', 'statutes');
   if (body.projectId !== undefined && body.projectId !== null && !db.projects.has(body.projectId)) {
     return fail(res, 404, 'PROJECT_NOT_FOUND', 'No such project');
   }
@@ -257,11 +262,16 @@ async function askRoute(req, res, chat) {
   const citations = [];
   const say = async (t) => { await sleep(150); answer += t; ev('text', { text: t }); };
   const cited = (c) => { citations.push(c); answer += ` [${c.n}]`; ev('citation', c); };
+  ev('search', { query: 'consent requisites contract void', count: 8 });
   await say('## Ruling\n\n'); await say('The Court held that the **contract is void** '); await say('for lack of consent.');
   cited(cite(1, b0, 1, 'There was no meeting of the minds between the parties.'));
   await say('\n\nThe ratio rests on Article 1318 of the Civil Code.');
   cited(cite(2, b1, 2, 'Article 1318. There is no contract unless the following requisites concur.'));
   cited(cite(3, b0, 12, 'Consent is manifested by the meeting of the offer and the acceptance.'));
+  await say('\n\nProtection orders follow the statute.');
+  cited({ n: 4, docId: null, docTitle: 'RA 9262 · Sec. 26', page: null, endPage: null, kind: 'law',
+    quote: '[Amended] Battered woman syndrome as a defense. Victim-survivors who are found by the courts to be suffering from battered woman syndrome do not incur any criminal and civil liability.',
+    sourceUrl: 'https://lawphil.net/statutes/repacts/ra2004/ra_9262_2004.html' });
   const followUps = ['What are the requisites of a valid contract?', 'How does vitiated consent differ from no consent?', 'Which later cases applied this ruling?'];
   ev('followups', { followUps });
   const usage = { input: 1200, output: 64, cacheRead: 800, cacheWrite: 0 };
@@ -283,7 +293,7 @@ async function chatsRoute(req, res, url, id, sub) {
     const { docIds = [] } = await readJson(req);
     const bad = checkDocIds(docIds);
     if (bad) return fail(res, ...bad);
-    const chat = { id: hex16(), title: 'New chat', docIds, pinned: false, projectId: null, createdAt: now(), updatedAt: now() };
+    const chat = { id: hex16(), title: 'New chat', docIds, pinned: false, projectId: null, createdAt: now(), updatedAt: now(), ...(config.features?.statutes ? { statutes: true } : {}) };
     db.chats.set(chat.id, chat); db.messages.set(chat.id, []);
     return send(res, 200, { chat });
   }

@@ -69,11 +69,19 @@ function followUpsHtml(list = []) {
   return `<h3 class="fu-label">Related</h3><ul class="fu-list">${list.map((f) => `<li><button type="button" class="fu" data-followup="${esc(f)}">${icon('corner-down-right')}<span>${esc(f)}</span>${icon('plus', 'fu-plus')}</button></li>`).join('')}</ul>`;
 }
 
+/** "Searched PH laws: “query” → 8 articles" lines from the live `search` events (not persisted). */
+function searchLineHtml(searches = []) {
+  return searches.map((s) => {
+    const n = Number(s?.count) || 0;
+    return `<p>${icon('search')}<span>Searched PH laws: “${esc(String(s?.query ?? '').slice(0, 200))}” → ${n} article${n === 1 ? '' : 's'}</span></p>`;
+  }).join('');
+}
+
 function turnEl(q) {
   const el = document.createElement('section');
   el.className = 'turn';
   el.innerHTML = `<div class="q-row"><div class="q-bubble">${esc(q.text)}</div></div>
-    <div class="turn-grid"><div class="turn-main"><div class="meta-line"></div><div class="answer"></div><div class="actions"></div><div class="followups"></div></div>
+    <div class="turn-grid"><div class="turn-main"><div class="meta-line"></div><div class="search-line"></div><div class="answer"></div><div class="actions"></div><div class="followups"></div></div>
     <aside class="turn-sources" aria-label="Sources for this answer"></aside></div>`;
   el.qText = q.text;
   return el;
@@ -85,6 +93,7 @@ function fillAnswer(el, a, final) {
   $('.meta-line', el).innerHTML = final
     ? (a.durationMs != null ? esc(finishedIn(a.durationMs)) : '')
     : '<span class="dots"><i></i><i></i><i></i></span>Reading your documents…';
+  $('.search-line', el).innerHTML = searchLineHtml(a.searches);
   $('.answer', el).innerHTML = a.text ? renderAnswerHtml(a.text, a.citations) : '';
   $('.answer', el).classList.toggle('cursor', !final);
   $('.turn-sources', el).innerHTML = sourcesPanelHtml(sources);
@@ -132,7 +141,11 @@ export async function ask(text) {
   state.busy = true;
   if (!state.chat) {
     try {
-      const { chat } = await api.createChat(state.pendingDocIds);
+      let { chat } = await api.createChat(state.pendingDocIds);
+      // Chat.statutes defaults to true; send the draft's choice only when it differs (desktop only).
+      if (state.features?.statutes && state.pendingStatutes !== (chat.statutes ?? true)) {
+        ({ chat } = await api.updateChat(chat.id, { statutes: state.pendingStatutes }));
+      }
       state.chat = { ...chat, messages: [], title: text.slice(0, 60) };
       state.pendingDocIds = []; state.threadTab = 'answer';
       show('thread');
@@ -144,7 +157,7 @@ export async function ask(text) {
   }
   const chat = state.chat;
   const q = { role: 'user', text };
-  let a = { role: 'assistant', text: '', citations: [], usage: null, followUps: [], durationMs: null };
+  let a = { role: 'assistant', text: '', citations: [], usage: null, followUps: [], durationMs: null, searches: [] };
   chat.messages.push(q);
   const el = turnEl(q);
   $('#turns').append(el);
@@ -162,8 +175,9 @@ export async function ask(text) {
       onText: (t) => { a.text += t; paint(); },
       onCitation: (c) => { a.citations.push(c); a.text += ` [${c.n}]`; paint(); },
       onFollowUps: (list) => { a.followUps = list; },
+      onSearch: (s) => { a.searches.push(s); paint(); },
     });
-    a = done.message; // the persisted message is the source of truth (same as a reload shows)
+    a = { ...done.message, searches: a.searches }; // persisted message is the source of truth; searches are live-only
   } catch (err) {
     a.text += `\n\n<span class="error">Error: ${esc(messageFor(err))}</span>`;
     if (err?.code === 'CHAT_NOT_FOUND') refreshThreads().catch(handleError);

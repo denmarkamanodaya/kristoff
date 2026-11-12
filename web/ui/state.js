@@ -9,6 +9,8 @@ export const NAME_MAX = { chat: 120, project: 80, doc: 200 };
 
 export const state = {
   model: '', models: [], maxAttachedDocs: 0,
+  features: {}, // config.features (desktop: { statutes: true }); absent on the web
+  pendingStatutes: true, // Statutes toggle for the next new thread (contract: Chat.statutes, default true)
   chats: [], chatsCursor: null, projects: [],
   docs: [], docsCursor: null, docsLoaded: false, deletedDocs: new Set(),
   chat: null, pendingDocIds: [], busy: false, view: 'home', booted: false, uploads: [],

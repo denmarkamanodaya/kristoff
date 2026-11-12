@@ -29,6 +29,6 @@ export function show(view) {
 
 /** Starts a new thread: clears the open chat and shows home. */
 export function newThread() {
-  state.chat = null; state.pendingDocIds = [];
+  state.chat = null; state.pendingDocIds = []; state.pendingStatutes = true;
   show('home');
 }

@@ -49,6 +49,7 @@ async function boot() {
   try {
     const cfg = await api.getConfig();
     state.model = cfg.model; state.models = cfg.models ?? []; state.maxAttachedDocs = cfg.maxAttachedDocs;
+    state.features = cfg.features ?? {};
     renderModelPicker();
     await Promise.all([refreshProjects(), refreshDocs(), refreshThreads(), renderUsage()]);
     state.booted = true;

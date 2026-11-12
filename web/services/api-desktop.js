@@ -198,13 +198,13 @@ const abortReason = (signal) => signal.reason ?? new DOMException('The operation
  * Same signature and callback semantics as api.js `askStream`.
  * @param chatId - Chat id.
  * @param text - Question, 1..8000 chars.
- * @param handlers - `{ model, onText(text), onCitation(citation), onFollowUps(list), signal }`; an
- *   empty `model` is sent as null so the shell uses its default.
+ * @param handlers - `{ model, onText(text), onCitation(citation), onFollowUps(list), onSearch({ query, count }),
+ *   signal }`; an empty `model` is sent as null so the shell uses its default.
  * @returns `{ message, usage }` from the `done` event.
  * @throws ApiError for a rejected command, an `error` event, or a stream that ends without `done`;
  *   the abort reason (an `AbortError`) when `signal` aborts, after `cancel_ask` is sent.
  */
-export async function askStream(chatId, text, { model, onText, onCitation, onFollowUps, signal } = {}) {
+export async function askStream(chatId, text, { model, onText, onCitation, onFollowUps, onSearch, signal } = {}) {
   requireToken();
   const { invoke, Channel } = tauri();
   if (signal?.aborted) throw abortReason(signal);
@@ -228,6 +228,7 @@ export async function askStream(chatId, text, { model, onText, onCitation, onFol
       if (event === 'text') onText?.(data?.text);
       else if (event === 'citation') onCitation?.(data);
       else if (event === 'followups') onFollowUps?.(data?.followUps ?? []);
+      else if (event === 'search') onSearch?.(data);
       else if (event === 'done') finish(resolve, data);
       else if (event === 'error') {
         const e = data?.error ?? {};

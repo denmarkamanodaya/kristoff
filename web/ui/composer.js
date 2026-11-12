@@ -1,6 +1,8 @@
 // The one composer, used on home and for follow-ups: a rounded box with the question on top and a
 // bottom row with + (upload or pick from the library) on the left and Model ▾, mic and send on the
-// right. The model choice lives in memory only (contract "Model choice").
+// right. The model choice lives in memory only (contract "Model choice"). On desktop
+// (`config.features.statutes`) a Statutes pill sits next to + and is saved per chat (contract
+// "Chat.statutes"); the web build never shows it.
 import { hydrateIcons, icon } from '../services/icons.js';
 import { $, esc, notify, pageLabel } from './dom.js';
 import { state } from './state.js';
@@ -19,7 +21,31 @@ const pop = $('.attach-pop', composer);
 const plusBtn = $('.plus-btn', composer);
 const micBtn = $('.mic-btn', composer);
 const modelSelect = $('.model-select', composer);
+const statPill = $('.stat-pill', composer);
+const statNote = $('.stat-note', composer);
 let dictation = null;
+
+/** Whether statute search is on for the open thread (absent means true), or for the next new thread. */
+export const statutesOn = () => (state.chat ? state.chat.statutes ?? true : state.pendingStatutes);
+
+/** Flips Statutes: saved on the open chat, or kept for the next new thread (sent after createChat). */
+async function toggleStatutes() {
+  const next = !statutesOn();
+  if (state.chat) await patchChat(state.chat.id, { statutes: next });
+  else { state.pendingStatutes = next; renderComposer(); }
+}
+
+const lawCountFormat = new Intl.NumberFormat();
+
+function renderStatutes() {
+  const shown = state.features?.statutes === true;
+  const n = state.features?.lawCount; // number of laws in the bundled index (contract "Config: features")
+  const hasCount = Number.isInteger(n) && n >= 0;
+  statPill.hidden = !shown;
+  statNote.hidden = !shown || !hasCount;
+  statNote.textContent = hasCount ? `Searches ${lawCountFormat.format(n)} Republic Acts and the 1987 Constitution on this Mac` : '';
+  statPill.setAttribute('aria-pressed', String(statutesOn()));
+}
 
 /** The attachment ids of the open thread, or of the next new thread. */
 export const attachIds = () => (state.chat ? state.chat.docIds : state.pendingDocIds);
@@ -90,6 +116,7 @@ export function renderComposer() {
   const ids = attachIds();
   $('.chips', composer).innerHTML = ids.map((id) => `<span class="chip" title="${esc(attachLabel(id))}">${icon('file-text')}<span>${esc(attachLabel(id))}</span><button type="button" data-rm="${esc(id)}" aria-label="Remove ${esc(attachLabel(id))}">${icon('x')}</button></span>`).join('');
   plusBtn.classList.toggle('on', ids.length > 0);
+  renderStatutes();
   if (!pop.hidden) renderPop();
   renderUploads();
   autosize();
@@ -131,6 +158,7 @@ micBtn.onclick = toggleDictation;
 // ---------- wiring ----------
 modelSelect.onchange = () => { state.model = modelSelect.value; };
 plusBtn.onclick = () => setPop(pop.hidden);
+statPill.onclick = guard(toggleStatutes);
 $('.pop-upload', composer).onclick = () => $('.fileInput', composer).click();
 pop.addEventListener('change', (e) => {
   const box = e.target.closest('[data-attach-id]');

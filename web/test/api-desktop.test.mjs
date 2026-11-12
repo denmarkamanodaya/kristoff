@@ -88,6 +88,12 @@ test('resolves with the command value unchanged', async () => {
   assert.deepEqual(await api.verifyCode('123456'), { token: 'abc', expiresAt: '2026-11-12T00:00:00.000Z' });
 });
 
+test('getConfig passes features (statutes, lawCount) through unchanged', async () => {
+  const cfg = { model: 'm', models: [], maxAttachedDocs: 5, dailyQuestionCap: 50, features: { statutes: true, lawCount: 10870 } };
+  reply = () => cfg;
+  assert.deepEqual(await api.getConfig(), cfg);
+});
+
 test('maps a rejected ErrorDto to ApiError with code, message and retryAfter', async () => {
   reply = () => Promise.reject({ code: 'OTP_LOCKED', message: 'Wait', retryAfter: 30 });
   const err = await api.verifyCode('123456').catch((e) => e);
@@ -172,17 +178,27 @@ test('askStream sends ask with a Channel and maps every event to its callback', 
     onText: (t) => seen.push(['text', t]),
     onCitation: (c) => seen.push(['citation', c]),
     onFollowUps: (l) => seen.push(['followups', l]),
+    onSearch: (s) => seen.push(['search', s]),
   });
   await Promise.resolve();
   assert.deepEqual(calls, [{ cmd: 'ask', args: { chatId: 'c1', text: 'Q?', model: 'claude-sonnet-5-5', onEvent: lastChannel } }]);
   assert.ok(lastChannel instanceof FakeChannel);
   const cite = { n: 1, docId: 'd1', docTitle: 'D', page: 2, endPage: 2, quote: 'q', kind: 'doc', sourceUrl: null };
+  lastChannel.onmessage({ event: 'search', data: { query: 'RA 9262 protection order', count: 8 } });
   lastChannel.onmessage({ event: 'text', data: { text: 'Hi' } });
   lastChannel.onmessage({ event: 'citation', data: cite });
   lastChannel.onmessage({ event: 'followups', data: { followUps: ['Why?'] } });
   lastChannel.onmessage({ event: 'done', data: { message: { id: 'm' }, usage: { input: 1 } } });
   assert.deepEqual(await p, { message: { id: 'm' }, usage: { input: 1 } });
-  assert.deepEqual(seen, [['text', 'Hi'], ['citation', cite], ['followups', ['Why?']]]);
+  assert.deepEqual(seen, [['search', { query: 'RA 9262 protection order', count: 8 }], ['text', 'Hi'], ['citation', cite], ['followups', ['Why?']]]);
+});
+
+test('askStream ignores a search event when no onSearch is given (old callers)', async () => {
+  const { p } = startAsk({});
+  await Promise.resolve();
+  lastChannel.onmessage({ event: 'search', data: { query: 'q', count: 0 } });
+  lastChannel.onmessage({ event: 'done', data: { message: { id: 'm' }, usage: {} } });
+  assert.deepEqual(await p, { message: { id: 'm' }, usage: {} });
 });
 
 test('askStream sends model null when no model is chosen', async () => {

@@ -246,12 +246,13 @@ export function parseSse(buf) {
  * Asks a question on the stream URL and dispatches SSE events as they arrive.
  * @param chatId - Chat id.
  * @param text - Question, 1..8000 chars.
- * @param handlers - `{ model, onText(text), onCitation(citation), onFollowUps(list), signal }`; `model` is an id from
- *   `config.models` (≤ 64 chars), omitted from the body when empty so the server uses its default.
+ * @param handlers - `{ model, onText(text), onCitation(citation), onFollowUps(list), onSearch({ query, count }), signal }`;
+ *   `model` is an id from `config.models` (≤ 64 chars), omitted from the body when empty so the server uses its
+ *   default. `onSearch` fires for the additive `search` event (statute search; servers without it never send one).
  * @returns `{ message, usage }` from the `done` event.
  * @throws ApiError for a pre-stream envelope, an `error` event, or a stream that ends without `done`.
  */
-export async function askStream(chatId, text, { model, onText, onCitation, onFollowUps, signal } = {}) {
+export async function askStream(chatId, text, { model, onText, onCitation, onFollowUps, onSearch, signal } = {}) {
   const { streamUrl } = await loadConfig();
   let res;
   try {
@@ -282,6 +283,7 @@ export async function askStream(chatId, text, { model, onText, onCitation, onFol
         if (event === 'text') onText?.(payload.text);
         else if (event === 'citation') onCitation?.(payload);
         else if (event === 'followups') onFollowUps?.(payload.followUps ?? []);
+        else if (event === 'search') onSearch?.(payload);
         else if (event === 'done') return payload;
         else if (event === 'error') {
           const e = payload.error ?? {};
