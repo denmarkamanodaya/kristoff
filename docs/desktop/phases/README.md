@@ -23,8 +23,8 @@ Phase 0 fills this table. If a spike says no, change the plan before Phase 1.
 | S1 | Ad-hoc signed DMG opens on a second macOS account after quarantine | – | – |
 | S2 | `webkitSpeechRecognition` works in the Tauri WKWebView | – | – |
 | S3 | A PDF opens at `#page=N` from `window.open` through the custom scheme | – | – |
-| S4 | Files API document + `citations.enabled` returns page locations | – | – |
-| S5 | `search_result` tool content streams `citations_delta` | – | – |
+| S4 | Files API document + `citations.enabled` returns page locations | **Yes** (2026-11-12) | `page_location` with correct `start_page_number` (3, 4) on a 5-page PDF. The citation also carries `file_id`; `cited_text` contains `\r\n`, so normalise it. Fixtures: `contracts/fixtures/anthropic-file-doc-*` |
+| S5 | `search_result` tool content streams `citations_delta` | **Yes** (2026-11-12) | `search_result_location` with `source`, `title` and `search_result_index`. Sonnet 5.5 called the tool unprompted with a `law_number`. Fixtures: `contracts/fixtures/anthropic-tool-*` |
 | S6 | candle e5-small matches the reference vectors (cosine ≥ 0.999) | – | – |
 
 ## Rules for every phase
@@ -54,3 +54,4 @@ Phase 0 fills this table. If a spike says no, change the plan before Phase 1.
 | D-8 | Uploads keep the web flow `createDoc → uploadFile → confirmDoc`. On desktop, `uploadFile` sends the `File` in 8 MiB chunks with raw-body `invoke`. `tauri-plugin-dialog` is dropped | `web/ui/library.js` stays unchanged, upload progress keeps working, and one dependency fewer |
 | D-9 | `getDocLink` returns `kristoff://doc/<id>[/part-<n>]`; the Rust shell handles `window.open` (spike S3) | `web/ui/citations.js` stays unchanged |
 | D-10 | `parseSse` stays web-only. `api-desktop.js` exports a no-op stub with the same name, so the export-parity check holds | Desktop streams through `Channel`, not SSE |
+| D-11 | Raw HTTP uses `anthropic-version: 2026-10-21`. The Files API is GA, so there is no beta header (this supersedes the beta header in Phase 2). Never send `temperature`/`top_p`/`top_k`. Never put `text` blocks with `citations` in a `user` turn. Send assistant `content` back unchanged in the tool loop, including any `thinking` blocks | Verified live in S4/S5 and against the Claude API skill's migration notes for 2026-10-21 |

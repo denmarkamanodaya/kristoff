@@ -1,0 +1,35 @@
+{
+ "model": "claude-sonnet-5-5",
+ "max_tokens": 1024,
+ "tools": [
+  {
+   "name": "search_ph_laws",
+   "description": "Search Philippine statutes (Republic Acts, 1987 Constitution). Returns matching articles as citable search results.",
+   "input_schema": {
+    "type": "object",
+    "properties": {
+     "query": {
+      "type": "string",
+      "maxLength": 300
+     },
+     "law_number": {
+      "type": "string",
+      "maxLength": 40
+     }
+    },
+    "required": [
+     "query"
+    ],
+    "additionalProperties": false
+   },
+   "strict": true
+  }
+ ],
+ "system": "You are a Philippine law research assistant. Use search_ph_laws for statutory questions and cite every statutory claim.",
+ "messages": [
+  {
+   "role": "user",
+   "content": "Under RA 9262, is battered woman syndrome a defense? One short paragraph."
+  }
+ ]
+}

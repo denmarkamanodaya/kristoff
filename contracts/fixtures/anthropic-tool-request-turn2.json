@@ -1,0 +1,91 @@
+{
+ "model": "claude-sonnet-5-5",
+ "max_tokens": 1024,
+ "tools": [
+  {
+   "name": "search_ph_laws",
+   "description": "Search Philippine statutes (Republic Acts, 1987 Constitution). Returns matching articles as citable search results.",
+   "input_schema": {
+    "type": "object",
+    "properties": {
+     "query": {
+      "type": "string",
+      "maxLength": 300
+     },
+     "law_number": {
+      "type": "string",
+      "maxLength": 40
+     }
+    },
+    "required": [
+     "query"
+    ],
+    "additionalProperties": false
+   },
+   "strict": true
+  }
+ ],
+ "system": "You are a Philippine law research assistant. Use search_ph_laws for statutory questions and cite every statutory claim.",
+ "messages": [
+  {
+   "role": "user",
+   "content": "Under RA 9262, is battered woman syndrome a defense? One short paragraph."
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_01XQjecWVTYPp6oVaCy1QPcS",
+     "name": "search_ph_laws",
+     "input": {
+      "query": "battered woman syndrome as a defense",
+      "law_number": "RA 9262"
+     },
+     "caller": {
+      "type": "direct"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_01XQjecWVTYPp6oVaCy1QPcS",
+     "content": [
+      {
+       "type": "search_result",
+       "source": "https://lawphil.net/statutes/repacts/ra2004/ra_9262_2004.html#sec26",
+       "title": "RA 9262 \u00b7 Sec. 26",
+       "content": [
+        {
+         "type": "text",
+         "text": "SECTION 26. Battered Woman Syndrome as a Defense. - Victim-survivors who are found by the courts to be suffering from battered woman syndrome do not incur any criminal and civil liability notwithstanding the absence of any of the elements for justifying circumstances of self-defense under the Revised Penal Code."
+        }
+       ],
+       "citations": {
+        "enabled": true
+       }
+      },
+      {
+       "type": "search_result",
+       "source": "https://lawphil.net/statutes/repacts/ra2004/ra_9262_2004.html#sec3",
+       "title": "RA 9262 \u00b7 Sec. 3(c)",
+       "content": [
+        {
+         "type": "text",
+         "text": "(c) \"Battered Woman Syndrome\" refers to a scientifically defined pattern of psychological and behavioral symptoms found in women living in battering relationships as a result of cumulative abuse."
+        }
+       ],
+       "citations": {
+        "enabled": true
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
