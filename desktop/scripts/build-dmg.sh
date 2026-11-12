@@ -90,7 +90,10 @@ verify_app() {
   local app="target/$TARGET/release/bundle/macos/Kristoff.app"
   step "codesign --verify --deep ($app)"
   codesign --verify --deep --strict "$app" || fail "the app signature does not verify"
-  codesign -dv "$app" 2>&1 | grep -q 'Signature=adhoc' || fail "the app is not ad-hoc signed"
+  # Capture first: `grep -q` exits early, codesign then gets SIGPIPE and pipefail reports a failure.
+  local sig
+  sig="$(codesign -dv "$app" 2>&1)"
+  [[ "$sig" == *"Signature=adhoc"* ]] || fail "the app is not ad-hoc signed"
   for res in phlaws.db models/e5-small/model.safetensors THIRD_PARTY_NOTICES; do
     [ -s "$app/Contents/Resources/$res" ] || fail "the app lacks the resource $res"
   done
