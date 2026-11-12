@@ -2,6 +2,7 @@
 
 mod answer;
 mod clock_ids;
+mod memory_case;
 mod memory_chats;
 mod memory_docs;
 mod memory_files;
@@ -12,6 +13,7 @@ mod processing;
 
 pub use answer::{CancelFlag, FixedFollowUps, Script, ScriptedModel};
 pub use clock_ids::{FixedClock, SequenceIds};
+pub use memory_case::{FakeDecision, MemoryCaseSearch};
 pub use memory_files::MemoryFiles;
 pub use memory_law::{FakeProvision, MemoryLawSearch};
 pub use memory_store::MemoryStore;

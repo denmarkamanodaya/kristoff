@@ -26,6 +26,7 @@ pub fn sample_request() -> ModelRequest {
             blocks: vec![doc, TurnBlock::Text("q".into())],
         }],
         statutes_on: false,
+        cases_on: false,
         tool_rounds: vec![],
         tool_choice_none: false,
     }

@@ -9,7 +9,7 @@ mod support;
 use std::ffi::OsString;
 use std::path::Path;
 
-use kristoff_app::law::{DB_ENV, LawPaths, MODEL_ENV, open_law_index};
+use kristoff_app::law::{CASES_DB_ENV, DB_ENV, LawPaths, MODEL_ENV, open_law_index};
 use kristoff_core::domain::law::LawFilters;
 use kristoff_core::error::ErrorCode;
 use kristoff_testkit::fakes::MemoryLawSearch;
@@ -20,6 +20,7 @@ fn bundled_paths_are_used_when_no_override_is_set() {
     let paths = LawPaths::resolve(Path::new("/res"), |_| None);
 
     assert_eq!(paths.db, Path::new("/res/phlaws.db"));
+    assert_eq!(paths.cases_db, Path::new("/res/phcases.db"));
     assert_eq!(paths.model_dir, Path::new("/res/models/e5-small"));
 }
 
@@ -28,6 +29,7 @@ fn env_overrides_replace_each_bundled_path() {
     let env = |k: &str| match k {
         DB_ENV => Some(OsString::from("/dev/data/phlaws.db")),
         MODEL_ENV => Some(OsString::from("/dev/data/model")),
+        CASES_DB_ENV => Some(OsString::from("/dev/data/phcases.db")),
         _ => None,
     };
 
@@ -35,6 +37,7 @@ fn env_overrides_replace_each_bundled_path() {
 
     assert_eq!(paths.db, Path::new("/dev/data/phlaws.db"));
     assert_eq!(paths.model_dir, Path::new("/dev/data/model"));
+    assert_eq!(paths.cases_db, Path::new("/dev/data/phcases.db"));
 }
 
 #[test]

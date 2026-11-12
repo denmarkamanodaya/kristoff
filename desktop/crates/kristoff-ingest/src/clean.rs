@@ -5,7 +5,7 @@ use tokenizers::NormalizedString;
 use tokenizers::normalizers::unicode::NFC;
 use tokenizers::tokenizer::Normalizer;
 
-/// Footer the scraper appended to Supreme Court E-Library pages.
+/// Footer the scraper appended to Supreme Court `E-Library` pages.
 const FOOTER_MARKERS: [&str; 2] = ["Source: Supreme Court E-Library", "Back to top"];
 
 /// How many rows each fix touched.

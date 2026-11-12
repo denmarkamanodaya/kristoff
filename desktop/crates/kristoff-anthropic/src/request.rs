@@ -6,7 +6,7 @@
 //! unchanged.
 
 use kristoff_contracts::model_config::{
-    FOLLOW_UP_MAX_TOKENS, FOLLOW_UP_MODEL, FOLLOW_UP_PROMPT, FOLLOW_UP_SCHEMA, law_tools,
+    FOLLOW_UP_MAX_TOKENS, FOLLOW_UP_MODEL, FOLLOW_UP_PROMPT, FOLLOW_UP_SCHEMA, tools_for,
 };
 use kristoff_core::domain::law::tools::NO_RESULTS_TEXT;
 use kristoff_core::domain::model_request::{
@@ -29,8 +29,8 @@ pub fn messages_body(request: &ModelRequest, system: &str) -> Value {
         "system": system,
         "messages": messages,
     });
-    if request.statutes_on {
-        body["tools"] = law_tools();
+    if request.statutes_on || request.cases_on {
+        body["tools"] = tools_for(request.statutes_on, request.cases_on);
         if request.tool_choice_none {
             body["tool_choice"] = json!({ "type": "none" });
         }
@@ -114,6 +114,9 @@ fn tool_result(answer: &ToolAnswer) -> Value {
     match &answer.content {
         ToolAnswerContent::Error(message) => {
             json!({ "type": "tool_result", "tool_use_id": id, "content": message, "is_error": true })
+        }
+        ToolAnswerContent::Nothing(text) => {
+            json!({ "type": "tool_result", "tool_use_id": id, "content": text })
         }
         ToolAnswerContent::Results(results) if results.is_empty() => {
             json!({ "type": "tool_result", "tool_use_id": id, "content": NO_RESULTS_TEXT })

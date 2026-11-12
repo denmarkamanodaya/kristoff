@@ -2,7 +2,7 @@
 
 use crate::error::AppResult;
 use crate::model::UsageReport;
-use crate::ports::{Clock, LawSearch, UsageMeter};
+use crate::ports::{CaseSearch, Clock, LawSearch, UsageMeter};
 use crate::util::time::utc_day;
 
 /// One selectable model: its API id and the label the web shows.
@@ -73,19 +73,30 @@ pub struct Features {
     pub statutes: bool,
     /// Laws in the index, when it is available and says.
     pub law_count: Option<u64>,
-    /// Nothing is left to load: the index has warmed, or there is no index to wait for.
+    /// Nothing is left to load: both indexes have warmed, or there is none to wait for.
     pub law_ready: bool,
+    /// Case search is available (the decisions index is installed; Phase 7).
+    pub cases: bool,
+    /// Decisions in the index, when it is available and can count them.
+    pub case_count: Option<u64>,
 }
 
-/// The features given the law index (`None` when the build has none) and whether its warm-up has
-/// finished. With no index, `law_ready` is true at once, so a client never waits forever.
+/// The features given the law and case indexes (`None` when the build has one or both missing) and
+/// whether the warm-up of both has finished. With no index at all, `law_ready` is true at once, so a
+/// client never waits forever.
 #[must_use]
-pub fn features(law: Option<&dyn LawSearch>, warmed: bool) -> Features {
+pub fn features(
+    law: Option<&dyn LawSearch>,
+    cases: Option<&dyn CaseSearch>,
+    warmed: bool,
+) -> Features {
     Features {
         statutes: law.is_some(),
-        // Recovery: the count is display-only; an index that cannot read it still searches.
+        // Recovery: the counts are display-only; an index that cannot read them still searches.
         law_count: law.and_then(|l| l.law_count().ok().flatten()),
-        law_ready: law.is_none() || warmed,
+        law_ready: (law.is_none() && cases.is_none()) || warmed,
+        cases: cases.is_some(),
+        case_count: cases.and_then(|c| c.case_count().ok()),
     }
 }
 

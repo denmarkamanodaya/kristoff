@@ -31,9 +31,14 @@ pub struct FeaturesDto {
     /// Laws in the index; omitted when the index is unavailable or does not say.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub law_count: Option<u64>,
-    /// The law index has warmed (vectors and model loaded), or there is none: the launch screen
+    /// Both indexes have warmed (vectors and model loaded), or there are none: the launch screen
     /// can give way to Home. The `law-ready` event announces the same moment.
     pub law_ready: bool,
+    /// Case search is available (the decisions index is installed; Phase 7).
+    pub cases: bool,
+    /// Decisions in the index; omitted when the index is unavailable or cannot count them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub case_count: Option<u64>,
 }
 
 /// `list_docs`.

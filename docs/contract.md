@@ -257,11 +257,16 @@ Plan: `docs/desktop/plan.md`, `docs/desktop/phases/` (decisions D-8, D-9, D-10).
 ### Citation: `kind` and `sourceUrl` (additive)
 
 ```
-Citation    + { kind: "doc"|"law", sourceUrl: string | null }
+Citation    + { kind: "doc"|"law"|"case", sourceUrl: string | null }
 ```
 - `kind: "doc"` cites an attached PDF (every field as before). `kind: "law"` cites a statute section
   (Phase 4): `docId`, `page` and `endPage` are `null`, `docTitle` is the section title (e.g. "RA 9262 · Sec. 5"),
   `quote` is the cited text, and `sourceUrl` is an `https:` link to the official source.
+- `kind: "case"` (Phase 7, additive) cites a Supreme Court decision: `docId`, `page` and `endPage` are `null`,
+  `docTitle` is the display title (e.g. "G.R. No. 123456 · People v. XXX (2019)"; "Title (year)" when the decision
+  has no G.R. number), `quote` is the cited text and never carries a status label, and `sourceUrl` is the `https:`
+  E-Library link. A decision without an `https:` link is never sent to the model, so it cannot be cited. Clients
+  that do not know `case` may render it like `law`.
 - Writers always send both fields (`kind: "doc"`, `sourceUrl: null` for doc citations). Readers treat a citation
   stored before this change, with neither field, as `kind: "doc"`, `sourceUrl: null`.
 - The web opens `sourceUrl` with `window.open`; the desktop app opens it through `open_external`, which accepts only
@@ -272,15 +277,21 @@ Citation    + { kind: "doc"|"law", sourceUrl: string | null }
 A `kind: "law"` citation's `quote` may begin with exactly one status label when the cited provision is not in
 force as written: `[<Status>]` followed by a space or newline, then the quote text. `<Status>` is 1..40 characters of
 letters, spaces and hyphens, starting with a letter (regex `^\s*\[([A-Za-z][A-Za-z -]{0,39})\]\s*`). The server uses
-these values: `Repealed`, `Amended`, `Partially repealed`, `Declared unconstitutional`; clients show any label that
-matches the regex. A provision in force has no label. Clients strip the label from the shown quote and show it as a
+these values: `Repealed`, `Amended`, `Partially repealed`, `Declared unconstitutional`, and (Phase 7) the edition
+labels for text quoted as originally made rather than as currently in force: `As enacted` (codes, Acts, CA, BP, PD,
+and Republic Acts quoted from the original), `As promulgated` (Rules of Court), `As issued` (executive orders,
+proclamations, administrative orders, circulars, LOIs, agency rules), `As signed`, `Constitutional records` and
+`Court reference`. Clients show any label that matches the regex. At most one label is sent; an edition label takes
+precedence over the status values, which take precedence over `Text may be cut off`. A provision in force has no
+label. Clients strip the label from the shown quote and show it as a
 badge. `doc` citations never carry a label (the web shows a doc quote unchanged even when it starts with `[`).
 
 ### Chat: `statutes` and Config: `features` (Phase 4, desktop)
 
 ```
 Chat        + { statutes: boolean }          (absent → true)
-Config      + { features: { statutes: boolean, lawCount?: int ≥ 0, lawReady: boolean } }   (absent → no statute search; the web build has none)
+Config      + { features: { statutes: boolean, lawCount?: int ≥ 0, lawReady: boolean,
+                            cases: boolean, caseCount?: int ≥ 0 } }   (absent → no statute search; the web build has none)
 ```
 - `statutes` turns statute search (the law tools) on or off for that chat's future questions. Readers treat a chat
   without the field as `true`.
@@ -289,12 +300,19 @@ Config      + { features: { statutes: boolean, lawCount?: int ≥ 0, lawReady: b
   it off on the home screen. The HTTP `PATCH /v1/chats/{id}` does not accept `statutes`; the web sends it only when
   `config.features.statutes` is true.
 - `get_config` returns `features: { statutes: true, lawCount }` on desktop. The web shows the Statutes toggle only then.
-- `lawReady` is true once the law index has warmed (vectors and model loaded), and true at once when there is no
-  index, so a client never waits forever. The shell also emits the Tauri event `law-ready` (no payload) at that
+- `lawReady` is true once both the law index and the decisions index have warmed (vectors and model loaded), and
+  true at once when there is neither, so a client never waits forever. The shell also emits the Tauri event `law-ready` (no payload) at that
   moment. The desktop web shows a launch screen until then (event, or `get_config` every 500 ms, at most 60 s).
 - `lawCount` is the number of laws in the bundled statute index, read from the `phlaws.db` meta table (the one
   source). The web renders "Searches {lawCount, locale-formatted} Republic Acts and the 1987 Constitution on this
-  Mac" next to the toggle, and hides that note (keeping the toggle) when `lawCount` is absent.
+  Mac" next to the toggle, and hides that note (keeping the toggle) when `lawCount` is absent. From Phase 7 it counts
+  every law in `phlaws.db` across both sources: Republic Acts and the 1987 Constitution, plus the codes and older
+  laws as enacted. It does not count decisions.
+- `cases` (Phase 7, additive) is true when the Supreme Court decisions index (`phcases.db`) is installed. The same
+  Statutes toggle turns the decision tools on and off with the statute tools; there is no second toggle. Readers
+  treat a missing `cases` as `false`.
+- `caseCount` is the number of decisions in `phcases.db`, read from its meta table; it is omitted when the index is
+  absent or cannot count them. The desktop web uses `features.cases` to say it is loading the decisions too.
 
 ### Desktop IPC
 
@@ -339,11 +357,14 @@ it replaces.
 
 `AskEvent` is `{ event, data }`, where `event` and `data` are exactly the SSE event name and its JSON data from
 "Stream": `text { text }`, `citation Citation`, `followups { followUps }`, `done { message, usage }`,
-`error { error: { code, message, requestId } }`, and (Phase 4, additive) `search { query, count }`. `done` or
+`error { error: { code, message, requestId } }`, and (Phase 4, additive) `search { query, count, kind }`. `done` or
 `error` is the last event.
 
-`search { query: string ≤ 500, count: int ≥ 0 }` is sent once per statute search, before the text that uses it:
-`query` is the search string the model sent, `count` the number of articles returned. It is display-only and not
+`search { query: string ≤ 500, count: int ≥ 0, kind: "law"|"case" }` is sent once per statute or decision search,
+before the text that uses it: `query` is the search string the model sent, `count` the number of results returned,
+and `kind` the index searched (`law` for `search_ph_laws`, `case` for `search_ph_cases`; Phase 7, additive). Readers
+treat a missing `kind` as `law`, so events from older builds stay valid. Direct look-ups (`get_law_article`,
+`get_case`) send no event. It is display-only and not
 persisted on the Message. Builds without statute search never send it; clients ignore unknown events. The web's
 `askStream` takes an optional `onSearch({ query, count })` callback on both transports (the HTTP stream may carry the
 same event; the AWS backend does not send it). `model: null` means the

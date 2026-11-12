@@ -159,6 +159,8 @@ fn the_app_config_converts_to_the_config_fixture() {
             statutes: true,
             law_count: Some(10_870),
             law_ready: true,
+            cases: true,
+            case_count: Some(31_180),
         },
     };
 

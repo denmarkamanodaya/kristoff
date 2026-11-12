@@ -63,6 +63,10 @@ pub const TOOL_QUERY_MAX: usize = 300;
 pub const TOOL_LAW_NUMBER_MAX: usize = 40;
 /// Desktop only: longest `article` tool argument in characters.
 pub const TOOL_ARTICLE_MAX: usize = 40;
+/// Desktop only: longest `case` argument of `get_case` (a case id or a G.R. number).
+pub const TOOL_CASE_MAX: usize = 60;
+/// Desktop only: longest `focus` argument of `get_case`.
+pub const TOOL_FOCUS_MAX: usize = 200;
 /// Desktop only: earliest `year_from` / `year_to` a law search accepts.
 pub const TOOL_YEAR_MIN: u32 = 1900;
 /// Desktop only: latest `year_from` / `year_to` a law search accepts.

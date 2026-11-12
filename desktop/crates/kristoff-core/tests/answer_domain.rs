@@ -98,7 +98,7 @@ fn a_part_citation_maps_to_original_pages_with_an_inclusive_end() {
         cited_text: "a\r\nb\rc".into(),
     };
 
-    let c = map_citation(&source, &[attached(1, 0), attached(2, 100)], 2);
+    let c = map_citation(&source, &[attached(1, 0), attached(2, 100)], &[], 2);
 
     assert_eq!(
         (c.n, c.doc_id.as_deref(), c.doc_title.as_str()),
@@ -121,7 +121,7 @@ fn an_unknown_index_keeps_the_reported_title_and_caps_title_and_quote() {
         cited_text: "q".repeat(5000),
     };
 
-    let c = map_citation(&source, &[], 1);
+    let c = map_citation(&source, &[], &[], 1);
 
     assert_eq!(c.doc_id, None);
     assert_eq!((c.doc_title.chars().count(), c.quote.len()), (200, 4000));
@@ -133,9 +133,10 @@ fn a_search_result_citation_is_a_law_with_its_source_link() {
         source: "https://lawphil.net/x#sec26".into(),
         title: "RA 9262 \u{b7} Sec. 26".into(),
         cited_text: "SECTION 26.".into(),
+        index: None,
     };
 
-    let c = map_citation(&source, &[attached(1, 0)], 1);
+    let c = map_citation(&source, &[attached(1, 0)], &[], 1);
 
     assert_eq!((c.kind, c.doc_id, c.page), (CitationKind::Law, None, None));
     assert_eq!(c.source_url.as_deref(), Some("https://lawphil.net/x#sec26"));

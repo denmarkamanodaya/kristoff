@@ -92,3 +92,78 @@ fn rejects_non_canonical_roman_numerals() {
 fn ignores_digit_runs_longer_than_five() {
     assert_eq!(parse_references("RA 1234567").laws, Vec::<LawRef>::new());
 }
+
+/// Builds a law of one kind from its number.
+type MakeLaw = fn(u32) -> LawRef;
+
+/// Older issuances: each form with its law kind (Phase 7).
+const ISSUANCE_FORMS: [(&str, MakeLaw); 14] = [
+    ("Act No. {}", LawRef::Act),
+    ("Act {}", LawRef::Act),
+    ("C.A. No. {}", LawRef::CommonwealthAct),
+    ("Commonwealth Act {}", LawRef::CommonwealthAct),
+    ("B.P. Blg. {}", LawRef::BatasPambansa),
+    ("Batas Pambansa Blg. {}", LawRef::BatasPambansa),
+    ("P.D. No. {}", LawRef::PresidentialDecree),
+    ("PD {}", LawRef::PresidentialDecree),
+    ("PD{}", LawRef::PresidentialDecree),
+    ("Presidential Decree No. {}", LawRef::PresidentialDecree),
+    ("E.O. No. {}", LawRef::ExecutiveOrder),
+    ("Executive Order {}", LawRef::ExecutiveOrder),
+    ("LOI {}", LawRef::LetterOfInstruction),
+    ("Letter of Instructions No. {}", LawRef::LetterOfInstruction),
+];
+
+const CODE_NAMES: [(&str, LawRef); 8] = [
+    ("Revised Penal Code", LawRef::Act(3815)),
+    ("RPC", LawRef::Act(3815)),
+    ("Family Code", LawRef::ExecutiveOrder(209)),
+    ("Labor Code", LawRef::PresidentialDecree(442)),
+    ("Rules of Court", LawRef::RulesOfCourt),
+    ("Rules of Criminal Procedure", LawRef::RulesOfCourt),
+    ("Rules of Civil Procedure", LawRef::RulesOfCourt),
+    ("Rules on Evidence", LawRef::RulesOfCourt),
+];
+
+proptest! {
+    #[test]
+    fn every_older_issuance_form_is_read(n in 1u32..=4_275, form in 0usize..ISSUANCE_FORMS.len(), pad in "[ a-z]{0,12}") {
+        let (shape, make) = ISSUANCE_FORMS[form];
+        let text = format!("{pad} {} {pad}", fill(shape, n));
+        prop_assert!(parse_references(&text).laws.contains(&make(n)), "{}", text);
+    }
+
+    #[test]
+    fn a_code_named_with_an_article_yields_both(code in 0usize..CODE_NAMES.len(), a in 1u32..=1_000) {
+        let (name, law) = CODE_NAMES[code];
+        let refs = parse_references(&format!("Art. {a} of the {name}"));
+        prop_assert_eq!(&refs.laws, &vec![law]);
+        prop_assert_eq!(refs.article(), Some(a));
+    }
+
+    #[test]
+    fn a_rule_and_section_are_both_read(r in 1u32..=144, s in 1u32..=50) {
+        let refs = parse_references(&format!("Rule {r}, Sec. {s} of the Rules of Court"));
+        prop_assert_eq!(refs.rule(), Some(r));
+        prop_assert_eq!(refs.section(), Some(s));
+        prop_assert_eq!(&refs.laws, &vec![LawRef::RulesOfCourt]);
+    }
+
+    #[test]
+    fn a_large_act_number_is_not_an_old_act(n in 4_276u32..=99_999) {
+        let refs = parse_references(&format!("Cybercrime Prevention Act {n}"));
+        prop_assert!(refs.laws.is_empty(), "{:?}", refs.laws);
+    }
+}
+
+#[test]
+fn republic_act_wins_over_the_bare_act_form() {
+    assert_eq!(
+        parse_references("Republic Act No. 3815").laws,
+        vec![LawRef::RepublicAct(3815)]
+    );
+    assert_eq!(
+        parse_references("Commonwealth Act No. 141").laws,
+        vec![LawRef::CommonwealthAct(141)]
+    );
+}

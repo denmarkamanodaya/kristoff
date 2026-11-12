@@ -274,6 +274,9 @@ fn raw_citation(c: &Value) -> Option<CitationSource> {
             source: c["source"].as_str()?.to_owned(),
             title: opt_str(&c["title"]).unwrap_or_default(),
             cited_text,
+            index: c["search_result_index"]
+                .as_u64()
+                .and_then(|i| usize::try_from(i).ok()),
         }),
         _ => Some(CitationSource::Other {
             document_index,

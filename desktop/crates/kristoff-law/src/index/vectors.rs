@@ -3,10 +3,12 @@
 use kristoff_core::domain::law::LawFilters;
 use rusqlite::Row;
 
-use super::DIMS;
-use crate::chunk_kind::{is_heading_only, opens_provision};
-use crate::error::LawIndexError;
-use crate::quant::{dot_i8, quantize};
+use crate::{
+    chunk_kind::{is_heading_only, opens_provision},
+    error::LawIndexError,
+    quant::{dot_i8, quantize},
+    store::{DIMS, vector_row},
+};
 
 /// The query that feeds [`Vectors::push_row`], column for column.
 pub(super) const LOAD_SQL: &str = "SELECT v.chunk_id, c.law_id, l.number, l.year, v.scale, v.v, \
@@ -36,20 +38,13 @@ pub(super) struct Vectors {
 impl Vectors {
     /// Appends one row of [`LOAD_SQL`].
     pub(super) fn push_row(&mut self, row: &Row<'_>) -> Result<(), LawIndexError> {
-        let id: i64 = row.get(0)?;
-        let blob: Vec<u8> = row.get(5)?;
-        if blob.len() != DIMS {
-            return Err(LawIndexError::BadVector(id));
-        }
+        let (id, scale, blob) = vector_row(row, [0, 4, 5])?;
         self.ids.push(id);
         self.law_ids.push(row.get(1)?);
         self.provs.push(row.get(9)?);
         self.numbers.push(row.get(2)?);
         self.years.push(row.get(3)?);
-        let scale: f64 = row.get(4)?;
-        // Stored from an f32, so narrowing back is exact.
-        #[allow(clippy::cast_possible_truncation)]
-        self.scales.push(scale as f32);
+        self.scales.push(scale);
         let sec: Option<i64> = row.get(6)?;
         let head: String = row.get(7)?;
         self.searchable.push(!is_heading_only(sec.is_some(), &head));

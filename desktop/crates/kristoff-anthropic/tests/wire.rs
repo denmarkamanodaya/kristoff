@@ -21,6 +21,7 @@ fn request(model: &str, max_tokens: u32, turns: Vec<ModelTurn>) -> ModelRequest 
         max_tokens,
         turns,
         statutes_on: false,
+        cases_on: false,
         tool_rounds: vec![],
         tool_choice_none: false,
     }
@@ -128,15 +129,16 @@ fn the_first_statute_turn_matches_the_s5_fixture_plus_stream() {
 }
 
 /// Fixture mismatch (reported, fixture unchanged): S5 recorded one tool with `query` and
-/// `law_number`; Phase 4 sends two tools and more optional search fields. Everything else must
-/// match exactly, and the S5 tool must survive unchanged as a subset of ours.
+/// `law_number`; Phase 4 sends two tools and more optional search fields, and Phase 7 rewrote the
+/// search description to cover the codes and older laws (behaviour change, lead request). Everything
+/// else must match exactly, and the S5 tool's name, schema and strictness survive as a subset.
 fn assert_matches_s5(mut body: serde_json::Value, mut expected: serde_json::Value) {
     let ours = body.as_object_mut().unwrap().remove("tools").unwrap();
     let theirs = expected.as_object_mut().unwrap().remove("tools").unwrap();
     assert_eq!(body, expected);
     assert_eq!(ours, kristoff_contracts::model_config::law_tools());
     let (o, t) = (&ours[0], &theirs[0]);
-    for key in ["name", "description", "strict"] {
+    for key in ["name", "strict"] {
         assert_eq!(o[key], t[key], "{key}");
     }
     for prop in ["query", "law_number"] {

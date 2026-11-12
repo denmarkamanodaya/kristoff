@@ -23,11 +23,13 @@ pub fn config(app: &Composition) -> CommandResult<ConfigResponse> {
         max_attached_docs: c.max_attached_docs,
         daily_question_cap: c.daily_question_cap,
         features: {
-            let f = settings::features(app.law_search(), app.law_warmed());
+            let f = settings::features(app.law_search(), app.case_search(), app.law_warmed());
             FeaturesDto {
                 statutes: f.statutes,
                 law_count: f.law_count,
                 law_ready: f.law_ready,
+                cases: f.cases,
+                case_count: f.case_count,
             }
         },
     })

@@ -73,3 +73,11 @@ fn memory_remote_files_keep_the_remote_files_contract() {
 fn memory_law_search_keeps_the_law_search_contract() {
     law_search_contract(&MemoryLawSearch::sample());
 }
+
+#[test]
+fn memory_case_search_keeps_the_case_search_contract() {
+    kristoff_testkit::contract::case_search_contract(
+        &kristoff_testkit::fakes::MemoryCaseSearch::sample(),
+        &kristoff_testkit::contract::SAMPLE_CASE,
+    );
+}

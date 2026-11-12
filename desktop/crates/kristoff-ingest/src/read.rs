@@ -43,28 +43,41 @@ pub fn schema(path: &Path) -> Result<String> {
     ))
 }
 
+/// Calls `f` with every row of a parquet file, in file order.
+pub fn for_each_row(
+    path: &Path,
+    mut f: impl FnMut(&parquet::record::Row) -> Result<()>,
+) -> Result<()> {
+    let file = File::open(path).with_context(|| path.display().to_string())?;
+    for row in SerializedFileReader::new(file)?.get_row_iter(None)? {
+        f(&row?)?;
+    }
+    Ok(())
+}
+
+/// A cell as text: strings as they are, null as `None`, anything else in its display form.
+pub fn field_text(field: &Field) -> Option<String> {
+    match field {
+        Field::Str(s) => Some(s.clone()),
+        Field::Null => None,
+        other => Some(other.to_string()),
+    }
+}
+
 fn rows(path: &Path, wanted: &[&str]) -> Result<Vec<HashMap<String, Option<String>>>> {
-    let reader =
-        SerializedFileReader::new(File::open(path).with_context(|| path.display().to_string())?)?;
     let mut out = Vec::new();
-    for row in reader.get_row_iter(None)? {
-        let row = row?;
-        let mut map = HashMap::new();
-        for (name, field) in row.get_column_iter() {
-            if wanted.contains(&name.as_str()) {
-                let value = match field {
-                    Field::Str(s) => Some(s.clone()),
-                    Field::Null => None,
-                    other => Some(other.to_string()),
-                };
-                map.insert(name.clone(), value);
-            }
-        }
+    for_each_row(path, |row| {
+        let map: HashMap<String, Option<String>> = row
+            .get_column_iter()
+            .filter(|(name, _)| wanted.contains(&name.as_str()))
+            .map(|(name, field)| (name.clone(), field_text(field)))
+            .collect();
         if let Some(missing) = wanted.iter().find(|w| !map.contains_key(**w)) {
             return Err(anyhow!("{}: column {missing} not found", path.display()));
         }
         out.push(map);
-    }
+        Ok(())
+    })?;
     Ok(out)
 }
 

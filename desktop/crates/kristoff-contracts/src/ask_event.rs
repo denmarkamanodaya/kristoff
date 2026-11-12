@@ -50,12 +50,14 @@ pub enum AskEvent {
     },
     /// A failure after the stream opened (always the last on failure).
     Error(StreamErrorData),
-    /// A statute search ran (display only): `{ query, count }`.
+    /// A statute or case search ran (display only): `{ query, count, kind }`.
     Search {
         /// The search text the model sent.
         query: String,
-        /// How many articles came back.
+        /// How many results came back.
         count: usize,
+        /// `law` or `case` (Phase 7, additive).
+        kind: &'static str,
     },
 }
 
@@ -101,6 +103,20 @@ mod tests {
         assert_eq!(
             serde_json::to_value(err).unwrap(),
             json!({ "event": "error", "data": { "error": { "code": "UPSTREAM_UNAVAILABLE", "message": "down", "requestId": "r1" } } })
+        );
+    }
+
+    #[test]
+    fn a_search_event_names_its_index() {
+        let e = AskEvent::Search {
+            query: "rape".into(),
+            count: 2,
+            kind: "case",
+        };
+
+        assert_eq!(
+            serde_json::to_value(e).unwrap(),
+            json!({ "event": "search", "data": { "query": "rape", "count": 2, "kind": "case" } })
         );
     }
 }

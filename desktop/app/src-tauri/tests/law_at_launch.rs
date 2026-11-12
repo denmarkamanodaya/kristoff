@@ -8,7 +8,7 @@
 mod support;
 
 use kristoff_app::commands::session;
-use kristoff_app::law::{LawPaths, open_and_install, open_law_index};
+use kristoff_app::law::{LawPaths, open_and_install, open_and_install_all, open_law_index};
 use kristoff_core::domain::law::LawFilters;
 use kristoff_testkit::fakes::MemoryLawSearch;
 use serde_json::json;
@@ -30,7 +30,12 @@ fn tiny_law_data(dir: &Path) -> LawPaths {
     let model_dir = dir.join("model");
     std::fs::create_dir_all(&model_dir).unwrap();
     std::fs::write(model_dir.join("model.safetensors"), b"not loaded at open").unwrap();
-    LawPaths { db, model_dir }
+    let cases_db = dir.join("phcases.db");
+    LawPaths {
+        db,
+        cases_db,
+        model_dir,
+    }
 }
 
 fn features(app: &TestApp) -> serde_json::Value {
@@ -47,7 +52,7 @@ fn config_right_after_setup_reports_statutes_when_law_data_exists() {
 
     assert_eq!(
         features(&app),
-        json!({"statutes": true, "lawCount": 3, "lawReady": false})
+        json!({"statutes": true, "lawCount": 3, "lawReady": false, "cases": false })
     );
 }
 
@@ -59,7 +64,10 @@ fn config_reports_no_statutes_when_the_law_data_is_missing() {
     let opened = open_and_install(&app.core, &LawPaths::resolve(empty.path(), |_| None));
 
     assert!(opened.is_err());
-    assert_eq!(features(&app), json!({"statutes": false, "lawReady": true}));
+    assert_eq!(
+        features(&app),
+        json!({"statutes": false, "lawReady": true, "cases": false })
+    );
 }
 
 #[test]
@@ -89,6 +97,7 @@ fn real_data() -> LawPaths {
     let data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../data");
     LawPaths {
         db: data.join("phlaws.db"),
+        cases_db: data.join("phcases.db"),
         model_dir: data.join("model"),
     }
 }
@@ -110,4 +119,19 @@ fn the_real_index_opens_fast_and_a_search_before_warm_up_waits_for_it() {
     );
     assert!(open_ms < 200, "open took {open_ms} ms");
     assert_ne!(hits.len(), 0);
+}
+
+#[test]
+fn without_case_data_statutes_still_open_and_cases_are_off() {
+    let data = tempfile::tempdir().unwrap();
+    let app = TestApp::new();
+
+    let opened = open_and_install_all(&app.core, &tiny_law_data(data.path()));
+
+    assert!(opened.unwrap_err().message.contains("phcases.db"));
+    let f = features(&app);
+    assert_eq!(
+        (f["statutes"].clone(), f["cases"].clone()),
+        (json!(true), json!(false))
+    );
 }

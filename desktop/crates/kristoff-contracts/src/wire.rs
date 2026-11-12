@@ -62,6 +62,7 @@ impl From<&Citation> for CitationDto {
         let kind = match c.kind {
             CitationKind::Doc => CitationKindDto::Doc,
             CitationKind::Law => CitationKindDto::Law,
+            CitationKind::Case => CitationKindDto::Case,
         };
         Self {
             n: c.n,

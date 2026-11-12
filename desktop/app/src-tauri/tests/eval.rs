@@ -44,6 +44,7 @@ fn open_app(dir: &Path, log: &Recorded) -> Composition {
     let env_or = |key: &str, default: PathBuf| std::env::var_os(key).map_or(default, PathBuf::from);
     let paths = LawPaths {
         db: env_or(DB_ENV, data.join("phlaws.db")),
+        cases_db: data.join("phcases.db"),
         model_dir: env_or(MODEL_ENV, data.join("model")),
     };
     let inner = open_law_index(&paths).unwrap();

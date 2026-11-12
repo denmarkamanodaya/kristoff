@@ -12,6 +12,13 @@ const STOPWORDS: [&str; 52] = [
     "ni", "niya", "para", "po", "pwede", "rin", "sa", "si", "yung", "dapat",
 ];
 
+/// The same terms joined with implicit AND (every term must occur), for a first, narrower pass
+/// over large indexes; `None` when there is no searchable word.
+#[must_use]
+pub fn match_all_expression(text: &str) -> Option<String> {
+    match_expression(text).map(|e| e.replace(" OR ", " "))
+}
+
 /// Turns free text into `"term1" OR "term2" ...`, or `None` when it has no searchable word.
 ///
 /// Only alphanumeric runs survive, each wrapped in double quotes, so no FTS5 operator, column
@@ -63,6 +70,14 @@ mod tests {
         assert_eq!(
             match_expression("the of").as_deref(),
             Some("\"the\" OR \"of\"")
+        );
+    }
+
+    #[test]
+    fn the_all_terms_form_drops_the_or() {
+        assert_eq!(
+            match_all_expression("chain of custody").as_deref(),
+            Some("\"chain\" \"custody\"")
         );
     }
 

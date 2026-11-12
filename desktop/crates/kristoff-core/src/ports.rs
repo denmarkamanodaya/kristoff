@@ -3,10 +3,14 @@
 //! Each port has an in-memory fake and a contract suite in `kristoff-testkit`.
 
 mod answer;
+mod case;
 mod law;
 mod processing;
 
-pub use answer::{AnswerModel, AnswerSink, CancelSignal, FollowUpSuggester, NeverCancelled};
+pub use answer::{
+    AnswerModel, AnswerSink, CancelSignal, FollowUpSuggester, NeverCancelled, SearchKind,
+};
+pub use case::CaseSearch;
 pub use law::LawSearch;
 pub use processing::{Logger, PdfSplitter, RemoteFiles};
 

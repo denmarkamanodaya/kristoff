@@ -10,7 +10,7 @@ use kristoff_contracts::ask_event::AskEvent;
 use kristoff_contracts::requests;
 use kristoff_contracts::shapes::{CitationDto, MessageDto, UsageDto};
 use kristoff_core::model::Citation;
-use kristoff_core::ports::{AnswerSink, CancelSignal};
+use kristoff_core::ports::{AnswerSink, CancelSignal, SearchKind};
 use kristoff_core::usecases::ask::{self, Question};
 use std::sync::Arc;
 use tauri::State;
@@ -47,10 +47,12 @@ impl AnswerSink for ChannelSink<'_> {
         self.send(AskEvent::Citation(CitationDto::from(citation)));
     }
 
-    fn search(&mut self, query: &str, count: usize) {
+    fn search(&mut self, query: &str, count: usize, kind: SearchKind) {
+        let query = query.to_owned();
         self.send(AskEvent::Search {
-            query: query.to_owned(),
+            query,
             count,
+            kind: kind.as_str(),
         });
     }
 

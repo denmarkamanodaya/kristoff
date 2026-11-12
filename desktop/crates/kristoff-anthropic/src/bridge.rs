@@ -106,7 +106,10 @@ impl AnswerModel for AnthropicAnswerModel {
                 "the answer was cancelled",
             ));
         }
-        let body = messages_body(request, &answer_system_prompt(request.statutes_on));
+        let body = messages_body(
+            request,
+            &answer_system_prompt(request.statutes_on, request.cases_on),
+        );
         let token = CancelToken::new();
         let mut tool_calls = Vec::new();
         let mut forward = |event: &StreamEvent| match event {

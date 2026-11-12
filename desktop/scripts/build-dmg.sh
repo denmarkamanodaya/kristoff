@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds the release DMG for Kristoff Desktop (docs/desktop/phases/phase-5-eval-package.md §2):
 # checks the baked Claude API key (never printed; no TOTP secret since decision D-17), verifies
-# the law index and the e5 model against their lock files, checks THIRD_PARTY_NOTICES, builds the desktop web bundle, builds the arm64
+# the law index, the decisions index (Phase 7) and the e5 model against their lock files, checks THIRD_PARTY_NOTICES, builds the desktop web bundle, builds the arm64
 # app and DMG with the bundled resources, verifies the ad-hoc signature, and writes
 # desktop/dist/Kristoff-<version>-arm64.dmg plus its .sha256.
 #
@@ -55,7 +55,36 @@ check_dataset_sources() {
   fi
 }
 
-meta() { sqlite3 "$DATA/phlaws.db" "SELECT value FROM meta WHERE key = '$1'"; }
+meta() { db_meta phlaws.db "$1"; }
+db_meta() { sqlite3 "$DATA/$1" "SELECT value FROM meta WHERE key = '$2'"; }
+
+check_omnicorpus_sources() {
+  if [ -d "$DATA/source/omnicorpus" ]; then
+    step "OmniCorpus parquet files against omnicorpus.lock"
+    (cd "$DATA/source/omnicorpus" && grep -E '^[0-9a-f]{64}  ' ../../omnicorpus.lock | shasum -a 256 -c -) \
+      || fail "OmniCorpus files do not match omnicorpus.lock"
+  fi
+}
+
+# Both databases carry the OmniCorpus revision they were built from (meta `omni_revision`, Phase 7).
+check_phcases() {
+  step "phcases.db against the lock revisions"
+  local db=phcases.db omni cases passages
+  omni="$(lock_value omnicorpus.lock revision)"
+  [ -s "$DATA/$db" ] || fail "$DATA/$db is missing (run kristoff-ingest --cases-out)"
+  [ "$(meta omni_revision)" = "$omni" ] || fail "phlaws.db was built from another OmniCorpus revision"
+  [ "$(db_meta $db omni_revision)" = "$omni" ] || fail "$db was built from another OmniCorpus revision"
+  [ "$(db_meta $db model_revision)" = "$(lock_value model.lock revision)" ] \
+    || fail "$db was built with another model revision"
+  for stage in cases_stage fts_stage; do
+    [ "$(db_meta $db $stage)" = "done" ] || fail "$db ingest did not finish ($stage)"
+  done
+  cases="$(db_meta $db case_count)"; passages="$(db_meta $db passage_count)"
+  [ "${cases:-0}" -gt 0 ] || fail "$db has no case_count"
+  [ "${passages:-0}" -gt 0 ] || fail "$db has no passage_count"
+  [ "$(sqlite3 "$DATA/$db" 'PRAGMA quick_check')" = "ok" ] || fail "$db fails quick_check"
+  echo "ok: OmniCorpus ${omni:0:8}, $cases decisions, $passages passages, built $(db_meta $db build_date)"
+}
 
 check_phlaws() {
   step "phlaws.db against the lock revisions"
@@ -88,7 +117,7 @@ verify_app() {
   local sig
   sig="$(codesign -dv "$app" 2>&1)"
   [[ "$sig" == *"Signature=adhoc"* ]] || fail "the app is not ad-hoc signed"
-  for res in phlaws.db models/e5-small/model.safetensors THIRD_PARTY_NOTICES; do
+  for res in phlaws.db phcases.db models/e5-small/model.safetensors THIRD_PARTY_NOTICES; do
     [ -s "$app/Contents/Resources/$res" ] || fail "the app lacks the resource $res"
   done
   echo "ok: ad-hoc signature verifies; resources present"
@@ -111,6 +140,8 @@ check_secrets
 check_model
 check_dataset_sources
 check_phlaws
+check_omnicorpus_sources
+check_phcases
 step "THIRD_PARTY_NOTICES"
 node scripts/third-party-notices.mjs --check
 step "desktop web build"

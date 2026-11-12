@@ -156,6 +156,8 @@ pub enum CitationKind {
     Doc,
     /// A statute article from the law index.
     Law,
+    /// A Supreme Court decision from the case index (Phase 7).
+    Case,
 }
 
 impl CitationKind {
@@ -165,13 +167,14 @@ impl CitationKind {
         match self {
             Self::Doc => "doc",
             Self::Law => "law",
+            Self::Case => "case",
         }
     }
 
     /// Parses a wire or storage name.
     #[must_use]
     pub fn parse(text: &str) -> Option<Self> {
-        [Self::Doc, Self::Law]
+        [Self::Doc, Self::Law, Self::Case]
             .into_iter()
             .find(|k| k.as_str() == text)
     }

@@ -13,7 +13,7 @@ use kristoff_core::domain::parts::SplitLimits;
 use kristoff_core::error::AppResult;
 use kristoff_core::limits::MAX_HISTORY_TURNS;
 use kristoff_core::model::Doc;
-use kristoff_core::ports::{Clock, DocStore, FileStore, IdGenerator, LawSearch};
+use kristoff_core::ports::{CaseSearch, Clock, DocStore, FileStore, IdGenerator, LawSearch};
 use kristoff_core::usecases::ask::{AskConfig, AskDeps};
 use kristoff_core::usecases::chats::ChatDeps;
 use kristoff_core::usecases::docs::LibraryDeps;
@@ -36,7 +36,9 @@ pub struct Composition {
     pub asks: Asks,
     /// The PH law index, installed at start and warmed on a background thread.
     law: OnceLock<Box<dyn LawSearch>>,
-    /// The background warm-up of `law` has finished (successfully or not).
+    /// The Supreme Court decisions index (Phase 7), installed and warmed like `law`.
+    cases: OnceLock<Box<dyn CaseSearch>>,
+    /// The background warm-up of `law` and `cases` has finished (successfully or not).
     law_warmed: AtomicBool,
 }
 
@@ -65,6 +67,7 @@ impl Composition {
             ids: Box::new(RandomIdGenerator::new(SystemClock)),
             asks: Asks::default(),
             law: OnceLock::new(),
+            cases: OnceLock::new(),
             law_warmed: AtomicBool::new(false),
         })
     }
@@ -75,15 +78,28 @@ impl Composition {
         let _ = self.law.set(law);
     }
 
-    /// Warms the installed law index (a no-op without one), then records that nothing is left to
-    /// load, even when the warm-up failed, so the launch screen never waits forever.
+    /// Makes `cases` the decisions index at once (not warmed); a second install is ignored.
+    pub fn install_cases(&self, cases: Box<dyn CaseSearch>) {
+        let _ = self.cases.set(cases);
+    }
+
+    /// Warms the installed law and case indexes (a no-op for one that is missing), then records
+    /// that nothing is left to load, even when a warm-up failed, so the launch screen never waits
+    /// forever.
     ///
     /// # Errors
-    /// The warm-up failure (searches will then fail too).
+    /// The first warm-up failure (searches of that index will then fail too).
     pub fn warm_law(&self) -> AppResult<()> {
-        let warmed = self.law_search().map_or(Ok(()), LawSearch::warm);
+        let law = self.law_search().map_or(Ok(()), LawSearch::warm);
+        let cases = self.case_search().map_or(Ok(()), CaseSearch::warm);
         self.law_warmed.store(true, Ordering::SeqCst);
-        warmed
+        law.and(cases)
+    }
+
+    /// The decisions index, once installed; `None` when the build has no case data.
+    #[must_use]
+    pub fn case_search(&self) -> Option<&dyn CaseSearch> {
+        self.cases.get().map(AsRef::as_ref)
     }
 
     /// Whether the background warm-up of the law index has finished.
@@ -180,6 +196,7 @@ impl Composition {
             model: self.ai.model.as_ref(),
             follow_ups: self.ai.follow_ups.as_ref(),
             law: self.law_search(),
+            cases: self.case_search(),
             meter: &self.store,
             ids: self.ids.as_ref(),
             clock: self.clock.as_ref(),

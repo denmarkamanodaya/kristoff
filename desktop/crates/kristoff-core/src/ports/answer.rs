@@ -5,6 +5,26 @@ use crate::domain::model_request::{AnswerEnd, FollowUps, ModelEvent, ModelReques
 use crate::error::AppResult;
 use crate::model::Citation;
 
+/// Which index a search ran against.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SearchKind {
+    /// The PH law index (`search_ph_laws`).
+    Law,
+    /// The Supreme Court decisions index (`search_ph_cases`).
+    Case,
+}
+
+impl SearchKind {
+    /// The wire name.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Law => "law",
+            Self::Case => "case",
+        }
+    }
+}
+
 /// Tells a running answer to stop (the app's `cancel_ask` and window close set it).
 pub trait CancelSignal: Send + Sync {
     /// Whether the answer should stop now.
@@ -55,6 +75,7 @@ pub trait AnswerSink {
     fn citation(&mut self, citation: &Citation);
     /// The suggested follow-up questions, sent once after the answer.
     fn follow_ups(&mut self, questions: &[String]);
-    /// A statute search ran: its query and how many articles it returned (display only).
-    fn search(&mut self, query: &str, count: usize);
+    /// A statute or case search ran: its query, how many results it returned and which index
+    /// (display only).
+    fn search(&mut self, query: &str, count: usize, kind: SearchKind);
 }

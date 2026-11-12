@@ -12,6 +12,14 @@ PH laws dataset: endomorphosis/ipfs_philippines_laws, revision
   of the Government; prior approval is required only to exploit them for profit. This app is for
   private, non-commercial use.
 
+Philippine OmniCorpus: mongramosjr/philippine-omnicorpus, revision
+bb0626ce527b159a32a6baefabee0ea1e0e01d2f, https://huggingface.co/datasets/mongramosjr/philippine-omnicorpus
+  Ramos Jr., M. (2024). Philippine OmniCorpus [Data set]. Hugging Face.
+  Licence: Open Data Commons Attribution License (ODC-By) v1.0,
+  https://opendatacommons.org/licenses/by/1-0/
+  Used for the codes and older laws as originally enacted (in phlaws.db) and for the Supreme Court
+  decisions (phcases.db). The texts are works of the Philippine Government; see the note above.
+
 multilingual-e5-small: intfloat/multilingual-e5-small, revision
 614241f622f53c4eeff9890bdc4f31cfecc418b3, https://huggingface.co/intfloat/multilingual-e5-small
   Licence: MIT. Weights shipped converted to f16.

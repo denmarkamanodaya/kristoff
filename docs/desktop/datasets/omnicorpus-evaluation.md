@@ -208,3 +208,55 @@ The edition risk is the main caveat for options 1 and 2:
   - prompt text saying these are as-enacted texts;
   - an instruction to also cite the amending acts in our index (RA 8353, RA 10951, RA 10151…);
   - eval questions that check the warning appears.
+
+## Phase 7 ingest decisions (2026-11-12)
+
+This section records what the Phase 7 build actually took. It follows owner ruling D-20
+(richest data; size does not matter) and lead decisions made on the same day.
+
+### Statutes, into `phlaws.db`
+
+Every legal row is taken except the exclusions below. The current dataset wins on duplicate RAs.
+Each OmniCorpus law carries an edition label, which is shown as its status line:
+
+| Rows | `laws.kind` | Label |
+|---|---|---|
+| Revised Penal Code (Act 3815), Family Code (EO 209, 1987) and EO 227, Labor Code (PD 442) | ACT / EO / PD | `As enacted` |
+| Acts, Commonwealth Acts, Batas Pambansa, PDs, and the RAs the current dataset lacks | ACT / CA / BP / PD / RA | `As enacted` |
+| Rules of Court: 1997 civil, 2000 criminal, 1989 evidence, A.M. 19-08-15-SC and A.M. 19-10-20-SC | RULES | `As promulgated` |
+| Executive Orders, proclamations, AOs, memorandum orders and circulars, Administrative Register agency rules, LOIs, Letters of Implementation, General Orders | EO / PROC / AO / MO / MC / NAR / LOI / LOIMP / GO | `As issued` |
+| Treaties (bilateral, regional, multilateral) | TREATY | `As signed` |
+| 1973, 1943, 1935 and Malolos constitutions, the 1934-35 ConCon and 1986 ConCom records, the 1986 draft | CONREC | `Constitutional records` |
+| Benchbooks, clerk-of-court manuals, the judicial writing manuals | COURTREF | `Court reference` |
+
+Excluded rows, as logged by the ingest tool:
+
+| Rows | Reason |
+|---:|---|
+| 2,159 | Official Gazette notices: noise (land, publication and court notices) |
+| 250 | IRRs and circulars filed on the Republic Acts shelf, which would collide with real RA numbers |
+| 5 | Superseded Rules of Court (1900, 1918, 1964, 1985, 1988) |
+| 3 | Not a recognised legal type |
+| 1 | Lawyers' List: a personal-data list of lawyers |
+| 1 | Election Cases: one 1.4 MB blob of unstructured case lists |
+| 1 | The OmniCorpus copy of the 1987 Constitution: already in the current dataset, structured |
+
+Splitter accuracy on the codes:
+
+| Code | Articles found | Note |
+|---|---|---|
+| RPC | 367 of 367 | |
+| Labor Code (1974 numbering) | 341 of 341 | Art. 282 is "Denial of Registration"; the just causes are Art. 321, "Termination by Employer" |
+| Family Code | 255 of 257 | Arts. 150 and 219 are absent from the source text |
+
+Text repair:
+- UTF-8 that had been read as Latin-1 is decoded back.
+- Lead bytes whose continuation bytes were already lost upstream are handled as follows: before a contraction they become `'`; between letters they become ñ or Ñ; otherwise they are dropped.
+- The E-Library header and footer are stripped.
+
+### Decisions, into `phcases.db`
+
+- **Scope:** all 31,180 Supreme Court decisions (1996 to 2024-04).
+- **Chunking:** each decision is split fully into 480-token passages with one sentence of overlap, about 632k passages.
+- **Search:** every passage has an e5 vector and is in FTS5. Search returns the best passage per decision.
+- **Names:** parties appear as the Court wrote them; its own AAA/XXX pseudonyms are kept.

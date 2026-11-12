@@ -66,6 +66,8 @@ pub struct World {
     pub daily_cap: u32,
     /// The law index ask may search (none unless set: no tools are sent then).
     pub law: Option<crate::fakes::MemoryLawSearch>,
+    /// The decisions index ask may search (none unless set: no case tools are sent then).
+    pub cases: Option<crate::fakes::MemoryCaseSearch>,
 }
 
 impl Default for World {
@@ -82,6 +84,7 @@ impl Default for World {
             limits: SplitLimits::CLAUDE,
             daily_cap: 100,
             law: None,
+            cases: None,
         }
     }
 }
@@ -130,6 +133,10 @@ impl World {
                 .law
                 .as_ref()
                 .map(|l| l as &dyn kristoff_core::ports::LawSearch),
+            cases: self
+                .cases
+                .as_ref()
+                .map(|c| c as &dyn kristoff_core::ports::CaseSearch),
             meter: &self.store,
             ids: &self.ids,
             clock: &self.clock,

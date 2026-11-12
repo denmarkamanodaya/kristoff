@@ -70,6 +70,9 @@ pub enum ToolAnswerContent {
     Results(Vec<SearchResult>),
     /// A refused call (bad input, unknown tool, over the cap), sent with `is_error: true`.
     Error(String),
+    /// A search that found nothing: this short text is sent as a plain (non-error) result, so it
+    /// can name the index that was searched (Phase 7: laws or decisions).
+    Nothing(&'static str),
 }
 
 /// The arguments of one `search_ph_laws` call as the model sent them, unvalidated.
@@ -96,6 +99,28 @@ pub struct RawArticleInput {
     pub article: Option<String>,
 }
 
+/// The arguments of one `search_ph_cases` call as the model sent them, unvalidated.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RawCaseSearchInput {
+    /// Search text.
+    pub query: Option<String>,
+    /// Earliest promulgation year.
+    pub year_from: Option<i64>,
+    /// Latest promulgation year.
+    pub year_to: Option<i64>,
+    /// Most results.
+    pub limit: Option<i64>,
+}
+
+/// The arguments of one `get_case` call as the model sent them, unvalidated.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RawGetCaseInput {
+    /// The decision: a case id or a G.R. number.
+    pub case: Option<String>,
+    /// What to look for in it.
+    pub focus: Option<String>,
+}
+
 /// One tool call as the adapter read it; core validates the values.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ToolInput {
@@ -103,6 +128,10 @@ pub enum ToolInput {
     SearchLaws(RawSearchInput),
     /// `get_law_article`.
     GetLawArticle(RawArticleInput),
+    /// `search_ph_cases`.
+    SearchCases(RawCaseSearchInput),
+    /// `get_case`.
+    GetCase(RawGetCaseInput),
     /// A known tool whose input was not an object of the expected field types.
     Malformed(String),
     /// A tool this app does not offer.
@@ -140,6 +169,8 @@ pub struct ModelRequest {
     pub turns: Vec<ModelTurn>,
     /// Whether the statute tools are offered.
     pub statutes_on: bool,
+    /// Whether the case tools are offered (Phase 7).
+    pub cases_on: bool,
     /// Tool rounds already run for this question.
     pub tool_rounds: Vec<ToolRound>,
     /// The tool-call cap is reached: send `tool_choice: none` so the model answers.
@@ -170,6 +201,9 @@ pub enum CitationSource {
         title: String,
         /// The cited text.
         cited_text: String,
+        /// Position of the cited `search_result` among every one sent in this question
+        /// (`search_result_index`); it tells which tool produced it.
+        index: Option<usize>,
     },
     /// Any other location type, kept for its document.
     Other {

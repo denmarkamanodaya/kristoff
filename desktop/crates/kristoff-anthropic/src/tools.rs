@@ -1,8 +1,12 @@
 //! Reads one `tool_use` block into core's `ToolCall`. Only the value types are checked here (the
 //! JSON is the vendor shape); the bounds are core's rule (`domain::law::tools::validate`).
 
-use kristoff_contracts::model_config::{ARTICLE_TOOL_NAME, SEARCH_TOOL_NAME};
-use kristoff_core::domain::model_request::{RawArticleInput, RawSearchInput, ToolCall, ToolInput};
+use kristoff_contracts::model_config::{
+    ARTICLE_TOOL_NAME, CASE_SEARCH_TOOL_NAME, CASE_TOOL_NAME, SEARCH_TOOL_NAME,
+};
+use kristoff_core::domain::model_request::{
+    RawArticleInput, RawCaseSearchInput, RawGetCaseInput, RawSearchInput, ToolCall, ToolInput,
+};
 use serde_json::{Map, Value};
 
 /// A string field: `Ok(None)` when absent, `Err` when present but not a string.
@@ -30,17 +34,31 @@ fn only_keys(obj: &Map<String, Value>, allowed: &[&str]) -> Result<(), ()> {
     }
 }
 
+/// The fields every search tool takes: `query`, `year_from`, `year_to`, `limit`.
+type SearchFields = (Option<String>, Option<i64>, Option<i64>, Option<i64>);
+
+fn search_fields(obj: &Map<String, Value>) -> Result<SearchFields, ()> {
+    Ok((
+        text(obj, "query")?,
+        int(obj, "year_from")?,
+        int(obj, "year_to")?,
+        int(obj, "limit")?,
+    ))
+}
+
 fn search(obj: &Map<String, Value>) -> Result<RawSearchInput, ()> {
     only_keys(
         obj,
         &["query", "law_number", "year_from", "year_to", "limit"],
     )?;
+    let (query, year_from, year_to, limit) = search_fields(obj)?;
+    let law_number = text(obj, "law_number")?;
     Ok(RawSearchInput {
-        query: text(obj, "query")?,
-        law_number: text(obj, "law_number")?,
-        year_from: int(obj, "year_from")?,
-        year_to: int(obj, "year_to")?,
-        limit: int(obj, "limit")?,
+        query,
+        law_number,
+        year_from,
+        year_to,
+        limit,
     })
 }
 
@@ -49,6 +67,25 @@ fn article(obj: &Map<String, Value>) -> Result<RawArticleInput, ()> {
     Ok(RawArticleInput {
         law_number: text(obj, "law_number")?,
         article: text(obj, "article")?,
+    })
+}
+
+fn case_search(obj: &Map<String, Value>) -> Result<RawCaseSearchInput, ()> {
+    only_keys(obj, &["query", "year_from", "year_to", "limit"])?;
+    let (query, year_from, year_to, limit) = search_fields(obj)?;
+    Ok(RawCaseSearchInput {
+        query,
+        year_from,
+        year_to,
+        limit,
+    })
+}
+
+fn get_case(obj: &Map<String, Value>) -> Result<RawGetCaseInput, ()> {
+    only_keys(obj, &["case", "focus"])?;
+    Ok(RawGetCaseInput {
+        case: text(obj, "case")?,
+        focus: text(obj, "focus")?,
     })
 }
 
@@ -63,7 +100,15 @@ pub fn tool_call(id: &str, name: &str, input: &Value) -> ToolCall {
         (ARTICLE_TOOL_NAME, Some(obj)) => {
             article(obj).map_or_else(|()| malformed(), ToolInput::GetLawArticle)
         }
-        (SEARCH_TOOL_NAME | ARTICLE_TOOL_NAME, None) => malformed(),
+        (CASE_SEARCH_TOOL_NAME, Some(obj)) => {
+            case_search(obj).map_or_else(|()| malformed(), ToolInput::SearchCases)
+        }
+        (CASE_TOOL_NAME, Some(obj)) => {
+            get_case(obj).map_or_else(|()| malformed(), ToolInput::GetCase)
+        }
+        (SEARCH_TOOL_NAME | ARTICLE_TOOL_NAME | CASE_SEARCH_TOOL_NAME | CASE_TOOL_NAME, None) => {
+            malformed()
+        }
         _ => ToolInput::Unknown(name.to_owned()),
     };
     ToolCall {

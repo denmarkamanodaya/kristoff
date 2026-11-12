@@ -74,6 +74,8 @@ pub enum CitationKindDto {
     Doc,
     /// A statute.
     Law,
+    /// A Supreme Court decision (Phase 7).
+    Case,
 }
 
 /// A cited passage.

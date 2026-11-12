@@ -36,6 +36,12 @@ pub struct LawHit {
     pub source_url: String,
     /// Source law status, e.g. `current`.
     pub status: String,
+    /// Where the text comes from: `ipfs_philippines_laws` (current Republic Acts and the 1987
+    /// Constitution) or `omnicorpus` (codes and older laws as enacted; Phase 7).
+    pub source: String,
+    /// Edition label shown as the result's status line, e.g. `As enacted` for every `OmniCorpus`
+    /// law; `None` for current text.
+    pub edition: Option<String>,
     /// The source text looked cut off mid-sentence.
     pub truncated: bool,
     /// Index of this part within its provision, from 0; whole provisions carry 0.

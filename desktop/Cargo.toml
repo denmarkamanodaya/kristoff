@@ -49,12 +49,13 @@ lopdf = { version = "=0.47.0", default-features = false }
 # Phase 3 (owner-approved 2026-11-12; checked on crates.io that day, all >= 7 days old):
 # candle-* 0.11.1 (2026-10-31; metal for the Apple GPU), tokenizers 0.23.2 (2026-09-03; default
 # features off, onig only), parquet 60.1.0 (2026-10-28; default features off, zstd only, used by
-# the kristoff-ingest dev tool), anyhow 1.0.104 (2026-07-18; kristoff-ingest bin only).
+# the kristoff-ingest dev tool; `snap` added 2026-11-12 for the Snappy-compressed OmniCorpus
+# parquet, pulling snap 1.1.2 of 2026-07-15, BSD-3-Clause, ingest only), anyhow 1.0.104 (2026-07-18; kristoff-ingest bin only).
 candle-core = { version = "=0.11.1", features = ["metal"] }
 candle-nn = { version = "=0.11.1", features = ["metal"] }
 candle-transformers = { version = "=0.11.1", features = ["metal"] }
 tokenizers = { version = "=0.23.2", default-features = false, features = ["onig"] }
-parquet = { version = "=60.1.0", default-features = false, features = ["zstd"] }
+parquet = { version = "=60.1.0", default-features = false, features = ["zstd", "snap"] }
 anyhow = "=1.0.104"
 
 [workspace.lints.rust]

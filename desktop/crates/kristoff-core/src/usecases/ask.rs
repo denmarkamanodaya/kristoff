@@ -11,8 +11,8 @@ use crate::error::{AppError, AppResult, ErrorCode};
 use crate::limits::{FOLLOW_UP_ANSWER_CHARS, MAX_MESSAGE_TEXT};
 use crate::model::{Citation, Message, Role, Usage};
 use crate::ports::{
-    AnswerModel, AnswerSink, CancelSignal, ChatStore, Clock, DocStore, FollowUpSuggester,
-    IdGenerator, LawSearch, UsageMeter,
+    AnswerModel, AnswerSink, CancelSignal, CaseSearch, ChatStore, Clock, DocStore,
+    FollowUpSuggester, IdGenerator, LawSearch, UsageMeter,
 };
 use crate::util::text::truncate_utf16;
 use crate::util::time::{seconds_until_next_utc_day, utc_day};
@@ -46,8 +46,10 @@ pub struct AskDeps<'a> {
     pub model: &'a dyn AnswerModel,
     /// The follow-up suggester.
     pub follow_ups: &'a dyn FollowUpSuggester,
-    /// The PH law index; `None` while it warms up or when the build has none (no tools then).
+    /// The PH law index; `None` when the build has none (no statute tools then).
     pub law: Option<&'a dyn LawSearch>,
+    /// The Supreme Court decisions index; `None` when the build has none (no case tools then).
+    pub cases: Option<&'a dyn CaseSearch>,
     /// The daily meter and token counters.
     pub meter: &'a dyn UsageMeter,
     /// Ids.
@@ -146,6 +148,8 @@ pub fn ask(
             deps.config.max_history_turns,
         ),
         statutes_on: chat.value.statutes && deps.law.is_some(),
+        // One toggle for both: the chat's Statutes switch also offers the decisions.
+        cases_on: chat.value.statutes && deps.cases.is_some(),
         tool_rounds: vec![],
         tool_choice_none: false,
     };

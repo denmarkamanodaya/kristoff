@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::Result;
 use kristoff_core::domain::law::reference::{LawRef, parse_references};
-use kristoff_law::schema::{self, CONSTITUTION_SOURCE_ID};
+use kristoff_law::schema::{self, CONSTITUTION_SOURCE_ID, SOURCE_IPFS, kind};
 use rusqlite::{Connection, params};
 
 use crate::chunk;
@@ -21,13 +21,23 @@ pub struct Law {
     pub year: Option<u32>,
     pub status: String,
     pub source_url: String,
+    /// `sources.id`.
+    pub dataset_id: i64,
+    /// `laws.kind` (`schema::kind`).
+    pub kind: &'static str,
+    /// Number within the kind, when it has one.
+    pub kind_number: Option<u32>,
+    /// Edition label (`schema::AS_ENACTED` for `OmniCorpus`), `None` for the current dataset.
+    pub edition: Option<&'static str>,
 }
 
 /// A cleaned article, before chunking.
-struct Article {
-    label: String,
-    text: String,
-    truncated: bool,
+pub struct Article {
+    pub label: String,
+    pub text: String,
+    pub truncated: bool,
+    /// Rules of Court rule number, for `RULE n SEC. m` labels.
+    pub rule: Option<u32>,
 }
 
 /// Reads the approval year from a law text header like `[ REPUBLIC ACT NO. 10, September 02, 1946 ]`.
@@ -52,7 +62,7 @@ fn law_from_row(row: &LawRow) -> Law {
         .iter()
         .find_map(|l| match l {
             LawRef::RepublicAct(n) => Some(*n),
-            LawRef::Constitution => None,
+            _ => None,
         });
     let date_year = row
         .date
@@ -68,6 +78,14 @@ fn law_from_row(row: &LawRow) -> Law {
         year: date_year.or_else(|| header_year(&row.text)),
         status: row.status.clone(),
         source_url: row.source_url.clone(),
+        dataset_id: SOURCE_IPFS,
+        kind: if is_constitution {
+            kind::CONSTITUTION
+        } else {
+            kind::RA
+        },
+        kind_number: number,
+        edition: None,
     }
 }
 
@@ -115,6 +133,7 @@ fn clean_articles(rows: &[&ArticleRow], stats: &mut CleanStats) -> Vec<Article> 
             label,
             text,
             truncated,
+            rule: None,
         });
     }
     out
@@ -138,6 +157,7 @@ fn with_article_context(article: Option<&str>, label: String) -> String {
 }
 
 /// Counts written by [`write_laws_and_chunks`].
+#[derive(Debug, Default)]
 pub struct Written {
     pub laws: usize,
     pub chunks: usize,
@@ -150,7 +170,8 @@ pub struct Dataset<'a> {
     pub articles: &'a [ArticleRow],
 }
 
-/// Writes laws, chunks and the FTS index in one transaction.
+/// Writes the current dataset's laws and chunks in one transaction (the FTS index is filled
+/// once every source is in: `schema::FILL_FTS`).
 pub fn write_laws_and_chunks(
     conn: &mut Connection,
     data: &Dataset<'_>,
@@ -162,11 +183,7 @@ pub fn write_laws_and_chunks(
         by_law.entry(a.law_id.as_str()).or_default().push(a);
     }
     let tx = conn.transaction()?;
-    let mut written = Written {
-        laws: 0,
-        chunks: 0,
-        split_articles: 0,
-    };
+    let mut written = Written::default();
     {
         let mut ins_law = tx.prepare(INSERT_LAW)?;
         let mut ins_chunk = tx.prepare(INSERT_CHUNK)?;
@@ -187,17 +204,18 @@ pub fn write_laws_and_chunks(
             insert_chunks(&mut ins_chunk, &target, &articles, &mut written)?;
         }
     }
-    tx.execute(schema::FILL_FTS, [])?;
     tx.commit()?;
     Ok(written)
 }
 
-const INSERT_LAW: &str = "INSERT INTO laws(source_id, identifier, number, is_constitution, \
-    title, year, status, source_url) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)";
-const INSERT_CHUNK: &str = "INSERT INTO chunks(law_id, label, ord, prov, part, overlap, \
-    sec_num, art_num, prefix, text, truncated) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)";
+pub const INSERT_LAW: &str = "INSERT INTO laws(source_id, identifier, number, is_constitution, \
+    title, year, status, source_url, dataset_id, kind, kind_number, edition) \
+    VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)";
+pub const INSERT_CHUNK: &str = "INSERT INTO chunks(law_id, label, ord, prov, part, overlap, \
+    sec_num, art_num, rule_num, prefix, text, truncated) \
+    VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)";
 
-fn insert_law(stmt: &mut rusqlite::Statement<'_>, law: &Law) -> Result<()> {
+pub fn insert_law(stmt: &mut rusqlite::Statement<'_>, law: &Law) -> Result<()> {
     stmt.execute(params![
         law.source_id,
         law.identifier,
@@ -206,20 +224,24 @@ fn insert_law(stmt: &mut rusqlite::Statement<'_>, law: &Law) -> Result<()> {
         law.title,
         law.year,
         law.status,
-        law.source_url
+        law.source_url,
+        law.dataset_id,
+        law.kind,
+        law.kind_number,
+        law.edition
     ])?;
     Ok(())
 }
 
 /// The law that chunks are written for, plus the token counter.
-struct ChunkTarget<'a> {
-    law_id: i64,
-    law: &'a Law,
-    count: &'a dyn Fn(&str) -> Result<usize>,
+pub struct ChunkTarget<'a> {
+    pub law_id: i64,
+    pub law: &'a Law,
+    pub count: &'a dyn Fn(&str) -> Result<usize>,
 }
 
 /// Chunks one law's articles and inserts them with consecutive `ord` values.
-fn insert_chunks(
+pub fn insert_chunks(
     stmt: &mut rusqlite::Statement<'_>,
     target: &ChunkTarget<'_>,
     articles: &[Article],
@@ -241,6 +263,7 @@ fn insert_chunks(
                 i64::try_from(piece.overlap)?,
                 refs.section(),
                 refs.article(),
+                article.rule,
                 prefix,
                 piece.text,
                 article.truncated

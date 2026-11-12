@@ -33,6 +33,8 @@ fn hit(label: &str, url: &str, status: &str, truncated: bool) -> LawHit {
         text: "SEC. 26. Battered Woman Syndrome as a Defense.".into(),
         source_url: url.into(),
         status: status.into(),
+        source: "ipfs_philippines_laws".into(),
+        edition: None,
         truncated,
         part: 0,
         score: 1.0,
@@ -176,6 +178,16 @@ fn a_result_is_titled_by_law_and_label_and_starts_with_its_status_line() {
     assert!(r.text.starts_with("[Repealed] SEC. 26."));
     assert!(cut.text.starts_with("[Text may be cut off] "));
     assert!(plain.text.starts_with("SEC. 26."));
+}
+
+#[test]
+fn an_edition_label_comes_before_the_status_and_cut_off_lines() {
+    let mut code = hit("ART. 335", "https://lawphil.net/act3815", "repealed", true);
+    code.edition = Some("As enacted".into());
+
+    let r = search_result(&code).unwrap();
+
+    assert!(r.text.starts_with("[As enacted] SEC. 26."), "{}", r.text);
 }
 
 #[test]

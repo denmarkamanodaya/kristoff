@@ -2,6 +2,7 @@
 //! (fails the calling test) on the first broken promise.
 
 mod answer;
+mod cases;
 mod chats;
 mod docs;
 mod files;
@@ -14,6 +15,7 @@ pub use answer::{
     FollowUpReply, answer_model_contract, follow_up_suggester_contract, sample_request,
     sample_script, tool_use_script,
 };
+pub use cases::{KnownCase, SAMPLE_CASE, case_search_contract};
 pub use chats::chat_store_contract;
 pub use docs::doc_store_contract;
 pub use files::file_store_contract;

@@ -110,6 +110,8 @@ impl MemoryLawSearch {
             text: p.text.clone(),
             source_url: format!("https://lawphil.net/fake/{}", p.law.number.unwrap_or(1987)),
             status: "current".to_owned(),
+            source: "ipfs_philippines_laws".to_owned(),
+            edition: None,
             truncated: false,
             part: 0,
             score,

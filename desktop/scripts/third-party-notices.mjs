@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Writes desktop/THIRD_PARTY_NOTICES: every crate the shipped app links (from `cargo metadata`,
 // normal dependencies of kristoff-app on aarch64-apple-darwin, as pinned by Cargo.lock), the two
-// web libraries in the desktop bundle, the PH laws dataset and the e5 model, then each distinct
+// web libraries in the desktop bundle, the PH laws dataset, the OmniCorpus dataset (ODC-By, Phase 7)
+// and the e5 model, then each distinct
 // licence text found in those packages. No new tool: cargo, node and the local registry only.
 // Phase 5 §2 (docs/desktop/phases/phase-5-eval-package.md).
 // Usage: node desktop/scripts/third-party-notices.mjs [--check]   (--check fails if stale)
@@ -79,6 +80,14 @@ PH laws dataset: endomorphosis/ipfs_philippines_laws, revision
   Under the Philippine Intellectual Property Code (RA 8293, Sec. 176) no copyright subsists in works
   of the Government; prior approval is required only to exploit them for profit. This app is for
   private, non-commercial use.
+
+Philippine OmniCorpus: mongramosjr/philippine-omnicorpus, revision
+bb0626ce527b159a32a6baefabee0ea1e0e01d2f, https://huggingface.co/datasets/mongramosjr/philippine-omnicorpus
+  Ramos Jr., M. (2024). Philippine OmniCorpus [Data set]. Hugging Face.
+  Licence: Open Data Commons Attribution License (ODC-By) v1.0,
+  https://opendatacommons.org/licenses/by/1-0/
+  Used for the codes and older laws as originally enacted (in phlaws.db) and for the Supreme Court
+  decisions (phcases.db). The texts are works of the Philippine Government; see the note above.
 
 multilingual-e5-small: intfloat/multilingual-e5-small, revision
 614241f622f53c4eeff9890bdc4f31cfecc418b3, https://huggingface.co/intfloat/multilingual-e5-small

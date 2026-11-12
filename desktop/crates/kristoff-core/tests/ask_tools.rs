@@ -9,7 +9,7 @@ mod ask_support;
 
 use ask_support::*;
 use kristoff_core::domain::model_request::{
-    AnswerEnd, CitationSource, ModelEvent, RawSearchInput, ToolAnswerContent, ToolCall, ToolInput,
+    CitationSource, ModelEvent, RawSearchInput, ToolAnswerContent, ToolCall, ToolInput,
 };
 use kristoff_core::model::{CitationKind, Usage};
 use kristoff_core::ports::{ChatStore, UsageMeter};
@@ -18,51 +18,12 @@ use kristoff_testkit::builders::chat;
 use kristoff_testkit::fakes::{MemoryLawSearch, Script, ScriptedModel};
 use kristoff_testkit::world::{START_MS, World};
 
-const TURN: Usage = Usage {
-    input: 10,
-    output: 5,
-    cache_read: 1,
-    cache_write: 2,
-};
-
-fn search_call(id: &str, query: &str) -> ToolCall {
-    let raw = RawSearchInput {
-        query: Some(query.into()),
-        ..RawSearchInput::default()
-    };
-    ToolCall {
-        id: id.into(),
-        input: ToolInput::SearchLaws(raw),
-    }
-}
-
-/// A turn that says `text`, then stops to make `calls`.
-fn tool_turn(text: &str, calls: Vec<ToolCall>) -> Script {
-    Script {
-        events: vec![ModelEvent::Text(text.into())],
-        end: Ok(AnswerEnd {
-            usage: TURN,
-            stop_reason: Some("tool_use".into()),
-            tool_calls: calls,
-            assistant_content_json: format!(
-                r#"[{{"type":"thinking","thinking":"","signature":"S"}},{{"type":"text","text":"{text}"}}]"#
-            ),
-        }),
-    }
-}
-
-fn final_turn(events: Vec<ModelEvent>) -> Script {
-    Script {
-        events,
-        end: Ok(AnswerEnd::finished(TURN, "end_turn")),
-    }
-}
-
 fn law_citation() -> ModelEvent {
     ModelEvent::Citation(CitationSource::SearchResult {
         source: "https://lawphil.net/fake/9262".into(),
         title: "Republic Act No. 9262 \u{b7} SEC. 5".into(),
         cited_text: "SEC. 5. Acts of Violence".into(),
+        index: Some(0),
     })
 }
 

@@ -10,16 +10,16 @@ mod candidates;
 mod vectors;
 
 use std::path::Path;
-use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use kristoff_core::domain::law::reference::parse_references;
 use kristoff_core::domain::law::{ArticleView, LawFilters, LawHit, LawRef, LawSummary};
 use kristoff_core::error::AppResult;
 use kristoff_core::ports::LawSearch;
-use rusqlite::{Connection, OpenFlags, OptionalExtension, Row};
+use rusqlite::{OptionalExtension, Row};
 
 use crate::error::LawIndexError;
 use crate::fusion::{RankedList, fuse};
+use crate::store::ReadOnlyDb;
 use candidates::QueryCtx;
 use vectors::{LOAD_SQL, Vectors};
 
@@ -27,8 +27,6 @@ use vectors::{LOAD_SQL, Vectors};
 const CANDIDATES: usize = 30;
 /// Weight of the exact-hit list in the fusion; above FTS + kNN together so a cited section wins.
 const EXACT_WEIGHT: f64 = 3.0;
-/// Vector width (e5-small).
-const DIMS: usize = 384;
 
 /// Embeds a search query (the `"query: "` prefix is the embedder's job).
 pub trait QueryEmbedder: Send + Sync {
@@ -49,15 +47,14 @@ pub trait QueryEmbedder: Send + Sync {
 
 /// Read-only handle on `phlaws.db`.
 pub struct LawIndex {
-    conn: Mutex<Connection>,
-    vectors: OnceLock<Vectors>,
-    embedder: Box<dyn QueryEmbedder>,
+    db: ReadOnlyDb<Vectors>,
 }
 
-/// Columns of a hit, read by [`hit_from_row`]; `overlap` is column 14.
+/// Columns of a hit, read by [`hit_from_row`]; `overlap` is column 14, the source name 15 and the
+/// edition 16.
 const HIT_SELECT: &str = "SELECT c.id, l.identifier, l.title, l.number, l.year, c.label, c.text, \
-     l.source_url, l.status, c.truncated, c.law_id, c.ord, c.prov, c.part, c.overlap \
-     FROM chunks c JOIN laws l ON l.id = c.law_id";
+     l.source_url, l.status, c.truncated, c.law_id, c.ord, c.prov, c.part, c.overlap, s.name, \
+     l.edition FROM chunks c JOIN laws l ON l.id = c.law_id JOIN sources s ON s.id = l.dataset_id";
 
 fn hit_from_row(row: &Row<'_>) -> rusqlite::Result<LawHit> {
     Ok(LawHit {
@@ -72,6 +69,8 @@ fn hit_from_row(row: &Row<'_>) -> rusqlite::Result<LawHit> {
         text: row.get(6)?,
         source_url: row.get(7)?,
         status: row.get(8)?,
+        source: row.get(15)?,
+        edition: row.get(16)?,
         truncated: row.get(9)?,
         part: row.get(13)?,
         score: 0.0,
@@ -79,26 +78,13 @@ fn hit_from_row(row: &Row<'_>) -> rusqlite::Result<LawHit> {
 }
 
 impl LawIndex {
-    /// Opens `path` read-only and immutable. Vectors load on [`LawIndex::warm`] or the first
+    /// Opens `phlaws_db` read-only and immutable. Vectors load on [`LawIndex::warm`] or the first
     /// search.
     ///
     /// # Errors
-    /// [`LawIndexError::Db`] when the file cannot be opened.
-    pub fn open(path: &Path, embedder: Box<dyn QueryEmbedder>) -> Result<Self, LawIndexError> {
-        let uri = format!("file:{}?immutable=1", path.display());
-        let flags = OpenFlags::SQLITE_OPEN_READ_ONLY
-            | OpenFlags::SQLITE_OPEN_URI
-            | OpenFlags::SQLITE_OPEN_NO_MUTEX;
-        let conn = Connection::open_with_flags(uri, flags)?;
-        Ok(Self {
-            conn: Mutex::new(conn),
-            vectors: OnceLock::new(),
-            embedder,
-        })
-    }
-
-    fn conn(&self) -> Result<MutexGuard<'_, Connection>, LawIndexError> {
-        self.conn.lock().map_err(|_| LawIndexError::Poisoned)
+    /// [`LawIndexError::Db`] when `phlaws.db` cannot be opened.
+    pub fn open(phlaws_db: &Path, embedder: Box<dyn QueryEmbedder>) -> Result<Self, LawIndexError> {
+        ReadOnlyDb::open(phlaws_db, embedder).map(|db| Self { db })
     }
 
     /// Loads every vector and warms the query embedder, so the first search is fast.
@@ -107,28 +93,11 @@ impl LawIndex {
     /// [`LawIndexError`] when reading fails, a vector is malformed or the embedder fails.
     pub fn warm_index(&self) -> Result<(), LawIndexError> {
         self.vectors()?;
-        self.embedder.warm().map_err(LawIndexError::Embed)
+        self.db.embedder.warm().map_err(LawIndexError::Embed)
     }
 
     fn vectors(&self) -> Result<&Vectors, LawIndexError> {
-        if let Some(v) = self.vectors.get() {
-            return Ok(v);
-        }
-        let mut loaded = Vectors::default();
-        {
-            let conn = self.conn()?;
-            // A search that arrives during the background warm-up waits on the connection lock;
-            // once it gets it the vectors may be loaded, so it must not load them a second time.
-            if let Some(v) = self.vectors.get() {
-                return Ok(v);
-            }
-            let mut stmt = conn.prepare(LOAD_SQL)?;
-            let mut rows = stmt.query([])?;
-            while let Some(row) = rows.next()? {
-                loaded.push_row(row)?;
-            }
-        }
-        Ok(self.vectors.get_or_init(|| loaded))
+        self.db.vectors(LOAD_SQL, Vectors::push_row)
     }
 
     /// Hybrid search: FTS5 + kNN + exact citation hits, fused by RRF, one hit per provision.
@@ -183,6 +152,7 @@ impl LawIndex {
         std::thread::scope(|s| {
             let fts = s.spawn(|| self.fts_candidates(query, filters, None));
             let embedded = self
+                .db
                 .embedder
                 .embed_query(query)
                 .map_err(LawIndexError::Embed);
@@ -193,7 +163,7 @@ impl LawIndex {
 
     /// Reads the first `limit` fused ids as hits, carrying their scores.
     fn load_hits(&self, fused: &[(i64, f64)], limit: usize) -> Result<Vec<LawHit>, LawIndexError> {
-        let conn = self.conn()?;
+        let conn = self.db.conn()?;
         let mut stmt = conn.prepare_cached(&format!("{HIT_SELECT} WHERE c.id = ?1"))?;
         let mut hits = Vec::with_capacity(limit);
         for &(id, score) in fused.iter().take(limit) {
@@ -219,7 +189,7 @@ impl LawSearch for LawIndex {
     }
 
     fn law_count(&self) -> AppResult<Option<u64>> {
-        let conn = self.conn()?;
+        let conn = self.db.conn()?;
         let value: Option<String> = conn
             .query_row("SELECT value FROM meta WHERE key = 'law_count'", [], |r| {
                 r.get(0)

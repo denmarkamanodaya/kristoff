@@ -36,7 +36,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 /// index or a failed warm-up is logged; the app then runs without law search, or its searches fail.
 /// When the warm-up ends (or there is nothing to warm) it emits `law-ready`.
 fn open_law(composition: &Arc<Composition>, paths: &law::LawPaths, handle: tauri::AppHandle) {
-    if let Err(e) = law::open_and_install(composition, paths) {
+    if let Err(e) = law::open_and_install_all(composition, paths) {
         composition.warn("law.unavailable", e.code.as_str());
     }
     let warming = Arc::clone(composition);

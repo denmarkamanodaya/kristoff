@@ -24,7 +24,7 @@ impl LawIndex {
         let Some(&first) = self.provision_hits(&law_ids, &refs)?.first() else {
             return Ok(None);
         };
-        let conn = self.conn()?;
+        let conn = self.db.conn()?;
         let (law_id, prov): (i64, i64) = conn.query_row(
             "SELECT law_id, prov FROM chunks WHERE id = ?1",
             [first],

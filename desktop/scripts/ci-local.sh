@@ -58,6 +58,13 @@ if [ -f data/phlaws.db ] && [ -f data/model/model.safetensors ]; then
 else
   skip "law index contract (real db)" "desktop/data/phlaws.db or the model is not built"
 fi
+# The real case index keeps the CaseSearch contract (Supreme Court decisions, Phase 7);
+# needs data/phcases.db (kristoff-ingest --cases-out), so it runs only when it exists.
+if [ -f data/phcases.db ] && [ -f data/model/model.safetensors ]; then
+  gate "case index contract (real db)" cargo test -p kristoff-law --test case_contract -- --ignored
+else
+  skip "case index contract (real db)" "desktop/data/phcases.db or the model is not built"
+fi
 gate "cargo deny" cargo deny check licenses advisories
 gate "web check" npm --prefix ../web run -s check
 # The Phase 5 eval set: schema, counts, fictional docs, PDF generator, targets in phlaws.db.

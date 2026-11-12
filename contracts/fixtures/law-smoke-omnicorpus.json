@@ -1,0 +1,87 @@
+{
+ "description": "Phase 7 smoke for OmniCorpus @ bb0626ce: code look-ups (top 5, with their edition label), get_article by code name, and Supreme Court decisions by name and G.R. number (top 5). The Labor Code is the 1974 text: Art. 282 is 'Denial of Registration' and the just causes are Art. 321, not the later Art. 282/297 numbering.",
+ "codes": [
+  {
+   "query": "Revised Penal Code Article 335 rape",
+   "identifier": "Act No. 3815 (Revised Penal Code)",
+   "label": "ART. 335",
+   "edition": "As enacted"
+  },
+  {
+   "query": "Family Code Article 36 psychological incapacity",
+   "identifier": "Executive Order No. 209 (Family Code of the Philippines)",
+   "label": "ART. 36",
+   "edition": "As enacted"
+  },
+  {
+   "query": "Labor Code Article 282 denial of registration",
+   "identifier": "Presidential Decree No. 442 (Labor Code of the Philippines)",
+   "label": "ART. 282",
+   "edition": "As enacted"
+  },
+  {
+   "query": "Labor Code termination by employer just causes serious misconduct",
+   "identifier": "Presidential Decree No. 442 (Labor Code of the Philippines)",
+   "label": "ART. 321",
+   "edition": "As enacted"
+  },
+  {
+   "query": "Rule 113 Section 5 arrest without warrant when lawful",
+   "identifier": "Revised Rules of Criminal Procedure (Rules of Court)",
+   "label": "RULE 113 SEC. 5",
+   "edition": "As promulgated"
+  }
+ ],
+ "articles": [
+  {
+   "law": "Revised Penal Code",
+   "article": "Art. 335",
+   "identifier": "Act No. 3815 (Revised Penal Code)",
+   "label": "ART. 335",
+   "starts_with": "ART. 335. When and how rape is committed"
+  },
+  {
+   "law": "Family Code",
+   "article": "Article 36",
+   "identifier": "Executive Order No. 209 (Family Code of the Philippines)",
+   "label": "ART. 36",
+   "starts_with": "Art. 36. A marriage contracted"
+  },
+  {
+   "law": "PD 442",
+   "article": "Art. 282",
+   "identifier": "Presidential Decree No. 442 (Labor Code of the Philippines)",
+   "label": "ART. 282",
+   "starts_with": "ART. 282, Denial of Registration"
+  },
+  {
+   "law": "Rules of Court",
+   "article": "Rule 113 Sec. 5",
+   "identifier": "Revised Rules of Criminal Procedure (Rules of Court)",
+   "label": "RULE 113 SEC. 5",
+   "starts_with": "Sec. 5. Arrest without warrant"
+  }
+ ],
+ "cases": [
+  {
+   "query": "People v. Genosa battered woman syndrome",
+   "gr_number": "G.R. No. 135981"
+  },
+  {
+   "query": "G.R. No. 206770",
+   "gr_number": "G.R. No. 206770"
+  },
+  {
+   "query": "People v. Francisca Talaro",
+   "gr_number": "G.R. No. 175781"
+  },
+  {
+   "query": "Arguelles v. Malarayat Rural Bank",
+   "gr_number": "G.R. No. 200468"
+  },
+  {
+   "query": "Clarete v. Office of the Ombudsman",
+   "gr_number": "G.R. No. 232968"
+  }
+ ]
+}

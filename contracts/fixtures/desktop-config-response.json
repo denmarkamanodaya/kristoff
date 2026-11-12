@@ -19,6 +19,8 @@
   "features": {
     "statutes": true,
     "lawCount": 10870,
-    "lawReady": true
+    "lawReady": true,
+    "cases": true,
+    "caseCount": 31180
   }
 }

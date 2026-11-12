@@ -36,3 +36,17 @@ pub mod article {
     /// Article text.
     pub const TEXT: &str = "text";
 }
+
+/// `OmniCorpus` `data/philippine_laws.parquet` columns (revision bb0626ce, schema printed
+/// 2026-11-12: `text`, `citation_information`, `citations`, `url`, `label`). `citations` is empty in every
+/// row and is not read.
+pub mod omni {
+    /// Full document text, no newlines.
+    pub const TEXT: &str = "text";
+    /// JSON object string; its `type` key marks the row type.
+    pub const INFO: &str = "citation_information";
+    /// `E-Library` page.
+    pub const URL: &str = "url";
+    /// `E-Library` shelf, e.g. `Republic Acts`.
+    pub const LABEL: &str = "label";
+}

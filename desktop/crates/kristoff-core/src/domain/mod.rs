@@ -2,6 +2,8 @@
 //! the part-splitting rules and the law index rules.
 
 pub mod attachment;
+pub mod case;
+pub mod case_tools;
 pub mod citation;
 pub mod cursor;
 pub mod doc_path;
@@ -13,3 +15,5 @@ pub mod model_request;
 pub mod model_turns;
 pub mod names;
 pub mod parts;
+pub mod tool_input;
+pub mod tools;
