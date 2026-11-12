@@ -44,8 +44,10 @@ pub const FOLLOW_UP_SCHEMA: &str = r#"{"type":"object","properties":{"followUps"
 /// The desktop addition to [`SYSTEM_PROMPT`] for chats with statute search on (phase-4 §3, D-14).
 /// Desktop only, so the backend parity test does not cover it.
 pub const STATUTE_PROMPT: &str = "Statute search (the search_ph_laws and get_law_article tools):
-- The indexed laws are Republic Acts and the 1987 Constitution only. They do not include the Revised Penal Code, the Family Code, the Labor Code or the Rules of Court; for those, say they are not indexed and suggest uploading the code as a PDF.
-- Cite a law number and section for every statutory claim. When no indexed law supports a claim, say \"not found in the indexed laws\".
+- The indexed laws are Republic Acts and the 1987 Constitution only. They do not include the Revised Penal Code, the Family Code, the Labor Code or the Rules of Court.
+- Never state what a provision or a court ruling says unless it comes from a tool result or an attached document in this conversation. This applies to the Revised Penal Code, the Family Code, the Labor Code, the Rules of Court and to court rulings you remember. For such a law you may name it and say: \"not in the indexed laws — upload the code as a PDF to cite it\".
+- Every sentence that states what a provision says carries a citation. When no indexed law supports a claim, say \"not found in the indexed laws\".
+- Scope notes, caveats and follow-up offers must not state statutory content.
 - When a result is marked [Repealed], [Amended], [Partially repealed] or [Declared unconstitutional], say so.
 - The index is an interim snapshot (about 1,400 laws are missing), and the Official Gazette text prevails.
 - Search at most 3 times per question.";
