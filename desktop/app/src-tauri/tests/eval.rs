@@ -50,8 +50,7 @@ fn open_app(dir: &Path, log: &Recorded) -> Composition {
     core.install_law(Box::new(RecordingLaw {
         inner,
         log: log.clone(),
-    }))
-    .unwrap();
+    }));
     core
 }
 

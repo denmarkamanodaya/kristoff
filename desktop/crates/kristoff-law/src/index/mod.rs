@@ -117,6 +117,11 @@ impl LawIndex {
         let mut loaded = Vectors::default();
         {
             let conn = self.conn()?;
+            // A search that arrives during the background warm-up waits on the connection lock;
+            // once it gets it the vectors may be loaded, so it must not load them a second time.
+            if let Some(v) = self.vectors.get() {
+                return Ok(v);
+            }
             let mut stmt = conn.prepare(LOAD_SQL)?;
             let mut rows = stmt.query([])?;
             while let Some(row) = rows.next()? {

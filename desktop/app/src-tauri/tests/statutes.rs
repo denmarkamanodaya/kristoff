@@ -24,9 +24,7 @@ fn config_offers_statutes_with_the_law_count_only_once_the_index_is_installed() 
     let app = TestApp::new();
 
     let before = wire(&session::config(&app.core).unwrap());
-    app.core
-        .install_law(Box::new(MemoryLawSearch::sample()))
-        .unwrap();
+    app.core.install_law(Box::new(MemoryLawSearch::sample()));
     let after = wire(&session::config(&app.core).unwrap());
 
     assert_eq!(before["features"], json!({ "statutes": false }));
@@ -81,9 +79,7 @@ fn searching_app() -> TestApp {
         end: Ok(AnswerEnd::finished(ANSWER_USAGE, "end_turn")),
     };
     let app = TestApp::answering_turns(vec![first, second], FollowUps::default());
-    app.core
-        .install_law(Box::new(MemoryLawSearch::sample()))
-        .unwrap();
+    app.core.install_law(Box::new(MemoryLawSearch::sample()));
     app
 }
 

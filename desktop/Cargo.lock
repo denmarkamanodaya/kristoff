@@ -2571,6 +2571,7 @@ dependencies = [
  "kristoff-law",
  "kristoff-pdf",
  "kristoff-testkit",
+ "rusqlite",
  "serde",
  "serde_json",
  "tauri",

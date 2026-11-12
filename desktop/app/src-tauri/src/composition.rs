@@ -65,17 +65,13 @@ impl Composition {
         })
     }
 
-    /// Warms `law` and makes it the law index; a second install is ignored.
-    ///
-    /// # Errors
-    /// The warm-up failure; the index is then not installed.
-    pub fn install_law(&self, law: Box<dyn LawSearch>) -> AppResult<()> {
-        law.warm()?;
+    /// Makes `law` the law index at once (not warmed: a search before the warm-up ends waits for
+    /// it); a second install is ignored.
+    pub fn install_law(&self, law: Box<dyn LawSearch>) {
         let _ = self.law.set(law);
-        Ok(())
     }
 
-    /// The law index, once installed; `None` while it warms up or when the build has no law data.
+    /// The law index, once installed; `None` when the build has no law data.
     #[must_use]
     pub fn law_search(&self) -> Option<&dyn LawSearch> {
         self.law.get().map(AsRef::as_ref)

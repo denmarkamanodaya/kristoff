@@ -57,9 +57,7 @@ fn the_law_index_is_visible_only_after_install() {
     let app = TestApp::new();
     assert!(app.core.law_search().is_none());
 
-    app.core
-        .install_law(Box::new(MemoryLawSearch::sample()))
-        .unwrap();
+    app.core.install_law(Box::new(MemoryLawSearch::sample()));
 
     let hits = app
         .core

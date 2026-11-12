@@ -54,6 +54,7 @@ gate "cargo test" cargo test --workspace
 # (desktop/scripts/fetch-*.sh + kristoff-ingest), so it runs only when they exist.
 if [ -f data/phlaws.db ] && [ -f data/model/model.safetensors ]; then
   gate "law index contract (real db)" cargo test -p kristoff-law --test law_contract -- --ignored
+  gate "law index at launch (real db)" cargo test -p kristoff-app --test law_at_launch -- --ignored
 else
   skip "law index contract (real db)" "desktop/data/phlaws.db or the model is not built"
 fi

@@ -28,7 +28,7 @@ fn page_text(p: u32) -> String {
 fn open_app(dir: &std::path::Path) -> Composition {
     let core = Composition::open(dir, kristoff_app::ANTHROPIC_KEY).unwrap();
     let paths = LawPaths::resolve(dir, |k| std::env::var_os(k));
-    core.install_law(open_law_index(&paths).unwrap()).unwrap();
+    core.install_law(open_law_index(&paths).unwrap());
     core
 }
 

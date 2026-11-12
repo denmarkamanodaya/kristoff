@@ -9,6 +9,7 @@ pub mod law;
 pub mod scheme;
 
 use composition::Composition;
+use kristoff_core::ports::LawSearch;
 use std::sync::Arc;
 use tauri::{Manager, WindowEvent};
 
@@ -25,18 +26,22 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let resume = composition.docs_to_resume()?;
     app.manage(Arc::clone(&composition));
     let law_paths = law::LawPaths::resolve(&app.path().resource_dir()?, |k| std::env::var_os(k));
-    spawn_law_warmup(Arc::clone(&composition), law_paths);
+    open_law(&composition, &law_paths);
     commands::docs::spawn_processing(composition, resume);
     Ok(())
 }
 
-/// Opens and warms the law index off the UI thread; a failure is logged and the app runs on
-/// without law search.
-fn spawn_law_warmup(composition: Arc<Composition>, paths: law::LawPaths) {
+/// Opens the law index on the launch path (an immutable SQLite open, so `get_config` reports
+/// statutes from the first call) and warms its vectors and model off the UI thread. A missing
+/// index or a failed warm-up is logged; the app then runs without law search, or its searches fail.
+fn open_law(composition: &Arc<Composition>, paths: &law::LawPaths) {
+    if let Err(e) = law::open_and_install(composition, paths) {
+        return composition.warn("law.unavailable", e.code.as_str());
+    }
+    let warming = Arc::clone(composition);
     tauri::async_runtime::spawn_blocking(move || {
-        let installed = law::open_law_index(&paths).and_then(|l| composition.install_law(l));
-        if let Err(e) = installed {
-            composition.warn("law.unavailable", e.code.as_str());
+        if let Some(Err(e)) = warming.law_search().map(LawSearch::warm) {
+            warming.warn("law.warm_failed", e.code.as_str());
         }
     });
 }
