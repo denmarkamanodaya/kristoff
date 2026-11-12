@@ -1,8 +1,9 @@
 //! The ask use case (docs/desktop/phases/phase-2-ask-flow.md §3). Ported from
 //! `backend/src/usecases/ask-question/v1.ts:303-336` without the kill switch. Order: model
-//! allowlist, chat, daily meter (one conditional write BEFORE the model call), history,
-//! attachments → file ids; then the user message (and the auto-title), the stream, follow-ups, and
-//! ALWAYS the assistant message (with a note when the answer failed or was cut off); then usage.
+//! allowlist, chat, attachments → file ids (before the meter: a deliberate deviation), daily meter
+//! (one conditional write BEFORE the model call), history; then the user message (and the
+//! auto-title), the stream, follow-ups, and ALWAYS the assistant message (with a note when the
+//! answer failed or was cut off); then usage.
 
 use crate::domain::citation::map_citation;
 use crate::domain::model_request::{AnswerEnd, AttachedDoc, ModelEvent, ModelRequest};
@@ -154,8 +155,8 @@ fn stream_answer(
 ///
 /// # Errors
 /// Before `sink.open()`, in this order: `VALIDATION_FAILED` (model not allowed), `CHAT_NOT_FOUND`,
-/// `DAILY_CAP_REACHED` (with the seconds to the next UTC day), `DOC_NOT_FOUND` (an attachment is
-/// missing, not ready or not uploaded) or a store failure. After it: `UPSTREAM_UNAVAILABLE` (the
+/// `DOC_NOT_FOUND` (an attachment is missing, not ready or not uploaded; not counted against the
+/// cap), `DAILY_CAP_REACHED` (with the seconds to the next UTC day) or a store failure. After it: `UPSTREAM_UNAVAILABLE` (the
 /// call failed or was cancelled; both messages are stored, the answer with `FAILED_NOTE` and
 /// `stopReason: "error"`) or a store failure.
 pub fn ask(
@@ -168,12 +169,14 @@ pub fn ask(
     let chat_id = question.chat_id;
     let model = choose_model(deps.config.model_ids, question.model)?;
     let chat = deps.chats.get_chat(chat_id)?;
+    // Deliberate deviation from ask-question/v1.ts (which metered first): attachments are resolved
+    // BEFORE the daily meter, so a question refused with DOC_NOT_FOUND is not counted.
+    let docs = attach::attached_docs(deps.docs, &chat.value.doc_ids)?;
     admit(deps, started_ms)?;
     // At least one message is read, so "no messages yet" is known even when no history is sent.
     let history = deps
         .chats
         .recent_messages(chat_id, deps.config.max_history_turns.max(1))?;
-    let docs = attach::attached_docs(deps.docs, &chat.value.doc_ids)?;
     store::store_question(deps, &chat, question.text, history.is_empty())?;
     let request = ModelRequest {
         model,

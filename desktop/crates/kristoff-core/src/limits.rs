@@ -55,5 +55,7 @@ pub const MAX_FOLLOW_UPS: usize = 5;
 pub const MAX_FOLLOW_UP: usize = 120;
 /// Characters of the answer the follow-up call sees.
 pub const FOLLOW_UP_ANSWER_CHARS: usize = 2000;
+/// Desktop only: processing runs a doc gets (the first, plus one retry at app start).
+pub const MAX_PROCESSING_ATTEMPTS: u32 = 2;
 /// Desktop only: most past messages sent to the model (the web had this as env `MAX_HISTORY_TURNS`).
 pub const MAX_HISTORY_TURNS: usize = 20;

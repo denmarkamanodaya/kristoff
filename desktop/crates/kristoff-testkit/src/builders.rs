@@ -16,6 +16,7 @@ pub fn doc(id: &str, status: DocStatus) -> Doc {
         page_count: None,
         parts: vec![],
         file_id: None,
+        processing_attempts: 0,
     }
 }
 

@@ -145,6 +145,20 @@ fn refuses_an_attachment_that_is_not_ready_or_not_uploaded() {
 }
 
 #[test]
+fn a_question_refused_for_its_attachment_is_not_counted_against_the_cap() {
+    let w = world_with_chat(&[D]);
+    w.store.create_doc(&doc(D, DocStatus::Processing)).unwrap();
+
+    assert_code(
+        run(&w, "q", &mut Recorder::default()),
+        ErrorCode::DocNotFound,
+    );
+
+    // With a cap of 1, the day still has its one question left.
+    w.store.admit_question(&utc_day(START_MS), 1).unwrap();
+}
+
+#[test]
 fn sends_parts_with_page_titles_and_maps_their_citations_back() {
     let p2 = format!("{P}:p2");
     let mut w = world_with_chat(&[D, &p2]);

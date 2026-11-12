@@ -90,6 +90,7 @@ mod tests {
             page_count: None,
             parts,
             file_id: None,
+            processing_attempts: 0,
         }
     }
 

@@ -46,6 +46,8 @@ pub struct DocPatch {
     pub parts: Option<Vec<DocPart>>,
     /// Files API id of the whole PDF, once uploaded.
     pub file_id: Option<String>,
+    /// Processing runs started so far.
+    pub processing_attempts: Option<u32>,
 }
 
 impl DocPatch {
@@ -65,6 +67,9 @@ impl DocPatch {
         }
         if self.file_id.is_some() {
             doc.file_id.clone_from(&self.file_id);
+        }
+        if let Some(attempts) = self.processing_attempts {
+            doc.processing_attempts = attempts;
         }
     }
 }

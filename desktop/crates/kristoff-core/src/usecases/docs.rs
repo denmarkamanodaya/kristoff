@@ -71,6 +71,7 @@ pub fn create_doc(deps: &LibraryDeps<'_>, input: &DocUploadInput) -> AppResult<D
         page_count: None,
         parts: vec![],
         file_id: None,
+        processing_attempts: 0,
     };
     deps.docs.create_doc(&doc)?;
     let url = upload_url(&doc.id);

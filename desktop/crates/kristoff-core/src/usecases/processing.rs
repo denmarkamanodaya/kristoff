@@ -5,6 +5,7 @@
 
 use crate::domain::parts::{PageRange, SplitLimits, halve_range};
 use crate::error::{AppError, AppResult, ErrorCode};
+use crate::limits::MAX_PROCESSING_ATTEMPTS;
 use crate::model::{Doc, DocPart, DocStatus};
 use crate::ports::{DocPatch, DocStore, FileStore, PdfSplitter, RemoteFiles};
 
@@ -131,6 +132,12 @@ pub fn process_doc(deps: &ProcessingDeps<'_>, doc_id: &str) -> AppResult<Doc> {
     if found.value.status != DocStatus::Processing {
         return Ok(found.value);
     }
+    // Counted before any work, so a run that crashes the app still uses up its attempt.
+    let attempt = DocPatch {
+        processing_attempts: Some(found.value.processing_attempts + 1),
+        ..DocPatch::default()
+    };
+    deps.docs.update_doc(doc_id, &attempt, found.version)?;
     let mut uploaded = Vec::new();
     let outcome =
         prepare(deps, doc_id, &mut uploaded).and_then(|p| patch_now(deps.docs, doc_id, &p));
@@ -146,9 +153,10 @@ pub fn process_doc(deps: &ProcessingDeps<'_>, doc_id: &str) -> AppResult<Doc> {
     })
 }
 
-/// Docs to process when the app starts: any left in `processing` (retried once by the caller;
-/// failing again marks them `failed`) and any `ready` doc without file ids (made by a Phase-1
-/// build), which is moved back to `processing` first. Returns their ids.
+/// Docs to process when the app starts: any left in `processing` with fewer than
+/// [`MAX_PROCESSING_ATTEMPTS`] runs (one left after its attempts is marked `failed` instead, so a
+/// doc that crashes the app cannot loop), and any `ready` doc without file ids (made by a Phase-1
+/// build), which is moved back to `processing` with its attempts reset. Returns their ids.
 ///
 /// # Errors
 /// Store failures.
@@ -170,14 +178,18 @@ pub fn docs_to_resume(docs: &dyn DocStore) -> AppResult<Vec<String>> {
 }
 
 fn needs_resume(docs: &dyn DocStore, doc: &Doc) -> AppResult<bool> {
+    let set = |status: DocStatus, attempts: Option<u32>| DocPatch {
+        status: Some(status),
+        processing_attempts: attempts,
+        ..DocPatch::default()
+    };
     match doc.status {
-        DocStatus::Processing => Ok(true),
+        DocStatus::Processing if doc.processing_attempts < MAX_PROCESSING_ATTEMPTS => Ok(true),
+        DocStatus::Processing => {
+            patch_now(docs, &doc.id, &set(DocStatus::Failed, None)).map(|_| false)
+        }
         DocStatus::Ready if doc.remote_file_ids().is_empty() => {
-            let back = DocPatch {
-                status: Some(DocStatus::Processing),
-                ..DocPatch::default()
-            };
-            patch_now(docs, &doc.id, &back).map(|_| true)
+            patch_now(docs, &doc.id, &set(DocStatus::Processing, Some(0))).map(|_| true)
         }
         _ => Ok(false),
     }

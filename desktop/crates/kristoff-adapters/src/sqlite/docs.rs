@@ -9,7 +9,8 @@ use kristoff_core::model::{Doc, DocPart, DocStatus, Page, Versioned};
 use kristoff_core::ports::{DocPatch, DocStore};
 use rusqlite::{Connection, OptionalExtension, Row, params};
 
-const COLUMNS: &str = "id, title, size, status, created_at, page_count, version, file_id";
+const COLUMNS: &str =
+    "id, title, size, status, created_at, page_count, version, file_id, processing_attempts";
 
 fn not_found() -> AppError {
     AppError::new(ErrorCode::DocNotFound, "no such doc")
@@ -27,6 +28,7 @@ fn doc_row(row: &Row<'_>) -> rusqlite::Result<(Doc, i64)> {
         page_count: row.get(5)?,
         parts: vec![],
         file_id: row.get(7)?,
+        processing_attempts: row.get(8)?,
     };
     Ok((doc, row.get(6)?))
 }
@@ -88,7 +90,7 @@ fn write_parts(conn: &Connection, doc: &Doc) -> AppResult<()> {
 impl DocStore for SqliteStore {
     fn create_doc(&self, doc: &Doc) -> AppResult<()> {
         self.write(|tx| {
-            let sql = format!("INSERT INTO docs ({COLUMNS}) VALUES (?1,?2,?3,?4,?5,?6,1,?7)");
+            let sql = format!("INSERT INTO docs ({COLUMNS}) VALUES (?1,?2,?3,?4,?5,?6,1,?7,?8)");
             let values = params![
                 doc.id,
                 doc.title,
@@ -96,7 +98,8 @@ impl DocStore for SqliteStore {
                 doc.status.as_str(),
                 doc.created_at_ms,
                 doc.page_count,
-                doc.file_id
+                doc.file_id,
+                doc.processing_attempts
             ];
             tx.execute(&sql, values)
                 .map_err(|e| insert_failure(&e, "doc"))?;
@@ -142,12 +145,13 @@ impl DocStore for SqliteStore {
             let mut doc = find(tx, doc_id)?.ok_or_else(not_found)?.value;
             patch.apply_to(&mut doc);
             let sql = "UPDATE docs SET title = ?1, status = ?2, page_count = ?3, file_id = ?4, \
-                       version = version + 1 WHERE id = ?5 AND version = ?6";
+                       processing_attempts = ?5, version = version + 1 WHERE id = ?6 AND version = ?7";
             let values = params![
                 doc.title,
                 doc.status.as_str(),
                 doc.page_count,
                 doc.file_id,
+                doc.processing_attempts,
                 doc_id,
                 version
             ];

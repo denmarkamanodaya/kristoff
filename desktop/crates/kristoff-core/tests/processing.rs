@@ -40,6 +40,7 @@ fn a_small_pdf_is_uploaded_whole_and_becomes_ready() {
         (ready.status, ready.page_count, ready.parts.len()),
         (DocStatus::Ready, Some(12), 0)
     );
+    assert_eq!(ready.processing_attempts, 1);
     let remote = w.remote.stored();
     assert_eq!(ready.file_id.as_deref(), Some("file_mem_1"));
     assert_eq!(remote["file_mem_1"].0, format!("{D}.pdf"));
@@ -180,6 +181,64 @@ fn resumes_processing_docs_and_phase_1_ready_docs_without_file_ids() {
     assert_eq!(
         w.store.get_doc(ids[1]).unwrap().value.status,
         DocStatus::Processing
+    );
+}
+
+/// A doc left in `processing` by a run that crashed the app, after `attempts` runs.
+fn stuck(id: &str, attempts: u32) -> kristoff_core::model::Doc {
+    kristoff_core::model::Doc {
+        processing_attempts: attempts,
+        ..doc(id, DocStatus::Processing)
+    }
+}
+
+#[test]
+fn a_stuck_doc_is_retried_once_then_marked_failed_instead_of_looping() {
+    let w = World::new();
+    let (once, twice) = ("00000000000000b1", "00000000000000b2");
+    w.store.create_doc(&stuck(once, 1)).unwrap();
+    w.store.create_doc(&stuck(twice, 2)).unwrap();
+
+    let resumed = docs_to_resume(&w.store).unwrap();
+
+    assert_eq!(resumed, [once]);
+    assert_eq!(
+        w.store.get_doc(once).unwrap().value.status,
+        DocStatus::Processing
+    );
+    assert_eq!(
+        w.store.get_doc(twice).unwrap().value.status,
+        DocStatus::Failed
+    );
+}
+
+#[test]
+fn every_run_counts_an_attempt_before_any_work() {
+    let w = World::new();
+    w.store.create_doc(&stuck(D, 1)).unwrap();
+    w.files.write_partial(D, 0, b"not a fake pdf").unwrap();
+    w.files.commit_partial(D).unwrap();
+
+    assert_code(process_doc(&w.processing(), D), ErrorCode::UploadInvalid);
+
+    assert_eq!(w.store.get_doc(D).unwrap().value.processing_attempts, 2);
+}
+
+#[test]
+fn a_phase_1_ready_doc_goes_back_to_processing_with_its_attempts_reset() {
+    let w = World::new();
+    let old = kristoff_core::model::Doc {
+        processing_attempts: 2,
+        ..doc(D, DocStatus::Ready)
+    };
+    w.store.create_doc(&old).unwrap();
+
+    assert_eq!(docs_to_resume(&w.store).unwrap(), [D]);
+
+    let resumed = w.store.get_doc(D).unwrap().value;
+    assert_eq!(
+        (resumed.status, resumed.processing_attempts),
+        (DocStatus::Processing, 0)
     );
 }
 

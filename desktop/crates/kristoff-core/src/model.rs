@@ -87,6 +87,8 @@ pub struct Doc {
     pub parts: Vec<DocPart>,
     /// Files API id of the whole PDF, once uploaded (unsplit docs only; never on the wire).
     pub file_id: Option<String>,
+    /// Processing runs started so far (bounds the retries at app start; never on the wire).
+    pub processing_attempts: u32,
 }
 
 impl Doc {

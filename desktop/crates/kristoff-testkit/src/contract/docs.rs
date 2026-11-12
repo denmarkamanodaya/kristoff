@@ -64,6 +64,7 @@ fn updates_at_the_read_version_only(store: &impl DocStore) {
         page_count: Some(12),
         parts: Some(vec![part(1)]),
         file_id: Some("file_whole".into()),
+        processing_attempts: Some(1),
     };
 
     let updated = store.update_doc(A, &patch, read.version).unwrap();
@@ -72,6 +73,7 @@ fn updates_at_the_read_version_only(store: &impl DocStore) {
     assert_eq!(updated.status, DocStatus::Ready);
     assert_eq!((updated.page_count, updated.parts.len()), (Some(12), 1));
     assert_eq!(updated.file_id.as_deref(), Some("file_whole"));
+    assert_eq!(updated.processing_attempts, 1);
     assert_eq!(updated.parts[0].file_id.as_deref(), Some("file_part_1"));
     assert_eq!(store.get_doc(A).unwrap().value, updated);
     assert_code(

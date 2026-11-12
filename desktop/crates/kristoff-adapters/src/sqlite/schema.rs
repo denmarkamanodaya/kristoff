@@ -57,11 +57,14 @@ ALTER TABLE docs ADD COLUMN file_id TEXT;
 ALTER TABLE doc_parts ADD COLUMN file_id TEXT;
 ";
 
+/// Processing runs per doc, bounding the retries at app start (expand only).
+const V3: &str = "ALTER TABLE docs ADD COLUMN processing_attempts INTEGER NOT NULL DEFAULT 0;";
+
 /// Every schema step, oldest first.
-const STEPS: [&str; 2] = [V1, V2];
+const STEPS: [&str; 3] = [V1, V2, V3];
 
 /// The schema version this build writes.
-pub(crate) const CURRENT: i64 = 2;
+pub(crate) const CURRENT: i64 = 3;
 
 /// Applies every step after the stored version in one immediate transaction.
 ///
@@ -90,36 +93,58 @@ pub(crate) fn migrate(conn: &Connection) -> AppResult<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{CURRENT, V1, migrate};
+    use super::{CURRENT, STEPS, migrate};
     use rusqlite::Connection;
+    use rusqlite::types::FromSql;
 
-    #[test]
-    fn a_v1_file_migrates_to_v2_and_keeps_its_docs_and_parts() {
+    /// The two columns of the single row `sql` selects.
+    fn pair<A: FromSql, B: FromSql>(conn: &Connection, sql: &str) -> (A, B) {
+        conn.query_row(sql, [], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+    }
+
+    /// A file written by an older build: the first `version` steps, then `rows`; then migrated.
+    fn migrated_from(version: usize, rows: &str) -> Connection {
         let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch(V1).unwrap();
-        conn.pragma_update(None, "user_version", 1).unwrap();
-        conn.execute_batch(
-            "INSERT INTO docs VALUES ('00000000000000d1','Case',10,'ready',1,150,1);
-             INSERT INTO doc_parts VALUES ('00000000000000d1',1,1,100,5);",
-        )
-        .unwrap();
-
+        for step in &STEPS[..version] {
+            conn.execute_batch(step).unwrap();
+        }
+        conn.pragma_update(None, "user_version", i64::try_from(version).unwrap())
+            .unwrap();
+        conn.execute_batch(rows).unwrap();
         migrate(&conn).unwrap();
-
-        let version: i64 = conn
+        let now: i64 = conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        let (title, file_id): (String, Option<String>) = conn
-            .query_row("SELECT title, file_id FROM docs", [], |r| {
-                Ok((r.get(0)?, r.get(1)?))
-            })
-            .unwrap();
+        assert_eq!(now, CURRENT);
+        conn
+    }
+
+    #[test]
+    fn a_v1_file_migrates_and_keeps_its_docs_and_parts() {
+        let conn = migrated_from(
+            1,
+            "INSERT INTO docs VALUES ('00000000000000d1','Case',10,'ready',1,150,1);
+             INSERT INTO doc_parts VALUES ('00000000000000d1',1,1,100,5);",
+        );
+
+        let (title, file_id): (String, Option<String>) =
+            pair(&conn, "SELECT title, file_id FROM docs");
         let part_file: Option<String> = conn
             .query_row("SELECT file_id FROM doc_parts", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(
-            (version, title.as_str(), file_id, part_file),
-            (CURRENT, "Case", None, None)
+        assert_eq!((title.as_str(), file_id, part_file), ("Case", None, None));
+    }
+
+    #[test]
+    fn a_v2_file_migrates_with_zero_attempts_and_keeps_its_file_ids() {
+        let conn = migrated_from(
+            2,
+            "INSERT INTO docs VALUES ('00000000000000d1','Case',10,'processing',1,NULL,1,'file_x');",
         );
+
+        let (file_id, attempts): (Option<String>, u32) =
+            pair(&conn, "SELECT file_id, processing_attempts FROM docs");
+        assert_eq!((file_id.as_deref(), attempts), (Some("file_x"), 0));
     }
 }
