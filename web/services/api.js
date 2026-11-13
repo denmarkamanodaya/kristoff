@@ -119,6 +119,22 @@ export const onLawReady = async (fn) => {
 /** True: the web app opens behind the TOTP gate (the desktop twin says false, D-17). */
 export const requiresUnlock = true;
 
+// Bring-your-own-key and Settings (Phase 8) exist only in the desktop app (api-desktop.js). These
+// export-parity stubs reject without a network call; the web never shows Settings (no aiReady).
+const desktopOnly = async () => {
+  throw new ApiError('UNSUPPORTED', 'Settings are only available in the desktop app.');
+};
+/** Desktop-only (`get_key_status`); rejects `UNSUPPORTED` on the web. */
+export const getKeyStatus = desktopOnly;
+/** Desktop-only (`set_api_key`); rejects `UNSUPPORTED` on the web. */
+export const setApiKey = desktopOnly;
+/** Desktop-only (`remove_api_key`); rejects `UNSUPPORTED` on the web. */
+export const removeApiKey = desktopOnly;
+/** Desktop-only (`get_settings`); rejects `UNSUPPORTED` on the web. */
+export const getSettings = desktopOnly;
+/** Desktop-only (`update_settings`); rejects `UNSUPPORTED` on the web. */
+export const updateSettings = desktopOnly;
+
 export const verifyCode = (code) => request('POST', '/v1/auth/verify', { body: { code }, auth: false });
 
 /** `GET /v1/config` → `{ model, models: [{ id, label }], maxAttachedDocs, dailyQuestionCap }`. */

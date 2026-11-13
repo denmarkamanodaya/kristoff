@@ -13,7 +13,8 @@ import { handleError } from './errors.js';
 import { askDeleteChat } from './sidebar.js';
 import { buildSources, renderAnswerHtml, sourceCardHtml, sourcesText } from './citations.js';
 import { canSpeak, speak, stopSpeaking } from './speech.js';
-import { attachIds } from './composer.js';
+import { attachIds, renderComposer } from './composer.js';
+import { isKeyError } from './settings-flow.js';
 
 const modelLabel = (id) => state.models.find((m) => m.id === id)?.label ?? id;
 let streamingEl = null; // the turn whose answer is still streaming
@@ -184,6 +185,11 @@ export async function ask(text) {
     a = { ...done.message, searches: a.searches }; // persisted message is the source of truth; searches are live-only
   } catch (err) {
     a.text += `\n\n<span class="error">Error: ${esc(messageFor(err))}</span>`;
+    if (isKeyError(err)) {
+      a.text += ' <button type="button" class="link-btn" data-open-settings>Open Settings</button>';
+      state.features = { ...state.features, aiReady: false }; // the key is gone or rejected: gate Send until it works
+      renderComposer();
+    }
     if (err?.code === 'CHAT_NOT_FOUND') refreshThreads().catch(handleError);
   } finally {
     finished = true;

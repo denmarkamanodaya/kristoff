@@ -97,6 +97,32 @@ export const verifyCode = async () => {
 /** `get_config` → `{ model, models: [{ id, label }], maxAttachedDocs, dailyQuestionCap }`. */
 export const getConfig = () => call('get_config', {});
 
+/** `get_key_status {}` → `{ configured, hint }`; `hint` is the key's last 4 characters or null (Phase 8). */
+export const getKeyStatus = () => call('get_key_status', {});
+
+/**
+ * `set_api_key {key}` → `{ configured, hint }`. The shell checks the format and the key live, stores
+ * it in the Keychain and swaps the AI ports.
+ * @param key - The pasted Claude API key (`sk-ant-…`).
+ * @returns The new key status.
+ * @throws ApiError `KEY_INVALID` (bad format or rejected) or `UPSTREAM_UNAVAILABLE`.
+ */
+export const setApiKey = (key) => call('set_api_key', { key });
+
+/** `remove_api_key {}` → `{ configured: false, hint: null }`: deletes the key from the Keychain. */
+export const removeApiKey = () => call('remove_api_key', {});
+
+/** `get_settings {}` → `{ dailyQuestionCap }` (user settings kept on this Mac). */
+export const getSettings = () => call('get_settings', {});
+
+/**
+ * `update_settings {dailyQuestionCap}` (flat) → `{ dailyQuestionCap }`.
+ * @param settings - `{ dailyQuestionCap }`, an integer 1..10000.
+ * @returns `{ dailyQuestionCap }` after the change.
+ * @throws ApiError `VALIDATION_FAILED` for an out-of-range value.
+ */
+export const updateSettings = ({ dailyQuestionCap }) => call('update_settings', { dailyQuestionCap });
+
 /** `list_docs {cursor}` → `{ items: Doc[], nextCursor }`. */
 export const listDocs = (cursor) => call('list_docs', { cursor: cursor || null });
 

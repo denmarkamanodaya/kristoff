@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kristoff</title>
+<title>LexPH</title>
 <meta name="color-scheme" content="light">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -12,7 +12,7 @@
 <!-- Auth gate: nothing else renders or loads until a TOTP code is verified -->
 <div id="gate" class="gate" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
   <form id="gateForm" class="gate-card" novalidate>
-    <div class="brand"><div class="mark">K</div><span id="gateTitle">Kristoff</span></div>
+    <div class="brand"><div class="mark">L</div><span id="gateTitle">LexPH</span></div>
     <label for="otp" class="gate-label">Enter the 6-digit code from your authenticator app</label>
     <input id="otp" name="otp" class="otp" type="text" inputmode="numeric" autocomplete="one-time-code"
       pattern="[0-9]*" spellcheck="false" aria-describedby="gateMsg" autofocus>
@@ -25,9 +25,51 @@
      web build; scripts/build.mjs shows it from the first paint in the desktop build. -->
 <div id="loading" class="loading" role="status" aria-live="polite" hidden>
   <div class="loading-card">
-    <div class="mark">K</div>
+    <div class="mark">L</div>
     <div class="loading-spinner" aria-hidden="true"></div>
     <p id="loadingText" class="loading-text">Loading Philippine laws…</p>
+  </div>
+</div>
+
+<!-- Settings (desktop only, Phase 8 BYOK; ui/settings.js). Opens by itself on first launch with no key. -->
+<div id="settings" class="settings" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" hidden>
+  <div class="settings-card">
+    <div class="settings-head">
+      <h2 id="settingsTitle">Settings</h2>
+      <button type="button" class="icon-btn settings-close" aria-label="Close settings"><span data-icon="x"></span></button>
+    </div>
+    <ol class="settings-steps" hidden>
+      <li>Open the <button type="button" class="link-btn" data-console>Anthropic console</button> and sign in or create an account.</li>
+      <li>Create an API key and copy it.</li>
+      <li>Paste the key below and press Save.</li>
+    </ol>
+    <section class="settings-sec" aria-labelledby="keyHeading">
+      <h3 id="keyHeading">Claude API key</h3>
+      <div class="key-row"><span class="key-status"></span>
+        <button type="button" class="link-btn key-change">Change</button>
+        <button type="button" class="link-btn danger key-remove">Remove</button>
+      </div>
+      <form class="key-form" novalidate hidden>
+        <label for="apiKey" class="sr-only">Claude API key</label>
+        <input id="apiKey" class="settings-input" type="password" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="sk-ant-…">
+        <div class="settings-actions"><button type="submit" class="btn key-save">Save</button><button type="button" class="link-btn key-cancel">Cancel</button></div>
+      </form>
+      <p class="settings-msg key-msg" role="alert"></p>
+      <p class="settings-hint"><button type="button" class="link-btn" data-console>Get an API key at console.anthropic.com</button></p>
+    </section>
+    <section class="settings-sec" aria-labelledby="capHeading">
+      <h3 id="capHeading">Daily question limit</h3>
+      <form class="cap-form" novalidate>
+        <label for="dailyCap" class="settings-hint">A safety brake on your own Anthropic bill. Counted on this Mac.</label>
+        <div class="settings-actions"><input id="dailyCap" class="settings-input cap-input" type="number" inputmode="numeric" step="1"><button type="submit" class="btn">Save</button></div>
+      </form>
+      <p class="settings-msg cap-msg" role="alert"></p>
+    </section>
+    <section class="settings-sec settings-notice">
+      <p>Your questions and attached PDFs are sent to Anthropic under your own API account.</p>
+      <p>LexPH is a research aid, not legal advice. Verify against official sources.</p>
+      <p class="credit"></p>
+    </section>
   </div>
 </div>
 
@@ -35,11 +77,11 @@
 <div id="app" class="app" hidden>
   <div class="topbar">
     <button type="button" id="drawerBtn" class="icon-btn" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false"><span data-icon="menu"></span></button>
-    <div class="brand small"><div class="mark">K</div><span>Kristoff</span></div>
+    <div class="brand small"><div class="mark">L</div><span>LexPH</span></div>
   </div>
   <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
   <aside id="sidebar" class="sidebar">
-    <div class="brand"><div class="mark">K</div><span>Kristoff</span></div>
+    <div class="brand"><div class="mark">L</div><span>LexPH</span></div>
     <button id="newThread" class="new-thread"><span>New Thread</span><kbd>⌘K</kbd></button>
     <nav>
       <button type="button" data-view="home" class="nav-item"><span data-icon="search"></span>Home</button>
@@ -52,6 +94,7 @@
         <button type="button" data-theme-choice="light" aria-pressed="true">Light</button>
         <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
       </div>
+      <button type="button" id="settingsBtn" class="nav-item settings-btn" aria-haspopup="dialog" hidden><span data-icon="settings"></span>Settings</button>
       <div id="usage" class="usage"></div>
     </div>
   </aside>
@@ -110,6 +153,7 @@
 <template id="composerTpl">
   <form class="composer">
     <div class="chips"></div>
+    <button type="button" class="key-cta" data-open-settings hidden><span data-icon="settings"></span>Add your Claude API key in Settings</button>
     <textarea rows="1" maxlength="8000" aria-label="Question" placeholder="Ask anything about your documents…"></textarea>
     <div class="composer-bar">
       <div class="bar-left">

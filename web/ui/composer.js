@@ -13,6 +13,7 @@ import { guard } from './errors.js';
 import { attachLabel, docMenuButton, docTitleHtml, renderUploads } from './library.js';
 import { ask } from './thread.js';
 import { canDictate, startDictation } from './speech.js';
+import { askBlocked } from './settings-flow.js';
 
 const composer = $('#composerTpl').content.firstElementChild.cloneNode(true);
 hydrateIcons(composer);
@@ -78,7 +79,7 @@ export async function setDocIds(ids) {
 const autosize = () => {
   ta.style.height = 'auto';
   ta.style.height = `${Math.min(ta.scrollHeight, 240)}px`;
-  $('.send', composer).disabled = state.busy || !ta.value.trim();
+  $('.send', composer).disabled = state.busy || !ta.value.trim() || askBlocked(state.features);
 };
 
 /**
@@ -128,6 +129,7 @@ export function renderComposer() {
   $('.chips', composer).innerHTML = ids.map((id) => `<span class="chip" title="${esc(attachLabel(id))}">${icon('file-text')}<span>${esc(attachLabel(id))}</span><button type="button" data-rm="${esc(id)}" aria-label="Remove ${esc(attachLabel(id))}">${icon('x')}</button></span>`).join('');
   plusBtn.classList.toggle('on', ids.length > 0);
   renderStatutes();
+  $('.key-cta', composer).hidden = !askBlocked(state.features);
   if (!pop.hidden) renderPop();
   renderUploads();
   autosize();
@@ -196,7 +198,7 @@ composer.addEventListener('keydown', (e) => {
 composer.onsubmit = (e) => {
   e.preventDefault();
   const text = ta.value.trim();
-  if (!text || state.busy) return;
+  if (!text || state.busy || askBlocked(state.features)) return;
   stopDictation();
   ta.value = ''; autosize(); setPop(false);
   ask(text);

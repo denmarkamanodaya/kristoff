@@ -1,8 +1,22 @@
 // Per-viewer display preferences. The ONLY module that touches localStorage (scripts/check.mjs
-// enforces it), and it stores the theme choice only: key `kristoff.theme`, values `light|dark`.
+// enforces it), and it stores the theme choice only: key `lexph.theme`, values `light|dark`. The
+// pre-rename key `kristoff.theme` is read once, copied to the new key and removed (Phase 8 rename).
 // Contract: docs/contract.md, "Thread deletion + dark mode". Never store sign-in values here.
 
-const THEME_KEY = 'kristoff.theme';
+const THEME_KEY = 'lexph.theme';
+const OLD_THEME_KEY = 'kristoff.theme';
+
+/** Reads the saved value, moving a pre-rename value to the new key the first time. */
+function readSaved() {
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved !== null) return saved;
+  const old = localStorage.getItem(OLD_THEME_KEY);
+  if (old !== null) {
+    localStorage.setItem(THEME_KEY, old);
+    localStorage.removeItem(OLD_THEME_KEY);
+  }
+  return old;
+}
 const THEMES = ['light', 'dark'];
 const DEFAULT_THEME = 'dark'; // owner ruling 2026-11-12: dark is the default
 
@@ -13,7 +27,7 @@ const DEFAULT_THEME = 'dark'; // owner ruling 2026-11-12: dark is the default
  */
 export function getTheme() {
   try {
-    const saved = localStorage.getItem(THEME_KEY);
+    const saved = readSaved();
     return THEMES.includes(saved) ? saved : DEFAULT_THEME;
   } catch {
     return DEFAULT_THEME; // recovery: storage unavailable, use the default

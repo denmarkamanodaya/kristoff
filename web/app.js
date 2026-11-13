@@ -12,7 +12,9 @@ import { moreDocs, moreThreads, openThread, refreshDocs, refreshProjects, refres
 import { newThread, renderAll, show } from './ui/views.js';
 import { guard, handleError } from './ui/errors.js';
 import { hideLoading, showLoading, waitForLaw } from './ui/loading.js';
-import { renderModelPicker, setDraft } from './ui/composer.js';
+import { renderComposer, renderModelPicker, setDraft } from './ui/composer.js';
+import { openSettings, renderSettingsEntry } from './ui/settings.js';
+import { shouldOnboard } from './ui/settings-flow.js';
 import { openApp, setOnUnlock, showGate } from './ui/gate.js';
 import { closeDrawer, toggleDrawer } from './ui/drawer.js';
 
@@ -51,7 +53,7 @@ async function boot() {
     const cfg = await api.getConfig();
     state.model = cfg.model; state.models = cfg.models ?? []; state.maxAttachedDocs = cfg.maxAttachedDocs;
     state.features = cfg.features ?? {};
-    renderModelPicker();
+    renderModelPicker(); renderComposer(); renderSettingsEntry();
     await Promise.all([refreshProjects(), refreshDocs(), refreshThreads(), renderUsage()]);
     state.booted = true;
   } catch (err) {
@@ -84,4 +86,9 @@ async function launchDesktop() {
   openApp();
   await boot();
   if (timedOut) notify('Statute search is still loading. Your first statute question may be slow.');
+  // First launch with no saved key: open Settings in its "Connect your Claude account" mode (Phase 8).
+  if (state.features?.aiReady === false) {
+    const status = await api.getKeyStatus().catch(() => null);
+    if (shouldOnboard(state.features, status)) openSettings({ onboarding: true });
+  }
 }

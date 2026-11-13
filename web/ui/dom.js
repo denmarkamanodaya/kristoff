@@ -1,5 +1,6 @@
 // Small DOM and formatting helpers shared by every UI module. Imports nothing from ui/, so any
 // module may use these at evaluation time.
+import { keyErrorText } from './settings-flow.js';
 
 /** Returns the first match of `s` under `el`. */
 export const $ = (s, el = document) => el.querySelector(s);
@@ -49,6 +50,8 @@ export function messageFor(err) {
     case 'UPLOAD_INVALID': return 'The file was rejected: it is not a valid PDF, or its size did not match.';
     case 'DAILY_CAP_REACHED': return "You reached today's question limit. Try again tomorrow.";
     case 'AI_DISABLED': return 'Answers are switched off for now. Try again later.';
+    case 'KEY_MISSING':
+    case 'KEY_INVALID': return keyErrorText(err.code);
     case 'UPSTREAM_UNAVAILABLE':
     case 'INTERNAL': return `Something went wrong on the server. Try again in a moment.${ref}`;
     default: return (err?.message || 'Something went wrong.') + ref;

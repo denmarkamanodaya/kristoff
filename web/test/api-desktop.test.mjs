@@ -69,6 +69,11 @@ test('every request function sends its command name and camelCase args, null for
     [() => api.getUsage(), 'get_usage', {}],
     [() => api.openDoc('d1'), 'open_doc', { docId: 'd1', part: null, page: null }],
     [() => api.openDoc('d1', 2, 37), 'open_doc', { docId: 'd1', part: 2, page: 37 }],
+    [() => api.getKeyStatus(), 'get_key_status', {}],
+    [() => api.setApiKey('sk-ant-api03-abc'), 'set_api_key', { key: 'sk-ant-api03-abc' }],
+    [() => api.removeApiKey(), 'remove_api_key', {}],
+    [() => api.getSettings(), 'get_settings', {}],
+    [() => api.updateSettings({ dailyQuestionCap: 50 }), 'update_settings', { dailyQuestionCap: 50 }],
     [() => api.openExternal('https://example.org/x'), 'open_external', { url: 'https://example.org/x' }],
   ];
   for (const [run, cmd, args] of cases) {
@@ -97,6 +102,13 @@ test('maps a rejected ErrorDto to ApiError with code, message and retryAfter', a
   assert.equal(err.message, 'Wait');
   assert.equal(err.retryAfter, 30);
   assert.equal(err.requestId, null);
+});
+
+test('set_api_key rejection KEY_INVALID maps to ApiError KEY_INVALID', async () => {
+  reply = () => Promise.reject({ code: 'KEY_INVALID', message: 'Rejected', retryAfter: null });
+  const err = await api.setApiKey('sk-ant-bad').catch((e) => e);
+  assert.ok(err instanceof api.ApiError);
+  assert.equal(err.code, 'KEY_INVALID');
 });
 
 test('maps a string rejection (Tauri-level failure) to INTERNAL', async () => {
