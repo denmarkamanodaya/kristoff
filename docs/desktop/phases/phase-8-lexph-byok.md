@@ -132,3 +132,39 @@ paste your key on his Mac. It stays in his Keychain only, never in a public file
 - **Name:** LexPH.
 - **Key entry:** in a Settings section in the app. Mac + Claude only.
 - **Signing:** none. Shared privately with friends and friends of friends.
+
+## Status (paused 2026-11-13)
+
+| Part | Status |
+|---|---|
+| Plan | Approved by the owner (D-23) |
+| Web: Settings panel, first-launch key screen, Send gating, LexPH branding | Done and committed (`7345b69`), check 45/45 |
+| Rust: SecretStore + Keychain, swappable AiPorts, key and settings commands, no baked key, KEY_MISSING / KEY_INVALID, allowlist (console.anthropic.com, huggingface.co), rename + bundle id `ph.lexph.desktop`, copy of the old data folder, build-dmg changes | **Not started** |
+| Install guide, notices, README, LexPH DMG | Not started |
+
+**Why the Rust side didn't start:** Claude Code's auto-mode safety check blocked the message that
+assigns it to a teammate. Probable triggers: removing the release fake-key check, Keychain
+read/write, and copying the user data folder. To resume, the owner either explicitly approves
+sending that task, has the lead build it directly, or turns off auto mode so the prompts reach the
+owner.
+
+**Contract already fixed** (the web side is built against it):
+- `get_key_status` → `{configured, hint}`. hint is the last 4 characters.
+- `set_api_key {key}` → the same shape. Errors: KEY_INVALID, UPSTREAM_UNAVAILABLE.
+- `remove_api_key` → `{configured:false, hint:null}`.
+- `get_settings` → `{dailyQuestionCap}`. `update_settings {dailyQuestionCap: 1..10000}` → the same
+  shape.
+- `features.aiReady`. Ask errors: KEY_MISSING (no key saved) and KEY_INVALID (401, possibly
+  mid-stream).
+
+**Estimate to finish once unblocked:** about 2.5–4 h.
+
+| Step | Time |
+|---|---|
+| Rust key work | 1.5–2 h |
+| Rename and data copy | ~30 min |
+| Checks + one live key test | ~20 min |
+| Install guide and notices | ~20 min |
+| LexPH DMG build and fresh-profile test | ~30 min |
+
+**Housekeeping when resuming:** `desktop/data/phlaws.prev.db` (170 MB) can be deleted.
