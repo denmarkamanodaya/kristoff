@@ -4,13 +4,15 @@ use kristoff_core::domain::law::LawFilters;
 use kristoff_core::domain::law::reference::{LawRef, References};
 use rusqlite::params;
 
-use super::vectors::{Scored, Vectors};
+use super::vectors::{Scored, Vectors, top_ids};
 use super::{CANDIDATES, LawIndex};
 use crate::chunk_kind::{is_heading_only, opens_provision};
 use crate::error::LawIndexError;
-use crate::fts::match_expression;
+use crate::fts::two_pass;
 use crate::schema::{FTS_RANK, kind};
 
+/// An all-terms FTS pass returning fewer candidates than this falls back to any-term.
+const AND_MIN: usize = 10;
 /// Exact citation hits kept per query.
 const EXACT_LIMIT: usize = 5;
 /// Candidates pooled from inside a cited law before openers are moved to the front.
@@ -34,9 +36,17 @@ impl LawIndex {
         filters: &LawFilters,
         law: Option<i64>,
     ) -> Result<Vec<i64>, LawIndexError> {
-        let Some(expr) = match_expression(query) else {
-            return Ok(vec![]);
-        };
+        // All terms first: citation words (`ra`, `sec`, numbers) match most of the ~400k chunks,
+        // and ranking every match by BM25 costs hundreds of ms. Any-term only when that is thin.
+        two_pass(query, AND_MIN, |expr| self.fts_pass(expr, filters, law))
+    }
+
+    fn fts_pass(
+        &self,
+        expr: &str,
+        filters: &LawFilters,
+        law: Option<i64>,
+    ) -> Result<Vec<i64>, LawIndexError> {
         let conn = self.db.conn()?;
         let mut stmt = conn.prepare_cached(&format!(
             "SELECT c.id, l.number, l.year, c.sec_num IS NOT NULL, substr(c.text, 1, 200) \
@@ -113,10 +123,13 @@ impl LawIndex {
         for law in &law_ids {
             fts.extend(self.fts_candidates(ctx.text, ctx.filters, Some(*law))?);
         }
-        let knn = scored
+        // `scored` is unsorted; rank only this law's chunks.
+        let mut in_law: Vec<Scored> = scored
             .iter()
             .filter(|(_, law, _)| law_ids.contains(law))
-            .map(|(id, _, _)| *id);
+            .copied()
+            .collect();
+        let knn = top_ids(&mut in_law, LAW_POOL).into_iter();
         let mut pool: Vec<i64> = Vec::new();
         for id in interleave(fts.into_iter(), knn) {
             if !pool.contains(&id) {

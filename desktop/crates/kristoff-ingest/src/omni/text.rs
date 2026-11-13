@@ -46,6 +46,9 @@ pub fn fix_mojibake(text: &str) -> (String, bool) {
 /// Returns the replacement and the chars it consumed.
 fn lost_continuation(chars: &[char], i: usize) -> Option<(&'static str, usize)> {
     let c = chars[i];
+    if let Some(enye) = cased_enye(chars, i) {
+        return Some(enye);
+    }
     if !matches!(c, '\u{c2}' | '\u{c3}' | '\u{e2}') {
         return None;
     }
@@ -60,6 +63,25 @@ fn lost_continuation(chars: &[char], i: usize) -> Option<(&'static str, usize)> 
         return Some((if upper { "\u{d1}" } else { "\u{f1}" }, 2));
     }
     Some(("", 1))
+}
+
+/// ñ whose mojibake (`Ã` + C1 `\u{91}`) the source then title-cased: `ã` or `Ã` between
+/// letters, with or without the stray C1 byte (`Caã\u{91}averal`, `Caãaveral` → `Cañaveral`).
+/// Neither letter occurs between letters in Philippine names, so this is never a real `ã`.
+fn cased_enye(chars: &[char], i: usize) -> Option<(&'static str, usize)> {
+    if !matches!(chars[i], '\u{e3}' | '\u{c3}') || i == 0 || !chars[i - 1].is_alphabetic() {
+        return None;
+    }
+    let c1 = chars
+        .get(i + 1)
+        .is_some_and(|c| ('\u{80}'..='\u{bf}').contains(c));
+    let used = 1 + usize::from(c1);
+    let next = chars
+        .get(i - 1 + used + 1)
+        .copied()
+        .filter(|c| c.is_alphabetic())?;
+    let upper = chars[i - 1].is_uppercase() && next.is_uppercase();
+    Some((if upper { "\u{d1}" } else { "\u{f1}" }, used))
 }
 
 /// `s`, `t`, `d`, `m`, `ll`, `re`, `ve` followed by a non-letter.
@@ -140,6 +162,20 @@ mod tests {
             fixed,
             "made a  missed call to SA Minguez's phone. MARI\u{d1}O and Pe\u{f1}a. End"
         );
+    }
+
+    #[test]
+    fn repairs_a_title_cased_enye_with_or_without_its_stray_byte() {
+        assert_eq!(
+            fix_mojibake("Fernando Ca\u{e3}\u{91}averal").0,
+            "Fernando Ca\u{f1}averal"
+        );
+        assert_eq!(
+            fix_mojibake("Fernando Ca\u{e3}averal").0,
+            "Fernando Ca\u{f1}averal"
+        );
+        assert_eq!(fix_mojibake("VILLASE\u{c3}OR").0, "VILLASE\u{d1}OR");
+        assert_eq!(fix_mojibake("Ca\u{f1}averal").0, "Ca\u{f1}averal");
     }
 
     #[test]

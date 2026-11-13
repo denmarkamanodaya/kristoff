@@ -9,6 +9,7 @@ use rusqlite::{Connection, OpenFlags, Row};
 
 use crate::QueryEmbedder;
 use crate::error::LawIndexError;
+use crate::quant::dot_i8;
 
 /// Vector width (e5-small).
 pub(crate) const DIMS: usize = 384;
@@ -69,6 +70,39 @@ impl<V: Default> ReadOnlyDb<V> {
         }
         Ok(self.vectors.get_or_init(|| loaded))
     }
+}
+
+/// Threads a vector scan splits over.
+const SCAN_THREADS: usize = 4;
+
+/// Runs `scan` over `0..len` split into [`SCAN_THREADS`] ranges in parallel and concatenates the
+/// results (range order).
+pub(crate) fn parallel_scan<T: Send>(
+    len: usize,
+    scan: impl Fn(std::ops::Range<usize>) -> Vec<T> + Sync,
+) -> Vec<T> {
+    let per = len.div_ceil(SCAN_THREADS).max(1);
+    std::thread::scope(|s| {
+        let handles: Vec<_> = (0..SCAN_THREADS)
+            .map(|t| {
+                let scan = &scan;
+                s.spawn(move || scan(t * per..((t + 1) * per).min(len)))
+            })
+            .collect();
+        handles
+            .into_iter()
+            .flat_map(|h| h.join().unwrap_or_default())
+            .collect()
+    })
+}
+
+/// The int8 dot product of query `q8` with stored vector `i` of `data`, times its `scale`.
+pub(crate) fn dot_at(data: &[u8], i: usize, q8: &[u8], scale: f32) -> f32 {
+    let raw = dot_i8(q8, &data[i * DIMS..(i + 1) * DIMS]);
+    // |raw| <= 384 * 127 * 127, well inside f32's exact integer range.
+    #[allow(clippy::cast_precision_loss)]
+    let scaled = raw as f32 * scale;
+    scaled
 }
 
 /// Reads `(id, scale, bytes)` from the columns `[id, scale, blob]` of a vector row, rejecting a

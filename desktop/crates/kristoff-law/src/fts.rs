@@ -12,11 +12,51 @@ const STOPWORDS: [&str; 52] = [
     "ni", "niya", "para", "po", "pwede", "rin", "sa", "si", "yung", "dapat",
 ];
 
+/// Citation words: they occur in most of the ~400k chunk prefixes, and the reference parser's
+/// exact-hit list already handles the citation they belong to.
+const CITATION_WORDS: [&str; 9] = [
+    "ra", "sec", "section", "art", "article", "no", "nos", "republic", "act",
+];
+
+/// True for a term too common to search on while others remain: a function word, a citation
+/// word, a single character, or a number of at most three digits (`5`, `113`).
+fn is_noise(term: &str) -> bool {
+    let short_number = term.len() <= 3 && term.chars().all(|c| c.is_ascii_digit());
+    STOPWORDS.contains(&term)
+        || CITATION_WORDS.contains(&term)
+        || term.chars().count() == 1
+        || short_number
+}
+
 /// The same terms joined with implicit AND (every term must occur), for a first, narrower pass
 /// over large indexes; `None` when there is no searchable word.
 #[must_use]
 pub fn match_all_expression(text: &str) -> Option<String> {
     match_expression(text).map(|e| e.replace(" OR ", " "))
+}
+
+/// Runs `pass` with the all-terms expression, then with the any-term one when the first gives
+/// fewer than `min` results; returns the last pass's results. On large indexes the narrow pass is
+/// fast, and ranking every any-term match by BM25 is the slow part.
+///
+/// # Errors
+/// The first error a pass returns.
+pub fn two_pass<T, E>(
+    query: &str,
+    min: usize,
+    mut pass: impl FnMut(&str) -> Result<Vec<T>, E>,
+) -> Result<Vec<T>, E> {
+    let mut out = Vec::new();
+    for expr in [match_all_expression(query), match_expression(query)]
+        .into_iter()
+        .flatten()
+    {
+        out = pass(&expr)?;
+        if out.len() >= min {
+            break;
+        }
+    }
+    Ok(out)
 }
 
 /// Turns free text into `"term1" OR "term2" ...`, or `None` when it has no searchable word.
@@ -40,7 +80,7 @@ pub fn match_expression(text: &str) -> Option<String> {
     }
     let content: Vec<String> = terms
         .iter()
-        .filter(|t| !STOPWORDS.contains(&t.trim_matches('"')))
+        .filter(|t| !is_noise(t.trim_matches('"')))
         .cloned()
         .collect();
     let kept = if content.is_empty() { terms } else { content };
@@ -57,7 +97,8 @@ mod tests {
 
         assert_eq!(
             got.as_deref(),
-            Some("\"ra\" OR \"9262\" OR \"near\" OR \"x\" OR \"title\" OR \"foo\"")
+            // `ra` (a citation word) and `x` (one character) are dropped as noise; see `is_noise`.
+            Some("\"9262\" OR \"near\" OR \"title\" OR \"foo\"")
         );
     }
 
@@ -78,6 +119,22 @@ mod tests {
         assert_eq!(
             match_all_expression("chain of custody").as_deref(),
             Some("\"chain\" \"custody\"")
+        );
+    }
+
+    #[test]
+    fn drops_citation_words_and_short_numbers_while_content_words_remain() {
+        assert_eq!(
+            match_expression("RA 9262 Sec. 5").as_deref(),
+            Some("\"9262\"")
+        );
+        assert_eq!(
+            match_expression("Rule 113 Section 5 arrest").as_deref(),
+            Some("\"rule\" OR \"arrest\"")
+        );
+        assert_eq!(
+            match_expression("Sec. 5").as_deref(),
+            Some("\"sec\" OR \"5\"")
         );
     }
 

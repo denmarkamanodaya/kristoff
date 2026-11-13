@@ -4,11 +4,8 @@
 use rusqlite::Row;
 
 use crate::error::LawIndexError;
-use crate::quant::{dot_i8, quantize};
-use crate::store::{DIMS, vector_row};
-
-/// Threads the scan splits over (about 550k vectors).
-const SCAN_THREADS: usize = 4;
+use crate::quant::quantize;
+use crate::store::{dot_at, parallel_scan, vector_row};
 
 /// The query that feeds [`PassageVectors::push_row`].
 pub(super) const LOAD_SQL: &str = "SELECT v.passage_id, p.case_rowid, c.year, v.scale, v.v \
@@ -51,19 +48,8 @@ impl PassageVectors {
         take: usize,
     ) -> Vec<(i64, i64)> {
         let (q8, _) = quantize(query);
-        let per = self.len().div_ceil(SCAN_THREADS).max(1);
-        let mut scored: Vec<(i32, usize)> = std::thread::scope(|s| {
-            let handles: Vec<_> = (0..SCAN_THREADS)
-                .map(|t| {
-                    let (q8, admit) = (&q8, &admit);
-                    s.spawn(move || self.scan(q8, admit, t * per..((t + 1) * per).min(self.len())))
-                })
-                .collect();
-            handles
-                .into_iter()
-                .flat_map(|h| h.join().unwrap_or_default())
-                .collect()
-        });
+        let mut scored: Vec<(i32, usize)> =
+            parallel_scan(self.len(), |range| self.scan(&q8, &admit, range));
         scored.sort_unstable_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
         let mut seen = std::collections::HashSet::new();
         scored
@@ -85,10 +71,9 @@ impl PassageVectors {
         let mut out: Vec<(i32, usize)> = range
             .filter(|&i| admit(self.years[i]))
             .map(|i| {
-                let raw = dot_i8(q8, &self.data[i * DIMS..(i + 1) * DIMS]);
                 // raw * scale is at most ~127 * 127 * 384 / 127, so scaling by 2^16 fits in i32.
-                #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
-                let fixed = (raw as f32 * self.scales[i] * 65_536.0) as i32;
+                #[allow(clippy::cast_possible_truncation)]
+                let fixed = (dot_at(&self.data, i, q8, self.scales[i]) * 65_536.0) as i32;
                 (fixed, i)
             })
             .collect();

@@ -16,7 +16,7 @@ use crate::QueryEmbedder;
 use crate::case_schema::FTS_RANK;
 use crate::docket::gr_key;
 use crate::error::LawIndexError;
-use crate::fts::{match_all_expression, match_expression};
+use crate::fts::two_pass;
 use crate::fusion::{RankedList, fuse};
 use crate::store::ReadOnlyDb;
 use vectors::{LOAD_SQL, PassageVectors};
@@ -64,17 +64,7 @@ impl CaseIndex {
         query: &str,
         filters: CaseFilters,
     ) -> Result<Vec<(i64, i64)>, LawIndexError> {
-        let mut out = Vec::new();
-        for expr in [match_all_expression(query), match_expression(query)]
-            .into_iter()
-            .flatten()
-        {
-            out = self.fts_pass(&expr, filters)?;
-            if out.len() >= AND_MIN {
-                break;
-            }
-        }
-        Ok(out)
+        two_pass(query, AND_MIN, |expr| self.fts_pass(expr, filters))
     }
 
     fn fts_pass(&self, expr: &str, filters: CaseFilters) -> Result<Vec<(i64, i64)>, LawIndexError> {

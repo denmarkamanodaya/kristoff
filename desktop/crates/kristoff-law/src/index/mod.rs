@@ -113,12 +113,8 @@ impl LawIndex {
         let vectors = self.vectors()?;
         let refs = parse_references(query);
         let (fts, query_vector) = self.fts_and_embedding(query, filters)?;
-        let scored = vectors.scores(&query_vector, filters);
-        let knn_top: Vec<i64> = scored
-            .iter()
-            .take(CANDIDATES)
-            .map(|(id, _, _)| *id)
-            .collect();
+        let mut scored = vectors.scores(&query_vector, filters);
+        let knn_top = vectors::top_ids(&mut scored, CANDIDATES);
         let ctx = QueryCtx {
             text: query,
             refs: &refs,
@@ -140,6 +136,7 @@ impl LawIndex {
                 weight: EXACT_WEIGHT,
             },
         ]);
+        let fused = vectors.demote_reference(fused);
         self.load_hits(&vectors.one_per_provision(fused), limit)
     }
 

@@ -8,6 +8,7 @@
 //!     [--reuse-vectors old-phlaws.db] [--skip-laws] [--longest-first] [--batch 8] [--threads N] [--cpu]
 //! kristoff-ingest --schema --source data/source
 //! kristoff-ingest --omni-report data/source/omnicorpus/philippine_laws.parquet
+//! kristoff-ingest --repair-case-names data/phcases.db
 //! ```
 //! Every stage is resumable: finished stages are skipped and embedding continues where it
 //! stopped. Progress goes to stderr.
@@ -42,6 +43,8 @@ enum Mode {
     Schema,
     /// Print the splitter report for the `OmniCorpus` codes.
     OmniReport(PathBuf),
+    /// Re-apply the text repair to an existing `phcases.db`'s decision metadata.
+    RepairCaseNames(PathBuf),
 }
 
 #[derive(Default)]
@@ -81,6 +84,7 @@ fn parse_args() -> Result<Args> {
             "--cases-out" => a.cases_out = Some(value()?.into()),
             "--reuse-vectors" => a.reuse_vectors = Some(value()?.into()),
             "--omni-report" => a.mode = Mode::OmniReport(value()?.into()),
+            "--repair-case-names" => a.mode = Mode::RepairCaseNames(value()?.into()),
             "--batch" => a.batch = value()?.parse()?,
             "--threads" => a.threads = value()?.parse()?,
             "--schema" => a.mode = Mode::Schema,
@@ -135,6 +139,10 @@ fn main() -> Result<()> {
             for f in ["laws.parquet", "articles.parquet"] {
                 println!("== {f}\n{}", read::schema(&args.source.join(f))?);
             }
+            Ok(())
+        }
+        Mode::RepairCaseNames(db) => {
+            println!("repaired case metadata rows: {}", cases::repair::run(db)?);
             Ok(())
         }
         Mode::Build => build_all(&args),
