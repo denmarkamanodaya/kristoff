@@ -1,28 +1,33 @@
-//! Kristoff desktop shell: the composition root and the IPC commands (driving adapters). No
-//! authentication (decision D-17). Plan: docs/desktop/phases/phase-1-core-storage.md §1 and §5.
+//! The `LexPH` (was Kristoff) desktop shell: the composition root and the IPC commands (driving
+//! adapters). No authentication (decision D-17); each user brings their own Claude key (Phase 8).
+//! Plan: docs/desktop/phases/phase-1-core-storage.md §1 and §5; phase-8-lexph-byok.md.
 
 pub mod ai;
 pub mod asks;
 pub mod commands;
 pub mod composition;
+pub mod data_dir;
 pub mod law;
 pub mod scheme;
 
 use composition::Composition;
 use kristoff_contracts::ipc::LAW_READY_EVENT;
+use kristoff_core::ports::Logger;
 use std::sync::Arc;
 use tauri::{Emitter, Manager, WindowEvent};
 
 /// The label of the main window (tauri.conf.json); closing it cancels every running ask.
 const MAIN_WINDOW: &str = "main";
 
-/// The Claude API key baked in at build time; used from Phase 2 (the ask flow).
-pub const ANTHROPIC_KEY: &str = env!("KRISTOFF_ANTHROPIC_KEY");
-
 /// Opens the app data, manages the composition and resumes docs left mid-processing.
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let data_dir = app.path().app_data_dir()?;
-    let composition = Arc::new(Composition::open(&data_dir, ANTHROPIC_KEY)?);
+    if let Err(e) = data_dir::carry_over(&data_dir) {
+        // Recovery: the app still opens on a fresh folder; the old data stays where it was.
+        let reason = format!("{:?}", e.kind());
+        kristoff_adapters::log::StderrLogger.warn("data.carry_over_failed", &reason);
+    }
+    let composition = Arc::new(Composition::open(&data_dir)?);
     let resume = composition.docs_to_resume()?;
     app.manage(Arc::clone(&composition));
     let law_paths = law::LawPaths::resolve(&app.path().resource_dir()?, |k| std::env::var_os(k));
@@ -73,6 +78,11 @@ pub fn run() -> Result<(), tauri::Error> {
         .register_asynchronous_uri_scheme_protocol("kristoff", scheme::handle)
         .invoke_handler(tauri::generate_handler![
             commands::session::get_config,
+            commands::keys::get_key_status,
+            commands::keys::set_api_key,
+            commands::keys::remove_api_key,
+            commands::keys::get_settings,
+            commands::keys::update_settings,
             commands::session::get_usage,
             commands::docs::list_docs,
             commands::docs::create_doc,

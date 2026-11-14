@@ -77,3 +77,12 @@ pub const TOOL_RESULTS_MAX: usize = 8;
 pub const MAX_PROCESSING_ATTEMPTS: u32 = 2;
 /// Desktop only: most past messages sent to the model (the web had this as env `MAX_HISTORY_TURNS`).
 pub const MAX_HISTORY_TURNS: usize = 20;
+
+/// Desktop-only (Phase 8): every Claude API key starts with this.
+pub const API_KEY_PREFIX: &str = "sk-ant-";
+/// Desktop-only (Phase 8): longest Claude API key accepted, in bytes.
+pub const MAX_API_KEY: usize = 256;
+/// Desktop-only (Phase 8): the lowest daily question limit a user may set.
+pub const MIN_DAILY_QUESTION_CAP: u32 = 1;
+/// Desktop-only (Phase 8): the highest daily question limit a user may set.
+pub const MAX_DAILY_QUESTION_CAP: u32 = 10_000;

@@ -68,6 +68,8 @@ pub struct World {
     pub law: Option<crate::fakes::MemoryLawSearch>,
     /// The decisions index ask may search (none unless set: no case tools are sent then).
     pub cases: Option<crate::fakes::MemoryCaseSearch>,
+    /// A Claude API key is saved (true unless cleared: ask then fails with `KEY_MISSING`).
+    pub key_configured: bool,
 }
 
 impl Default for World {
@@ -85,6 +87,7 @@ impl Default for World {
             daily_cap: 100,
             law: None,
             cases: None,
+            key_configured: true,
         }
     }
 }
@@ -118,6 +121,7 @@ impl World {
             splitter: &self.splitter,
             remote: &self.remote,
             limits: self.limits,
+            key_configured: self.key_configured,
         }
     }
 
@@ -146,6 +150,7 @@ impl World {
                 max_history_turns: 20,
                 daily_question_cap: self.daily_cap,
             },
+            key_configured: self.key_configured,
         }
     }
 

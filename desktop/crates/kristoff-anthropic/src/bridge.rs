@@ -40,7 +40,7 @@ impl AnthropicRuntime {
         Ok(Self { rt: Some(rt) })
     }
 
-    fn block_on<F: Future>(&self, future: F) -> F::Output {
+    pub(crate) fn block_on<F: Future>(&self, future: F) -> F::Output {
         match &self.rt {
             Some(rt) => rt.block_on(future),
             None => unreachable_runtime(),
@@ -62,7 +62,15 @@ fn unreachable_runtime() -> ! {
     std::process::abort()
 }
 
-fn to_app(e: &AnthropicError) -> AppError {
+/// The core error of an adapter failure: a rejected key is `KEY_INVALID` (the user must fix it in
+/// Settings); everything else is `UPSTREAM_UNAVAILABLE`.
+pub(crate) fn to_app(e: &AnthropicError) -> AppError {
+    if e.code == crate::error::ErrorCode::KeyRejected {
+        return AppError::new(
+            ErrorCode::KeyInvalid,
+            "Anthropic rejected the Claude API key",
+        );
+    }
     AppError::new(
         ErrorCode::UpstreamUnavailable,
         format!("the Claude API call failed: {e}"),

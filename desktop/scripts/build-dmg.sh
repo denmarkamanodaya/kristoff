@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Builds the release DMG for Kristoff Desktop (docs/desktop/phases/phase-5-eval-package.md §2):
-# checks the baked Claude API key (never printed; no TOTP secret since decision D-17), verifies
-# the law index, the decisions index (Phase 7) and the e5 model against their lock files, checks THIRD_PARTY_NOTICES, builds the desktop web bundle, builds the arm64
-# app and DMG with the bundled resources, verifies the ad-hoc signature, and writes
-# desktop/dist/Kristoff-<version>-arm64.dmg plus its .sha256.
+# Builds the release DMG for LexPH (was Kristoff; docs/desktop/phases/phase-5-eval-package.md §2
+# and phase-8-lexph-byok.md §3): verifies the law index, the decisions index (Phase 7) and the e5
+# model against their lock files, checks THIRD_PARTY_NOTICES, builds the desktop web bundle, builds
+# the arm64 app and DMG with the bundled resources, verifies the ad-hoc signature, checks that the
+# binary holds no Claude API key (Phase 8: each user saves their own in Settings), and writes
+# desktop/dist/LexPH-<version>-arm64.dmg plus its .sha256.
 #
-# Usage: KRISTOFF_ANTHROPIC_KEY=... bash desktop/scripts/build-dmg.sh [--dry-run]
-#   --dry-run  runs every check and the web build, then stops before the release build (nothing
-#              is compiled, so nothing is baked).
+# Usage: bash desktop/scripts/build-dmg.sh [--dry-run]
+#   --dry-run  runs every check and the web build, then stops before the release build.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export PATH="$HOME/.rustup/toolchains/1.99.1-aarch64-apple-darwin/bin:$HOME/.cargo/bin:$PATH"
@@ -25,18 +25,6 @@ DATA="data"
 
 step() { echo "==> $*"; }
 fail() { echo "FAIL: $*" >&2; exit 1; }
-
-check_secrets() {
-  step "Claude API key (the value is never printed)"
-  local key="${KRISTOFF_ANTHROPIC_KEY:-}"
-  [ -n "$key" ] || fail "KRISTOFF_ANTHROPIC_KEY is not set"
-  case "$key" in
-    sk-ant-test*) fail "KRISTOFF_ANTHROPIC_KEY is the fake dev key" ;;
-    sk-ant-*) ;;
-    *) fail "KRISTOFF_ANTHROPIC_KEY does not look like a Claude API key (sk-ant-...)" ;;
-  esac
-  echo "ok: set, and not the dev key"
-}
 
 lock_value() { sed -n "s/^# $2: //p" "$DATA/$1"; }
 
@@ -110,7 +98,7 @@ release_build() {
 }
 
 verify_app() {
-  local app="target/$TARGET/release/bundle/macos/Kristoff.app"
+  local app="target/$TARGET/release/bundle/macos/LexPH.app"
   step "codesign --verify --deep ($app)"
   codesign --verify --deep --strict "$app" || fail "the app signature does not verify"
   # Capture first: `grep -q` exits early, codesign then gets SIGPIPE and pipefail reports a failure.
@@ -121,13 +109,20 @@ verify_app() {
     [ -s "$app/Contents/Resources/$res" ] || fail "the app lacks the resource $res"
   done
   echo "ok: ad-hoc signature verifies; resources present"
+  step "no Claude API key inside the app"
+  # The prefix `sk-ant-` appears in validation code and messages, so look for a full key shape:
+  # the prefix followed by 20 or more key characters.
+  if grep -rEaoq 'sk-ant-[A-Za-z0-9_-]{20,}' "$app/Contents/MacOS"; then
+    fail "the app binary contains something shaped like a Claude API key"
+  fi
+  echo "ok: no key-shaped string in the binary"
 }
 
 publish_dmg() {
   local version dmg out
   version="$(app_version)"
   dmg="$(ls -t target/$TARGET/release/bundle/dmg/*.dmg | head -1)"
-  out="dist/Kristoff-$version-arm64.dmg"
+  out="dist/LexPH-$version-arm64.dmg"
   step "copy to $out"
   mkdir -p dist
   cp "$dmg" "$out"
@@ -136,7 +131,6 @@ publish_dmg() {
   cat "$out.sha256"
 }
 
-check_secrets
 check_model
 check_dataset_sources
 check_phlaws

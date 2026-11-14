@@ -1,5 +1,5 @@
 //! Live statute-tool check (phase-4 exit), IGNORED by default: it calls the real Claude API (Sonnet
-//! 5.5) with the key baked from `desktop/.env.local` and searches the real law index
+//! 5.5) with the key from `KRISTOFF_LIVE_KEY` (read at run time) and searches the real law index
 //! (`KRISTOFF_PHLAWS_DB`, `KRISTOFF_E5_MODEL_DIR`). Run by hand:
 //! `cargo test -p kristoff-app --test live_statutes -- --ignored`, with `KRISTOFF_LIVE_REPORT`
 //! naming the JSON report file. Two questions: statutes only, then with a decision PDF attached.
@@ -15,6 +15,18 @@ use kristoff_app::composition::Composition;
 use kristoff_app::law::{LawPaths, open_law_index};
 use serde_json::{Value, json};
 
+/// The real composition on `dir` with the Claude key given at run time (`KRISTOFF_LIVE_KEY`),
+/// kept in memory instead of the Keychain.
+fn live_composition(dir: &std::path::Path) -> Composition {
+    let key = std::env::var("KRISTOFF_LIVE_KEY").expect("KRISTOFF_LIVE_KEY");
+    let ai =
+        kristoff_app::ai::AiPorts::anthropic(kristoff_anthropic::SharedKey::from(key.as_str()))
+            .unwrap();
+    let secrets = Box::new(kristoff_testkit::fakes::MemorySecretStore::holding(&key));
+    let clock = Box::new(kristoff_adapters::system::SystemClock);
+    Composition::with_ports(dir, clock, ai, secrets).unwrap()
+}
+
 const QUESTION: &str = "Under RA 9262, is battered woman syndrome a defense? Cite the section.";
 
 fn page_text(p: u32) -> String {
@@ -26,7 +38,7 @@ fn page_text(p: u32) -> String {
 }
 
 fn open_app(dir: &std::path::Path) -> Composition {
-    let core = Composition::open(dir, kristoff_app::ANTHROPIC_KEY).unwrap();
+    let core = live_composition(dir);
     let paths = LawPaths::resolve(dir, |k| std::env::var_os(k));
     core.install_law(open_law_index(&paths).unwrap());
     core

@@ -1,6 +1,6 @@
 [package]
 name = "kristoff-adapters"
-description = "Kristoff driven adapters: SQLite store, disk file store, system clock, random ids."
+description = "Kristoff driven adapters: SQLite store, disk file store, system clock, random ids, Keychain key store."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -13,6 +13,7 @@ rusqlite.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 ring.workspace = true
+security-framework.workspace = true
 
 [dev-dependencies]
 kristoff-testkit.workspace = true

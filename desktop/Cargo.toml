@@ -57,6 +57,10 @@ candle-transformers = { version = "=0.11.1", features = ["metal"] }
 tokenizers = { version = "=0.23.2", default-features = false, features = ["onig"] }
 parquet = { version = "=60.1.0", default-features = false, features = ["zstd", "snap"] }
 anyhow = "=1.0.104"
+# Phase 8 (owner-approved with the plan, D-23): the Keychain key store. The version DexFS already
+# approved and pinned; it is already in this Cargo.lock (a transitive dependency), so the lockfile
+# gains no new version.
+security-framework = "=3.7.0"
 
 [workspace.lints.rust]
 missing_docs = "warn"

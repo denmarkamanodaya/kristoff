@@ -4,22 +4,24 @@ A local legal research assistant. Upload decisions, statutes or law review artic
 
 Everything runs on your machine. Documents and chats are stored in `./data`. The only outside call is to the Claude API.
 
-## Desktop app
+## Desktop app (LexPH)
 
-Kristoff Desktop is the standalone Mac app (Rust + Tauri 2, Apple Silicon, ad-hoc signed) that
-replaces the web app. It runs the same UI from `web/` with local storage, no sign-in (decision D-17) and a
-bundled statute index (Republic Acts and the 1987 Constitution). The plan and phases are in
-[`docs/desktop/`](docs/desktop/plan.md).
+LexPH (formerly Kristoff Desktop) is the standalone Mac app (Rust + Tauri 2, Apple Silicon, ad-hoc
+signed) that replaces the web app. It runs the same UI from `web/` with local storage, no sign-in
+(decision D-17), bundled Philippine laws and Supreme Court decisions, and each user's own Claude API
+key, saved in Settings and kept in the macOS Keychain (Phase 8). The plan and phases are in
+[`docs/desktop/`](docs/desktop/plan.md). Internal crate names (`kristoff-*`) are unchanged.
 
-- **Install (for the user):** [`docs/desktop/install-for-brother.md`](docs/desktop/install-for-brother.md).
+- **Install (for users):** [`docs/desktop/install-guide.md`](docs/desktop/install-guide.md).
 - **Gates:** `bash desktop/scripts/ci-local.sh` (fmt, clippy, file size, tests, cargo-deny, web
   check, DRY gate).
-- **Dev run:** `cd desktop/app/src-tauri && cargo tauri dev` (the dev API key comes from the untracked
-  `desktop/.env.local`; the law index from `desktop/data/`).
-- **Release DMG:** set `KRISTOFF_ANTHROPIC_KEY` (a dedicated Console key with a monthly spend
-  limit), then run `bash desktop/scripts/build-dmg.sh`. It writes
-  `desktop/dist/Kristoff-<version>-arm64.dmg` and its `.sha256`. Use `--dry-run` to run every
-  check without building.
+- **Dev run:** `cd desktop/app/src-tauri && cargo tauri dev` (paste a Claude key in Settings; the
+  law index comes from `desktop/data/`).
+- **Release DMG:** `bash desktop/scripts/build-dmg.sh`. No key is baked in; the script fails if the
+  binary holds anything shaped like one. It writes `desktop/dist/LexPH-<version>-arm64.dmg` and its
+  `.sha256`. Use `--dry-run` to run every check without building.
+- **Live tests** (cost money, run by hand): `KRISTOFF_LIVE_KEY=... cargo test -p kristoff-app
+  --test live -- --ignored`.
 - **Licences:** `desktop/THIRD_PARTY_NOTICES` (regenerate with
   `node desktop/scripts/third-party-notices.mjs`); it ships inside the app.
 

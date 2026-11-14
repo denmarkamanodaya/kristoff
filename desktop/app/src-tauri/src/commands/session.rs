@@ -10,9 +10,9 @@ use tauri::State;
 /// The client-visible settings.
 ///
 /// # Errors
-/// None today; the `Result` keeps every command's shape.
+/// `INTERNAL` when the daily limit cannot be read.
 pub fn config(app: &Composition) -> CommandResult<ConfigResponse> {
-    let c = settings::get_config(&app.config());
+    let c = settings::get_config(&app.config()?);
     let models = c.models.into_iter().map(|m| ModelOptionDto {
         id: m.id,
         label: m.label,
@@ -30,6 +30,7 @@ pub fn config(app: &Composition) -> CommandResult<ConfigResponse> {
                 law_ready: f.law_ready,
                 cases: f.cases,
                 case_count: f.case_count,
+                ai_ready: app.ai_ready(),
             }
         },
     })

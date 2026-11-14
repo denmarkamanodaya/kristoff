@@ -7,8 +7,10 @@ use std::fmt;
 pub enum ErrorCode {
     /// Network failure, timeout, 408/429/5xx after the retry, or an `error` event mid-stream.
     UpstreamUnavailable,
-    /// The API refused the request (4xx other than 408/429): a bug or a bad document.
+    /// The API refused the request (4xx other than 401/408/429): a bug or a bad document.
     UpstreamRejected,
+    /// The API rejected the key (HTTP 401): missing, revoked or wrong (Phase 8).
+    KeyRejected,
     /// The response could not be read (bad JSON, stream cut before `message_delta`).
     UpstreamInvalidResponse,
     /// The ask was cancelled through its [`crate::CancelToken`].
@@ -24,6 +26,7 @@ impl ErrorCode {
         match self {
             Self::UpstreamUnavailable => "UPSTREAM_UNAVAILABLE",
             Self::UpstreamRejected => "UPSTREAM_REJECTED",
+            Self::KeyRejected => "KEY_INVALID",
             Self::UpstreamInvalidResponse => "UPSTREAM_INVALID_RESPONSE",
             Self::Cancelled => "CANCELLED",
             Self::LocalIo => "INTERNAL",

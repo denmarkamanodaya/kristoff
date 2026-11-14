@@ -83,7 +83,7 @@ pub fn ask_now(
         opened: false,
     };
     let outcome = ask::ask(
-        &app.ask(),
+        &app.ask()?,
         Question {
             chat_id,
             text,

@@ -1,5 +1,5 @@
 //! `SqliteStore`: one SQLite file (`<app_data_dir>/kristoff.db`) behind the doc, chat, project,
-//! and usage ports. WAL, foreign keys on, a 2 s busy wait, every write in
+//! usage and settings ports. WAL, foreign keys on, a 2 s busy wait, every write in
 //! `BEGIN IMMEDIATE`, migrations through `PRAGMA user_version` (pattern:
 //! `dexfs/crates/footage-adapters/src/sqlite_setup.rs`).
 
@@ -8,6 +8,7 @@ mod docs;
 mod messages;
 mod projects;
 mod schema;
+mod settings;
 mod usage;
 
 use kristoff_core::error::{AppError, AppResult, ErrorCode};

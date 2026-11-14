@@ -16,6 +16,7 @@ pub(super) struct State {
     pub projects: BTreeMap<String, Versioned<Project>>,
     pub days: BTreeMap<String, (u32, Usage)>,
     pub total: Usage,
+    pub daily_question_cap: Option<u32>,
 }
 
 /// The in-memory store.

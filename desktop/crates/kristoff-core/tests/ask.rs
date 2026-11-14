@@ -130,6 +130,24 @@ fn refuses_at_the_daily_cap_with_the_wait_until_midnight_utc() {
 }
 
 #[test]
+fn refuses_with_key_missing_when_no_key_is_saved_and_counts_nothing() {
+    let mut w = world_with_chat(&[]);
+    w.key_configured = false;
+    w.daily_cap = 1;
+
+    assert_code(
+        run(&w, "q", &mut Recorder::default()),
+        ErrorCode::KeyMissing,
+    );
+
+    assert_eq!(w.model.requests().len(), 0);
+    assert_eq!(w.store.recent_messages(C, 10).unwrap().len(), 0);
+    // The refused question used none of today's one allowed question.
+    w.key_configured = true;
+    run(&w, "q", &mut Recorder::default()).unwrap();
+}
+
+#[test]
 fn refuses_an_attachment_that_is_not_ready_or_not_uploaded() {
     for attached in [doc(D, DocStatus::Processing), doc(D, DocStatus::Ready)] {
         let w = world_with_chat(&[D]);

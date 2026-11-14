@@ -52,7 +52,7 @@ fn config_right_after_setup_reports_statutes_when_law_data_exists() {
 
     assert_eq!(
         features(&app),
-        json!({"statutes": true, "lawCount": 3, "lawReady": false, "cases": false })
+        json!({"statutes": true, "lawCount": 3, "lawReady": false, "cases": false, "aiReady": true })
     );
 }
 
@@ -66,7 +66,7 @@ fn config_reports_no_statutes_when_the_law_data_is_missing() {
     assert!(opened.is_err());
     assert_eq!(
         features(&app),
-        json!({"statutes": false, "lawReady": true, "cases": false })
+        json!({"statutes": false, "lawReady": true, "cases": false, "aiReady": true })
     );
 }
 

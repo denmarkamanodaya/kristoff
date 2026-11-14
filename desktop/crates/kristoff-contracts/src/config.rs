@@ -15,15 +15,19 @@ pub const MODEL_LABELS: [(&str, &str); 3] = [
 /// Most attachments per chat.
 pub const MAX_ATTACHED_DOCS: usize = 5;
 
-/// Questions per UTC day.
+/// Questions per UTC day until the user sets their own limit in Settings (Phase 8).
 pub const DAILY_QUESTION_CAP: u32 = 100;
 
 /// Hosts `open_external` may open in the default browser (https only, exact host match).
-pub const EXTERNAL_HOSTS: [&str; 6] = [
+/// The Anthropic console host (to get a Claude API key) and the dataset host (for the `OmniCorpus`
+/// credit) were added in Phase 8.
+pub const EXTERNAL_HOSTS: [&str; 8] = [
     "lawphil.net",
     "www.officialgazette.gov.ph",
     "officialgazette.gov.ph",
     "elibrary.judiciary.gov.ph",
     "legacy.senate.gov.ph",
     "issuances-library.senate.gov.ph",
+    "console.anthropic.com",
+    "huggingface.co",
 ];

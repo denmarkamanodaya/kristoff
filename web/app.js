@@ -34,7 +34,7 @@ $('.theme-toggle').addEventListener('click', (e) => {
 setRerender(renderAll);
 $('#notice button').onclick = () => { $('#notice').hidden = true; };
 $('#newThread').onclick = () => { closeDrawer(); newThread(); };
-$$('.nav-item').forEach((a) => {
+$$('.nav-item[data-view]').forEach((a) => {
   a.onclick = () => { closeDrawer(); if (a.dataset.view === 'home') newThread(); else show('library'); };
 });
 $('#moreThreads').onclick = guard(moreThreads);

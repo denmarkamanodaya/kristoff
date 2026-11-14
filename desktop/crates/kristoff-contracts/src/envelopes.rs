@@ -23,6 +23,9 @@ pub struct ConfigResponse {
 }
 
 /// `get_config` features: statute search and the size of its index.
+// Reason: this is a flat wire shape the web already reads (`features.aiReady` beside `statutes`,
+// `lawReady`, `cases`; docs/contract.md); grouping the flags into an enum would change the contract.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FeaturesDto {
@@ -39,6 +42,36 @@ pub struct FeaturesDto {
     /// Decisions in the index; omitted when the index is unavailable or cannot count them.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub case_count: Option<u64>,
+    /// A Claude API key is saved, so asking can work (Phase 8). False: the web gates Send and
+    /// opens Settings.
+    pub ai_ready: bool,
+}
+
+/// `get_key_status`, `set_api_key` and `remove_api_key` (Phase 8). Never carries the key.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct KeyStatusResponse {
+    /// A key is saved.
+    pub configured: bool,
+    /// The key's last 4 characters, or null when none is saved.
+    pub hint: Option<String>,
+}
+
+impl From<&kristoff_core::usecases::keys::KeyStatus> for KeyStatusResponse {
+    fn from(s: &kristoff_core::usecases::keys::KeyStatus) -> Self {
+        Self {
+            configured: s.configured,
+            hint: s.hint.clone(),
+        }
+    }
+}
+
+/// `get_settings` and `update_settings` (Phase 8).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SettingsResponse {
+    /// Questions per UTC day, 1..=10000.
+    pub daily_question_cap: u32,
 }
 
 /// `list_docs`.

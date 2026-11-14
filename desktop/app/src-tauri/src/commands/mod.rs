@@ -8,6 +8,7 @@
 pub mod ask;
 pub mod chats;
 pub mod docs;
+pub mod keys;
 pub mod projects;
 pub mod session;
 pub mod upload;

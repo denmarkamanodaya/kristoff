@@ -4,6 +4,7 @@
 
 mod answer;
 mod case;
+mod keys;
 mod law;
 mod processing;
 
@@ -11,6 +12,7 @@ pub use answer::{
     AnswerModel, AnswerSink, CancelSignal, FollowUpSuggester, NeverCancelled, SearchKind,
 };
 pub use case::CaseSearch;
+pub use keys::{KeyVerifier, SecretStore, SettingsStore};
 pub use law::LawSearch;
 pub use processing::{Logger, PdfSplitter, RemoteFiles};
 

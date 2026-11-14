@@ -46,15 +46,19 @@ fn ts_number(text: &str, name: &str) -> u64 {
     factors.iter().product()
 }
 
+/// The desktop-only codes added after the backend was retired (Phase 8).
+const DESKTOP_ONLY_CODES: [&str; 2] = ["KEY_MISSING", "KEY_INVALID"];
+
 #[test]
-fn error_codes_equal_the_backend_list_in_order() {
-    let ts = quoted_list(
+fn error_codes_are_the_backend_list_in_order_then_the_desktop_key_codes() {
+    let mut expected = quoted_list(
         &backend("contracts/errors.ts"),
         "export const ERROR_CODES = [",
     );
+    expected.extend(DESKTOP_ONLY_CODES.map(str::to_owned));
     let rust: Vec<&str> = ErrorCode::ALL.iter().map(|c| c.as_str()).collect();
 
-    assert_eq!(rust, ts);
+    assert_eq!(rust, expected);
 }
 
 #[test]

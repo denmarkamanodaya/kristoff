@@ -1,0 +1,5 @@
+{
+  "code": "KEY_INVALID",
+  "message": "Anthropic rejected the Claude API key",
+  "retryAfter": null
+}

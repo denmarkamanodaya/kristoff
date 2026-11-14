@@ -133,38 +133,29 @@ paste your key on his Mac. It stays in his Keychain only, never in a public file
 - **Key entry:** in a Settings section in the app. Mac + Claude only.
 - **Signing:** none. Shared privately with friends and friends of friends.
 
-## Status (paused 2026-11-13)
+## Status (built 2026-11-13)
 
 | Part | Status |
 |---|---|
-| Plan | Approved by the owner (D-23) |
-| Web: Settings panel, first-launch key screen, Send gating, LexPH branding | Done and committed (`7345b69`), check 45/45 |
-| Rust: SecretStore + Keychain, swappable AiPorts, key and settings commands, no baked key, KEY_MISSING / KEY_INVALID, allowlist (console.anthropic.com, huggingface.co), rename + bundle id `ph.lexph.desktop`, copy of the old data folder, build-dmg changes | **Not started** |
-| Install guide, notices, README, LexPH DMG | Not started |
+| Plan | Approved by the owner (D-23); Settings mock approved 2026-11-13 |
+| Web: Settings panel, first-launch key screen, Send gating, LexPH branding | Done (`7345b69`); focus ring on the Settings inputs made neutral (owner ruling: no accent borders on focus) |
+| Rust: `SecretStore` + `KeychainSecretStore`, `KeyVerifier` (`GET /v1/models?limit=1`), `SettingsStore` (SQLite schema v5), key and settings commands, no baked key, `KEY_MISSING` / `KEY_INVALID`, allowlist, rename + bundle id `ph.lexph.desktop`, data-folder copy, build-dmg | Done |
+| Install guide (`docs/desktop/install-guide.md`), README, contract | Done |
+| LexPH DMG | See the PR |
 
-**Why the Rust side didn't start:** Claude Code's auto-mode safety check blocked the message that
-assigns it to a teammate. Probable triggers: removing the release fake-key check, Keychain
-read/write, and copying the user data folder. To resume, the owner either explicitly approves
-sending that task, has the lead build it directly, or turns off auto mode so the prompts reach the
-owner.
+**D-24 (lead, 2026-11-13): one shared key slot instead of swapping `AiPorts`.** The plan said
+`RwLock<Option<AiPorts>>`. The build keeps one set of AI ports and gives them a shared key slot
+(`kristoff_anthropic::SharedKey`) that every request reads. Same behaviour, no lifetime juggling in
+the composition, and no rebuild of the HTTP client per key change.
 
-**Contract already fixed** (the web side is built against it):
-- `get_key_status` → `{configured, hint}`. hint is the last 4 characters.
-- `set_api_key {key}` → the same shape. Errors: KEY_INVALID, UPSTREAM_UNAVAILABLE.
-- `remove_api_key` → `{configured:false, hint:null}`.
-- `get_settings` → `{dailyQuestionCap}`. `update_settings {dailyQuestionCap: 1..10000}` → the same
-  shape.
-- `features.aiReady`. Ask errors: KEY_MISSING (no key saved) and KEY_INVALID (401, possibly
-  mid-stream).
+**D-25 (lead, 2026-11-13): uploads wait for a key.** With no key, a confirmed PDF stays in
+`processing` with its attempts unchanged (`KEY_MISSING`), and `set_api_key` processes every waiting
+doc once a key is saved. Without this, PDFs uploaded before the key would fail permanently.
 
-**Estimate to finish once unblocked:** about 2.5–4 h.
+**D-26 (lead, 2026-11-13): the data folder is copied, not moved.** The old
+`app.kristoff.desktop` folder is left in place as a rollback. It can be deleted by hand later.
 
-| Step | Time |
-|---|---|
-| Rust key work | 1.5–2 h |
-| Rename and data copy | ~30 min |
-| Checks + one live key test | ~20 min |
-| Install guide and notices | ~20 min |
-| LexPH DMG build and fresh-profile test | ~30 min |
+**Error-code pin:** `ts_parity` now pins the backend list in order followed by the two desktop key
+codes, instead of dropping the pin.
 
-**Housekeeping when resuming:** `desktop/data/phlaws.prev.db` (170 MB) can be deleted.
+**Housekeeping:** `desktop/data/phlaws.prev.db` (170 MB) can be deleted.

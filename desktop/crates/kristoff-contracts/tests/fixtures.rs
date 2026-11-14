@@ -8,8 +8,8 @@
 use kristoff_contracts::config::{DAILY_QUESTION_CAP, MAX_ATTACHED_DOCS, MODEL_IDS, MODEL_LABELS};
 use kristoff_contracts::envelopes::{
     ChatResponse, ChatWithMessagesResponse, ChatsPageResponse, ConfigResponse, DeletedResponse,
-    DocResponse, DocUploadResponse, DocsPageResponse, FeaturesDto, LinkResponse, ProjectResponse,
-    ProjectsResponse, UploadChunkResponse, UsageResponse,
+    DocResponse, DocUploadResponse, DocsPageResponse, FeaturesDto, KeyStatusResponse, LinkResponse,
+    ProjectResponse, ProjectsResponse, SettingsResponse, UploadChunkResponse, UsageResponse,
 };
 use kristoff_contracts::error::ErrorDto;
 use kristoff_contracts::shapes::{CitationDto, ModelOptionDto};
@@ -91,6 +91,19 @@ const SHAPES: &[Shape] = &[
     ),
     ("desktop-error-otp-locked.json", round_trip::<ErrorDto>),
     ("desktop-error-doc-not-found.json", round_trip::<ErrorDto>),
+    ("desktop-error-key-invalid.json", round_trip::<ErrorDto>),
+    (
+        "desktop-key-status-response.json",
+        round_trip::<KeyStatusResponse>,
+    ),
+    (
+        "desktop-key-status-none-response.json",
+        round_trip::<KeyStatusResponse>,
+    ),
+    (
+        "desktop-settings-response.json",
+        round_trip::<SettingsResponse>,
+    ),
 ];
 
 #[test]
@@ -161,6 +174,7 @@ fn the_app_config_converts_to_the_config_fixture() {
             law_ready: true,
             cases: true,
             case_count: Some(31_180),
+            ai_ready: true,
         },
     };
 
@@ -169,5 +183,17 @@ fn the_app_config_converts_to_the_config_fixture() {
     assert_eq!(
         canonical(&json),
         canonical(&load("desktop-config-response.json"))
+    );
+}
+
+#[test]
+fn a_key_status_converts_to_the_fixture_without_the_key() {
+    let status = kristoff_core::usecases::keys::KeyStatus::of(Some("sk-ant-api03-secretAB12"));
+
+    let wire = serde_json::to_value(KeyStatusResponse::from(&status)).unwrap();
+
+    assert_eq!(
+        canonical(&wire),
+        canonical(&load("desktop-key-status-response.json"))
     );
 }

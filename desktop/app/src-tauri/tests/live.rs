@@ -1,5 +1,5 @@
 //! Live end-to-end check (phase-2 exit), IGNORED by default: it calls the real Claude API with the
-//! key baked from `desktop/.env.local` and costs a few cents. Run by hand:
+//! key from `KRISTOFF_LIVE_KEY` (read at run time) and costs a few cents. Run by hand:
 //! `cargo test -p kristoff-app --test live -- --ignored --nocapture`, with `KRISTOFF_LIVE_REPORT`
 //! naming the JSON report file. Flow: a generated 150-page PDF over 30 MiB is uploaded in 8 MiB
 //! chunks, confirmed, split into two parts and uploaded to the Files API; part 2 is attached and
@@ -14,6 +14,18 @@ use kristoff_app::commands::upload::RawChunk;
 use kristoff_app::commands::{ask, chats, docs, upload};
 use kristoff_app::composition::Composition;
 use serde_json::{Value, json};
+
+/// The real composition on `dir` with the Claude key given at run time (`KRISTOFF_LIVE_KEY`),
+/// kept in memory instead of the Keychain.
+fn live_composition(dir: &std::path::Path) -> Composition {
+    let key = std::env::var("KRISTOFF_LIVE_KEY").expect("KRISTOFF_LIVE_KEY");
+    let ai =
+        kristoff_app::ai::AiPorts::anthropic(kristoff_anthropic::SharedKey::from(key.as_str()))
+            .unwrap();
+    let secrets = Box::new(kristoff_testkit::fakes::MemorySecretStore::holding(&key));
+    let clock = Box::new(kristoff_adapters::system::SystemClock);
+    Composition::with_ports(dir, clock, ai, secrets).unwrap()
+}
 
 const HOLDING_PAGE: u32 = 137;
 const HOLDING: &str = "The Court holds that the accused acted in self-defense because the battering cycle was proven.";
@@ -86,7 +98,7 @@ fn report(pdf_bytes: usize, ready: &Value, events: &[Value], deleted: bool) -> V
 #[ignore = "calls the real Claude API (costs money); run by hand"]
 fn a_large_pdf_splits_uploads_and_answers_with_a_mapped_page_citation() {
     let dir = tempfile::tempdir().unwrap();
-    let core = Composition::open(dir.path(), kristoff_app::ANTHROPIC_KEY).unwrap();
+    let core = live_composition(dir.path());
     let pdf = kristoff_testkit::pdf::make_pdf_with_text(150, |_| 230_000, page_text);
 
     let id = upload_all(&core, &pdf);

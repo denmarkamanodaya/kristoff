@@ -21,6 +21,8 @@ pub struct ProcessingDeps<'a> {
     pub remote: &'a dyn RemoteFiles,
     /// Page, byte and part limits ([`SplitLimits::CLAUDE`] in the app).
     pub limits: SplitLimits,
+    /// A Claude API key is saved (Phase 8). Without one a doc waits in `processing`, untouched.
+    pub key_configured: bool,
 }
 
 /// One cut part before upload.
@@ -125,12 +127,20 @@ fn patch_now(docs: &dyn DocStore, doc_id: &str, patch: &DocPatch) -> AppResult<D
 /// state is returned unchanged.
 ///
 /// # Errors
-/// The failure that stopped it. The doc is then `failed` (best effort: a doc deleted meanwhile
-/// stays deleted) and every file already uploaded is deleted.
+/// `KEY_MISSING` when no key is saved (the doc stays `processing`, its attempts unchanged).
+/// Otherwise the failure that stopped it. The doc is then `failed` (best effort: a doc deleted
+/// meanwhile stays deleted) and every file already uploaded is deleted.
 pub fn process_doc(deps: &ProcessingDeps<'_>, doc_id: &str) -> AppResult<Doc> {
     let found = deps.docs.get_doc(doc_id)?;
     if found.value.status != DocStatus::Processing {
         return Ok(found.value);
+    }
+    // No key: the upload cannot work, so the doc keeps its attempts and waits for a key.
+    if !deps.key_configured {
+        return Err(AppError::new(
+            ErrorCode::KeyMissing,
+            "no Claude API key is saved",
+        ));
     }
     // Counted before any work, so a run that crashes the app still uses up its attempt.
     let attempt = DocPatch {

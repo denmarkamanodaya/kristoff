@@ -30,6 +30,18 @@ use kristoff_core::model::Usage;
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 
+/// The real composition on `dir` with the Claude key given at run time (`KRISTOFF_LIVE_KEY`),
+/// kept in memory instead of the Keychain.
+fn live_composition(dir: &std::path::Path) -> Composition {
+    let key = std::env::var("KRISTOFF_LIVE_KEY").expect("KRISTOFF_LIVE_KEY");
+    let ai =
+        kristoff_app::ai::AiPorts::anthropic(kristoff_anthropic::SharedKey::from(key.as_str()))
+            .unwrap();
+    let secrets = Box::new(kristoff_testkit::fakes::MemorySecretStore::holding(&key));
+    let clock = Box::new(kristoff_adapters::system::SystemClock);
+    Composition::with_ports(dir, clock, ai, secrets).unwrap()
+}
+
 /// The run stops before its total cost passes this (lead's ceiling for run 2).
 const BUDGET_USD: f64 = 2.0;
 const MODEL: &str = "claude-sonnet-5-5";
@@ -39,7 +51,7 @@ fn desktop_dir() -> PathBuf {
 }
 
 fn open_app(dir: &Path, log: &Recorded) -> Composition {
-    let core = Composition::open(dir, kristoff_app::ANTHROPIC_KEY).unwrap();
+    let core = live_composition(dir);
     let data = desktop_dir().join("data");
     let env_or = |key: &str, default: PathBuf| std::env::var_os(key).map_or(default, PathBuf::from);
     let paths = LawPaths {

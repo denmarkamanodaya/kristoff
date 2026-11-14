@@ -5,6 +5,7 @@ pub mod ask;
 pub mod attachments;
 pub mod chats;
 pub mod docs;
+pub mod keys;
 pub mod processing;
 pub mod projects;
 pub mod settings;

@@ -4,6 +4,11 @@
 /// Every command the web may invoke, in contract order.
 pub const COMMANDS: &[&str] = &[
     "get_config",
+    "get_key_status",
+    "set_api_key",
+    "remove_api_key",
+    "get_settings",
+    "update_settings",
     "list_docs",
     "create_doc",
     "upload_chunk",

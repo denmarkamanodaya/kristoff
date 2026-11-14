@@ -1,3 +1,6 @@
+> **Superseded 2026-11-13 by [`install-guide.md`](install-guide.md)** (LexPH, Phase 8). This page
+> describes the Kristoff builds 0.1.x, which had a built-in key.
+
 # Installing Kristoff on your Mac
 
 Kristoff is a Mac app for Apple Silicon Macs (M1 or newer) running macOS 14 or later. It keeps your

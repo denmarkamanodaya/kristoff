@@ -21,6 +21,7 @@
     "lawCount": 10870,
     "lawReady": true,
     "cases": true,
-    "caseCount": 31180
+    "caseCount": 31180,
+    "aiReady": true
   }
 }

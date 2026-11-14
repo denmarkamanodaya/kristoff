@@ -86,6 +86,8 @@ Optional values are `null`, never omitted. Instants are UTC ISO-8601 with `Z` an
 | `AI_DISABLED` | 503 + `Retry-After` | tell the user |
 | `UPSTREAM_UNAVAILABLE` | 503 | retry later |
 | `INTERNAL` | 500 | retry later |
+| `KEY_MISSING` | desktop only (Phase 8) | open Settings: no Claude API key is saved |
+| `KEY_INVALID` | desktop only (Phase 8) | open Settings: the key is malformed or Anthropic rejected it (401) |
 
 ## Storage
 
@@ -291,7 +293,7 @@ badge. `doc` citations never carry a label (the web shows a doc quote unchanged 
 ```
 Chat        + { statutes: boolean }          (absent → true)
 Config      + { features: { statutes: boolean, lawCount?: int ≥ 0, lawReady: boolean,
-                            cases: boolean, caseCount?: int ≥ 0 } }   (absent → no statute search; the web build has none)
+                            cases: boolean, caseCount?: int ≥ 0, aiReady: boolean } }   (absent → no statute search; the web build has none)
 ```
 - `statutes` turns statute search (the law tools) on or off for that chat's future questions. Readers treat a chat
   without the field as `true`.
@@ -313,6 +315,10 @@ Config      + { features: { statutes: boolean, lawCount?: int ≥ 0, lawReady: b
   treat a missing `cases` as `false`.
 - `caseCount` is the number of decisions in `phcases.db`, read from its meta table; it is omitted when the index is
   absent or cannot count them. The desktop web uses `features.cases` to say it is loading the decisions too.
+- `aiReady` (Phase 8, LexPH) is true when a Claude API key is saved. When false, the web disables Send, shows
+  "Add your Claude API key in Settings", and opens Settings by itself on launch if no key is saved at all. A web
+  build without the field (absent) never gates. `dailyQuestionCap` in `get_config` is the limit in force: the
+  user's from `update_settings`, else the default 100.
 
 ### Desktop IPC
 
@@ -332,7 +338,12 @@ it replaces.
 
 | Command | Request | Response | Errors (besides `INTERNAL`) | Replaces |
 |---|---|---|---|---|
-| `get_config` | `{}` | `{ model, models, maxAttachedDocs, dailyQuestionCap }` | — | `GET /v1/config` |
+| `get_config` | `{}` | `{ model, models, maxAttachedDocs, dailyQuestionCap, features }` | — | `GET /v1/config` |
+| `get_key_status` | `{}` | `{ configured: boolean, hint: string \| null }` (`hint` = the key's last 4 characters) | — | (desktop only, Phase 8) |
+| `set_api_key` | `{ key }` | the same as `get_key_status`. The shell checks the format (`sk-ant-`, ≤ 256 bytes, no spaces), checks the key live with `GET /v1/models?limit=1`, saves it in the macOS Keychain (service `ph.lexph.desktop.claude-key`) and uses it for every later Claude call. Docs waiting for a key are then processed. | `KEY_INVALID` (bad format, 401 or 403), `UPSTREAM_UNAVAILABLE` (the check could not be made). Nothing is saved on an error. | (desktop only) |
+| `remove_api_key` | `{}` | `{ configured: false, hint: null }` | — | (desktop only) |
+| `get_settings` | `{}` | `{ dailyQuestionCap }` | — | (desktop only) |
+| `update_settings` | `{ dailyQuestionCap: int 1..10000 }` | `{ dailyQuestionCap }` | `VALIDATION_FAILED` | (desktop only) |
 | `list_docs` | `{ cursor: string \| null }` | `{ items: Doc[], nextCursor }` | `VALIDATION_FAILED` | `GET /v1/docs` |
 | `create_doc` | `{ fileName, size }` | `{ doc, uploadUrl: "kristoff-upload://<docId>", uploadHeaders }` | `VALIDATION_FAILED` | `POST /v1/docs` |
 | `upload_chunk` | raw body: one `ArrayBuffer` (≤ 8 MiB); headers `x-doc-id: <docId>`, `x-offset: <byte offset, decimal>` | `{ written }` | `VALIDATION_FAILED`, `DOC_NOT_FOUND`, `UPLOAD_INVALID` | the S3 PUT |
@@ -351,9 +362,9 @@ it replaces.
 | `update_chat` | `{ chatId, patch: { title?, docIds?, pinned?, projectId? } }` | `{ chat }` | `VALIDATION_FAILED`, `CHAT_NOT_FOUND`, `DOC_NOT_FOUND`, `PROJECT_NOT_FOUND` | `PATCH /v1/chats/{id}` |
 | `delete_chat` | `{ chatId }` | `{ deleted: true }` | `CHAT_NOT_FOUND` | `DELETE /v1/chats/{id}` |
 | `get_usage` | `{}` | `{ today: Usage, total: Usage }` | — | `GET /v1/usage` |
-| `ask` | `{ chatId, text, model: string \| null, onEvent: Channel<AskEvent> }` | `null`, after the last event is sent | pre-stream: `VALIDATION_FAILED`, `CHAT_NOT_FOUND`, `DOC_NOT_FOUND`, `DAILY_CAP_REACHED`, `AI_DISABLED` | `POST {STREAM_URL}/v1/chats/{id}/ask` |
+| `ask` | `{ chatId, text, model: string \| null, onEvent: Channel<AskEvent> }` | `null`, after the last event is sent | pre-stream: `VALIDATION_FAILED`, `CHAT_NOT_FOUND`, `DOC_NOT_FOUND`, `KEY_MISSING` (not counted against the cap), `DAILY_CAP_REACHED`, `AI_DISABLED`; an `error` event carries `KEY_INVALID` when Anthropic answers 401 | `POST {STREAM_URL}/v1/chats/{id}/ask` |
 | `cancel_ask` | `{ chatId }` | `null` | — | (client abort) |
-| `open_external` | `{ url }` | `null` | `VALIDATION_FAILED` (not `https:` or host not allowlisted) | (`window.open`) |
+| `open_external` | `{ url }` | `null` | `VALIDATION_FAILED` (not `https:` or host not allowlisted; Phase 8 added `console.anthropic.com` and `huggingface.co`) | (`window.open`) |
 
 `AskEvent` is `{ event, data }`, where `event` and `data` are exactly the SSE event name and its JSON data from
 "Stream": `text { text }`, `citation Citation`, `followups { followUps }`, `done { message, usage }`,

@@ -62,6 +62,7 @@ fn process_with_lopdf(
         splitter: &LopdfSplitter,
         remote: &w.remote,
         limits,
+        key_configured: true,
     };
     process_doc(&deps, D)
 }

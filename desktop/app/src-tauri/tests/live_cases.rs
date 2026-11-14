@@ -35,7 +35,11 @@ fn cost(usage: &Value) -> f64 {
 
 /// The real composition over both real indexes, warmed, with the key given at run time.
 fn open_app(dir: &std::path::Path, key: &str) -> Composition {
-    let core = Composition::open(dir, key).unwrap();
+    let ai =
+        kristoff_app::ai::AiPorts::anthropic(kristoff_anthropic::SharedKey::from(key)).unwrap();
+    let secrets = Box::new(kristoff_testkit::fakes::MemorySecretStore::holding(key));
+    let clock = Box::new(kristoff_adapters::system::SystemClock);
+    let core = Composition::with_ports(dir, clock, ai, secrets).unwrap();
     let paths = LawPaths {
         db: data().join("phlaws.db"),
         cases_db: data().join("phcases.db"),

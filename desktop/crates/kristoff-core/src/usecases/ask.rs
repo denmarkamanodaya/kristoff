@@ -1,6 +1,7 @@
 //! The ask use case (docs/desktop/phases/phase-2-ask-flow.md §3). Ported from
 //! `backend/src/usecases/ask-question/v1.ts:303-336` without the kill switch. Order: model
-//! allowlist, chat, attachments → file ids (before the meter: a deliberate deviation), daily meter
+//! allowlist, chat, attachments → file ids (before the meter: a deliberate deviation), the saved-key
+//! check (Phase 8), daily meter
 //! (one conditional write BEFORE the model call), history; then the user message (and the
 //! auto-title), the stream, follow-ups, and ALWAYS the assistant message (with a note when the
 //! answer failed or was cut off); then usage.
@@ -58,6 +59,8 @@ pub struct AskDeps<'a> {
     pub clock: &'a dyn Clock,
     /// Model settings.
     pub config: AskConfig<'a>,
+    /// A Claude API key is saved (Phase 8); without one, asking fails with `KEY_MISSING`.
+    pub key_configured: bool,
 }
 
 /// One question: the chat, its text and the model the client chose (`None` = the default).
@@ -99,8 +102,15 @@ fn choose_model(allowed: &[&str], requested: Option<&str>) -> AppResult<String> 
         .ok_or_else(|| AppError::new(ErrorCode::ValidationFailed, "this model is not available"))
 }
 
-/// Counts the question for today, before any model call.
+/// Admits the question: refuses it without a saved key (before the meter, so it is not counted),
+/// then counts it for today, before any model call.
 fn admit(deps: &AskDeps<'_>, now_ms: i64) -> AppResult<()> {
+    if !deps.key_configured {
+        return Err(AppError::new(
+            ErrorCode::KeyMissing,
+            "no Claude API key is saved",
+        ));
+    }
     let admitted = deps
         .meter
         .admit_question(&utc_day(now_ms), deps.config.daily_question_cap);
@@ -116,7 +126,7 @@ fn admit(deps: &AskDeps<'_>, now_ms: i64) -> AppResult<()> {
 /// # Errors
 /// Before `sink.open()`, in this order: `VALIDATION_FAILED` (model not allowed), `CHAT_NOT_FOUND`,
 /// `DOC_NOT_FOUND` (an attachment is missing, not ready or not uploaded; not counted against the
-/// cap), `DAILY_CAP_REACHED` (with the seconds to the next UTC day) or a store failure. After it: `UPSTREAM_UNAVAILABLE` (the
+/// cap), `KEY_MISSING` (no key saved; not counted), `DAILY_CAP_REACHED` (with the seconds to the next UTC day) or a store failure. After it: `UPSTREAM_UNAVAILABLE` (the
 /// call failed or was cancelled; both messages are stored, the answer with `FAILED_NOTE` and
 /// `stopReason: "error"`) or a store failure.
 pub fn ask(

@@ -4,12 +4,14 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #![allow(dead_code)]
 
+use kristoff_anthropic::SharedKey;
 use kristoff_app::ai::AiPorts;
 use kristoff_app::composition::Composition;
 use kristoff_core::domain::model_request::FollowUps;
 use kristoff_core::error::AppResult;
 use kristoff_core::ports::RemoteFiles;
 use kristoff_pdf::LopdfSplitter;
+use kristoff_testkit::fakes::{FakeKeyVerifier, MemorySecretStore};
 use kristoff_testkit::fakes::{
     FixedClock, FixedFollowUps, MemoryLogger, MemoryRemoteFiles, Script, ScriptedModel,
 };
@@ -27,6 +29,9 @@ impl RemoteFiles for RemoteRef {
         self.0.delete(ids);
     }
 }
+
+/// The key every test app starts with (in its in-memory key store; the fake verifier accepts it).
+pub const TEST_KEY: &str = "sk-ant-api03-testkeyAB12";
 
 /// A composition on a temp dir with a settable clock.
 pub struct TestApp {
@@ -65,8 +70,12 @@ impl TestApp {
             remote: Box::new(RemoteRef(Arc::clone(&remote))),
             splitter: Box::new(LopdfSplitter),
             log: log.clone(),
+            verifier: Box::new(FakeKeyVerifier::accepting(TEST_KEY)),
+            key: SharedKey::default(),
         };
-        let core = Composition::with_ports(dir.path(), Box::new(Arc::clone(&clock)), ai).unwrap();
+        let secrets = Box::new(MemorySecretStore::holding(TEST_KEY));
+        let clock_port = Box::new(Arc::clone(&clock));
+        let core = Composition::with_ports(dir.path(), clock_port, ai, secrets).unwrap();
         Self {
             core,
             clock,

@@ -29,11 +29,11 @@ fn config_offers_statutes_with_the_law_count_only_once_the_index_is_installed() 
 
     assert_eq!(
         before["features"],
-        json!({ "statutes": false, "lawReady": true, "cases": false })
+        json!({ "statutes": false, "lawReady": true, "cases": false, "aiReady": true })
     );
     assert_eq!(
         after["features"],
-        json!({ "statutes": true, "lawCount": 2, "lawReady": false, "cases": false })
+        json!({ "statutes": true, "lawCount": 2, "lawReady": false, "cases": false, "aiReady": true })
     );
 }
 

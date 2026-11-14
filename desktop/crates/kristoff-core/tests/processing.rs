@@ -48,6 +48,22 @@ fn a_small_pdf_is_uploaded_whole_and_becomes_ready() {
 }
 
 #[test]
+fn a_doc_waits_in_processing_untouched_while_no_key_is_saved() {
+    let mut w = World::new();
+    w.key_configured = false;
+    confirmed(&w, &fake_pdf(&[10; 12]));
+
+    assert_code(process_doc(&w.processing(), D), ErrorCode::KeyMissing);
+
+    let stored = w.store.get_doc(D).unwrap().value;
+    assert_eq!(
+        (stored.status, stored.processing_attempts),
+        (DocStatus::Processing, 0)
+    );
+    assert!(w.remote.stored().is_empty());
+}
+
+#[test]
 fn a_250_page_pdf_becomes_three_stored_and_uploaded_parts() {
     let w = World::new();
     confirmed(&w, &fake_pdf(&[10; 250]));

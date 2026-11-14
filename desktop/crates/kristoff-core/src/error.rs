@@ -1,5 +1,6 @@
 //! The one error-code list and the typed error every port and use case returns.
-//! Same list as `backend/src/contracts/errors.ts` `ERROR_CODES` (a contracts test pins it).
+//! The retired backend's `backend/src/contracts/errors.ts` `ERROR_CODES`, then the desktop-only
+//! key codes of Phase 8 (a contracts test pins both parts).
 
 use std::fmt;
 
@@ -36,11 +37,15 @@ pub enum ErrorCode {
     VersionConflict,
     /// Anything else.
     Internal,
+    /// No Claude API key is saved (Phase 8, bring-your-own key).
+    KeyMissing,
+    /// The Claude API key is malformed, or Anthropic rejected it (HTTP 401).
+    KeyInvalid,
 }
 
 impl ErrorCode {
-    /// Every code, in the order of `ERROR_CODES`.
-    pub const ALL: [Self; 15] = [
+    /// Every code: the backend's `ERROR_CODES` in order, then the key codes.
+    pub const ALL: [Self; 17] = [
         Self::ValidationFailed,
         Self::OtpInvalid,
         Self::OtpReplayed,
@@ -56,6 +61,8 @@ impl ErrorCode {
         Self::UpstreamUnavailable,
         Self::VersionConflict,
         Self::Internal,
+        Self::KeyMissing,
+        Self::KeyInvalid,
     ];
 
     /// The `UPPER_SNAKE` name callers switch on.
@@ -77,6 +84,8 @@ impl ErrorCode {
             Self::UpstreamUnavailable => "UPSTREAM_UNAVAILABLE",
             Self::VersionConflict => "VERSION_CONFLICT",
             Self::Internal => "INTERNAL",
+            Self::KeyMissing => "KEY_MISSING",
+            Self::KeyInvalid => "KEY_INVALID",
         }
     }
 }

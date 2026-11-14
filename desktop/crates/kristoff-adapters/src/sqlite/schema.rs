@@ -65,11 +65,18 @@ const V3: &str = "ALTER TABLE docs ADD COLUMN processing_attempts INTEGER NOT NU
 /// Phase 4: the per-chat statute search toggle, on unless switched off (expand only).
 const V4: &str = "ALTER TABLE chats ADD COLUMN statutes INTEGER NOT NULL DEFAULT 1;";
 
+/// Phase 8: the user settings, one row (expand only). `daily_question_cap` NULL = the default.
+const V5: &str = "
+CREATE TABLE settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1), daily_question_cap INTEGER, version INTEGER NOT NULL
+) STRICT;
+";
+
 /// Every schema step, oldest first.
-const STEPS: [&str; 4] = [V1, V2, V3, V4];
+const STEPS: [&str; 5] = [V1, V2, V3, V4, V5];
 
 /// The schema version this build writes.
-pub(crate) const CURRENT: i64 = 4;
+pub(crate) const CURRENT: i64 = 5;
 
 /// Applies every step after the stored version in one immediate transaction.
 ///

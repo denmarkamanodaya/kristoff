@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Kristoff",
-  "version": "0.1.0",
-  "identifier": "app.kristoff.desktop",
+  "productName": "LexPH",
+  "version": "0.2.0",
+  "identifier": "ph.lexph.desktop",
   "build": {
     "frontendDist": "../../../web/dist-desktop",
     "beforeDevCommand": "npm --prefix ../../web run build -- --target desktop",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Kristoff",
+        "title": "LexPH",
         "width": 1280,
         "height": 820,
         "minWidth": 960,

@@ -81,3 +81,15 @@ fn memory_case_search_keeps_the_case_search_contract() {
         &kristoff_testkit::contract::SAMPLE_CASE,
     );
 }
+
+#[test]
+fn memory_secret_store_keeps_the_secret_store_contract() {
+    kristoff_testkit::contract::secret_store_contract(
+        kristoff_testkit::fakes::MemorySecretStore::new,
+    );
+}
+
+#[test]
+fn memory_store_keeps_the_settings_store_contract() {
+    kristoff_testkit::contract::settings_store_contract(MemoryStore::new);
+}

@@ -70,3 +70,25 @@ fn disk_keeps_the_file_store_contract() {
     };
     file_store_contract(make, DiskFileStore::stored);
 }
+
+#[test]
+fn sqlite_keeps_the_settings_store_contract() {
+    kristoff_testkit::contract::settings_store_contract(memory);
+}
+
+/// The real login Keychain, on a throwaway service name that each run deletes before and after.
+#[test]
+fn keychain_keeps_the_secret_store_contract() {
+    use kristoff_adapters::keychain::KeychainSecretStore;
+    use kristoff_core::ports::SecretStore;
+    let service = format!("ph.lexph.desktop.test-{}", std::process::id());
+    let make = || {
+        let store = KeychainSecretStore::at(&service, "contract");
+        store.delete_key().unwrap();
+        store
+    };
+
+    kristoff_testkit::contract::secret_store_contract(make);
+
+    make();
+}
